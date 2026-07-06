@@ -31,11 +31,15 @@ export const pdfModelService = {
   async getPresetSvgContent(presetId: string): Promise<string> {
     const preset = this.getPreset(presetId);
     if (!preset) throw new Error('Preset not found');
+
+    if (preset.svg_file_url) {
+      const response = await fetch(encodeURI(preset.svg_file_url));
+      if (response.ok) return response.text();
+    }
+
     if (preset.svg_content) return preset.svg_content;
 
-    const response = await fetch(encodeURI(preset.svg_file_url));
-    if (!response.ok) throw new Error(`Erro ao carregar SVG: ${preset.svg_file_url}`);
-    return response.text();
+    throw new Error(`Erro ao carregar SVG: ${preset.svg_file_url}`);
   },
 
   async getUserModels(userId: string): Promise<PdfUserModel[]> {
