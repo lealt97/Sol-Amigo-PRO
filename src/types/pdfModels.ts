@@ -2,7 +2,8 @@ export interface PdfTemplatePreset {
   id: string;
   name: string;
   thumbnail_url: string;
-  svg_content: string; // The SVG markup
+  svg_file_url: string;
+  svg_content?: string;
   default_theme: PdfTheme;
   page_config: PdfPageConfig;
 }
@@ -22,8 +23,7 @@ export interface TransformConfig {
 }
 
 export interface PdfPageConfig {
-  order: string[]; // array of page identifiers
-  // we can add visibility toggles etc.
+  order: string[];
   visiblePages?: Record<string, boolean>;
 }
 

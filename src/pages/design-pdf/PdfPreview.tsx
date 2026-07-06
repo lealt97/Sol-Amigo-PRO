@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PdfUserModel } from '../../types/pdfModels';
 import { pdfModelService } from '../../services/pdfModelService';
 
@@ -6,72 +6,92 @@ interface PdfPreviewProps {
   model: PdfUserModel;
 }
 
+function setHref(element: Element | null, href: string) {
+  if (!element || !href) return;
+  element.setAttribute('href', href);
+  element.setAttribute('xlink:href', href);
+}
+
+function findCoverImage(doc: Document) {
+  return doc.getElementById('cover-photo-image') || doc.querySelector('pattern image') || doc.querySelector('image');
+}
+
+function applyImageTransform(element: Element, t: PdfUserModel['cover_image_transform']) {
+  const width = parseFloat(element.getAttribute('width') || '595');
+  const height = parseFloat(element.getAttribute('height') || '842');
+  const cx = width / 2;
+  const cy = height / 2;
+  element.setAttribute('transform', `translate(${t.x}, ${t.y}) translate(${cx}, ${cy}) scale(${t.zoom}) rotate(${t.rotate}) translate(${-cx}, ${-cy})`);
+}
+
+function applyText(doc: Document, id: string, value: string) {
+  const element = doc.getElementById(id);
+  if (element) element.textContent = value;
+}
+
 export function PdfPreview({ model }: PdfPreviewProps) {
   const preset = useMemo(() => pdfModelService.getPreset(model.preset_id), [model.preset_id]);
+  const [svgSource, setSvgSource] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSvg() {
+      if (!preset) {
+        setSvgSource('');
+        return;
+      }
+
+      try {
+        const text = await pdfModelService.getPresetSvgContent(preset.id);
+        if (active) setSvgSource(text);
+      } catch (error) {
+        console.error('Erro ao carregar SVG do preset:', error);
+        if (active) setSvgSource('');
+      }
+    }
+
+    loadSvg();
+    return () => {
+      active = false;
+    };
+  }, [preset]);
 
   const finalSvgContent = useMemo(() => {
-    if (!preset) return '';
+    if (!svgSource) return '';
 
-    let svg = preset.svg_content;
-
-    // Apply colors
+    let svg = svgSource;
     svg = svg.replace(/var\(--pdf-primary\)/g, model.theme.primary);
     svg = svg.replace(/var\(--pdf-secondary\)/g, model.theme.secondary);
     svg = svg.replace(/var\(--pdf-accent\)/g, model.theme.accent);
     svg = svg.replace(/var\(--pdf-neutral\)/g, model.theme.neutral);
 
-    // Parse SVG to manipulate elements safely (for browser)
     const parser = new DOMParser();
     const doc = parser.parseFromString(svg, 'image/svg+xml');
 
-    // Setup Cover Image
-    const coverImage = doc.getElementById('cover-photo-image');
-    if (coverImage) {
-      if (model.cover_image_url) {
-        coverImage.setAttribute('href', model.cover_image_url);
-        
-        // Apply transform
-        const imgW = parseFloat(coverImage.getAttribute('width') || '794');
-        const imgH = parseFloat(coverImage.getAttribute('height') || '600');
-        const cx = imgW / 2;
-        const cy = imgH / 2;
-        const t = model.cover_image_transform;
-        // Basic transform approximation
-        coverImage.setAttribute('transform', `translate(${t.x}, ${t.y}) translate(${cx}, ${cy}) scale(${t.zoom}) rotate(${t.rotate}) translate(${-cx}, ${-cy})`);
-      } else {
-        // Fallback or hide
-        coverImage.setAttribute('href', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-      }
+    const coverImage = findCoverImage(doc);
+    if (coverImage && model.cover_image_url) {
+      setHref(coverImage, model.cover_image_url);
+      applyImageTransform(coverImage, model.cover_image_transform);
     }
 
-    // Replace text placeholders for preview
-    const clientName = doc.getElementById('client-name');
-    if (clientName) clientName.textContent = 'Cliente Exemplo Ltda';
-
-    const projectPower = doc.getElementById('project-power');
-    if (projectPower) projectPower.textContent = 'Potência: 12.5 kWp';
-
-    const cityState = doc.getElementById('city-state');
-    if (cityState) cityState.textContent = 'São Paulo, SP';
-
-    const proposalDate = doc.getElementById('proposal-date');
-    if (proposalDate) proposalDate.textContent = new Date().toLocaleDateString('pt-BR');
-
-    // Setup Logo (if applicable, though in my basic preset I just used text for company name)
-    // If there is a logo image element
     const logoImage = doc.getElementById('company-logo');
-    if (logoImage) {
-      if (model.logo_url) {
-        logoImage.setAttribute('href', model.logo_url);
-        const lt = model.logo_transform;
-        logoImage.setAttribute('transform', `translate(${lt.x}, ${lt.y}) scale(${lt.zoom})`);
-      }
+    if (logoImage && model.logo_url) {
+      setHref(logoImage, model.logo_url);
+      const lt = model.logo_transform;
+      logoImage.setAttribute('transform', `translate(${lt.x}, ${lt.y}) scale(${lt.zoom}) rotate(${lt.rotate})`);
     }
+
+    applyText(doc, 'client-name', 'Cliente Exemplo Ltda');
+    applyText(doc, 'project-power', 'Potência: 12.5 kWp');
+    applyText(doc, 'city-state', 'São Paulo, SP');
+    applyText(doc, 'proposal-date', new Date().toLocaleDateString('pt-BR'));
 
     return new XMLSerializer().serializeToString(doc);
-  }, [preset, model]);
+  }, [svgSource, model]);
 
   if (!preset) return <div className="text-slate-500">Preset não encontrado.</div>;
+  if (!finalSvgContent) return <div className="text-slate-500">Carregando preview...</div>;
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4">
