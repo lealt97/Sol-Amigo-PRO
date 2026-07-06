@@ -159,18 +159,18 @@ CREATE POLICY "Public read pdf-assets"
 CREATE POLICY "Authenticated upload pdf-assets"
   ON storage.objects FOR INSERT
   TO authenticated
-  WITH CHECK (bucket_id = 'pdf-assets' AND (storage.foldername(name))[1] = auth.uid()::text);
+  WITH CHECK (bucket_id = 'pdf-assets');
 
 CREATE POLICY "Authenticated update pdf-assets"
   ON storage.objects FOR UPDATE
   TO authenticated
-  USING (bucket_id = 'pdf-assets' AND (storage.foldername(name))[1] = auth.uid()::text)
-  WITH CHECK (bucket_id = 'pdf-assets' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'pdf-assets')
+  WITH CHECK (bucket_id = 'pdf-assets');
 
 CREATE POLICY "Authenticated delete pdf-assets"
   ON storage.objects FOR DELETE
   TO authenticated
-  USING (bucket_id = 'pdf-assets' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'pdf-assets');
 
 CREATE POLICY "Public read logos"
   ON storage.objects FOR SELECT
