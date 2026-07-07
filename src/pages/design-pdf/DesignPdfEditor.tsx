@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PdfUserModel, TransformConfig } from '../../types/pdfModels';
 import { pdfModelService } from '../../services/pdfModelService';
 import { PdfPreview } from './PdfPreview';
+import { CoverPhotoFramingSelector, getDefaultTransform, normalizeTransform } from './CoverPhotoFramingSelector';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
@@ -15,7 +16,11 @@ interface DesignPdfEditorProps {
 }
 
 export function DesignPdfEditor({ model: initialModel, onClose, onSave }: DesignPdfEditorProps) {
-  const [model, setModel] = useState<PdfUserModel>(initialModel);
+  const [model, setModel] = useState<PdfUserModel>({
+    ...initialModel,
+    logo_transform: normalizeTransform(initialModel.logo_transform),
+    cover_image_transform: normalizeTransform(initialModel.cover_image_transform),
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'colors' | 'images' | 'pages'>('colors');
 
@@ -26,17 +31,35 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     }));
   };
 
+  const setTransform = (target: 'logo_transform' | 'cover_image_transform', transform: TransformConfig) => {
+    setModel(prev => ({
+      ...prev,
+      [target]: normalizeTransform(transform)
+    }));
+  };
+
   const updateTransform = (target: 'logo_transform' | 'cover_image_transform', key: keyof TransformConfig, value: number) => {
     setModel(prev => ({
       ...prev,
-      [target]: { ...prev[target], [key]: value }
+      [target]: { ...normalizeTransform(prev[target]), [key]: value }
+    }));
+  };
+
+  const resetTransform = (target: 'logo_transform' | 'cover_image_transform') => {
+    setModel(prev => ({
+      ...prev,
+      [target]: getDefaultTransform()
     }));
   };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await pdfModelService.updateModel(model.id, model);
+      await pdfModelService.updateModel(model.id, {
+        ...model,
+        logo_transform: normalizeTransform(model.logo_transform),
+        cover_image_transform: normalizeTransform(model.cover_image_transform),
+      });
       toast.success('Modelo salvo com sucesso!');
       onSave();
     } catch (e) {
@@ -51,26 +74,28 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     if (!file) return;
 
     try {
-      // Show some loading state conceptually
       const url = await pdfModelService.uploadAsset(file, target === 'logo_url' ? 'logos' : 'pdf-assets');
-      setModel(prev => ({ ...prev, [target]: url }));
-      toast.success('Upload concluído!');
+      setModel(prev => target === 'cover_image_url'
+        ? { ...prev, cover_image_url: url, cover_image_transform: getDefaultTransform() }
+        : { ...prev, logo_url: url }
+      );
+      toast.success(target === 'cover_image_url' ? 'Imagem enviada. Escolha o ponto de interesse no enquadramento.' : 'Upload concluído!');
     } catch (err) {
       toast.error('Erro ao fazer upload da imagem.');
     }
   };
 
   const renderTransformControls = (target: 'logo_transform' | 'cover_image_transform', label: string) => {
-    const t = model[target];
-    const step = target === 'logo_transform' ? 10 : 50;
+    const t = normalizeTransform(model[target]);
+    const step = target === 'logo_transform' ? 10 : 25;
 
     return (
       <div className="space-y-3 mt-4 border-t border-brand-border pt-4">
-        <Label className="text-xs text-slate-500 uppercase tracking-wider">{label} - Ajustes</Label>
+        <Label className="text-xs text-slate-500 uppercase tracking-wider">{label} - Ajustes Finos</Label>
         
         <div className="flex gap-2 justify-center">
-          <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'zoom', Math.max(0.1, t.zoom - 0.1))}><ZoomOut className="w-4 h-4" /></Button>
-          <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'zoom', t.zoom + 0.1)}><ZoomIn className="w-4 h-4" /></Button>
+          <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'zoom', Math.max(0.1, Number((t.zoom - 0.1).toFixed(2))))}><ZoomOut className="w-4 h-4" /></Button>
+          <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'zoom', Number((t.zoom + 0.1).toFixed(2)))}><ZoomIn className="w-4 h-4" /></Button>
           <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'rotate', t.rotate - 90)}><RotateCcw className="w-4 h-4" /></Button>
           <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'rotate', t.rotate + 90)}><RotateCw className="w-4 h-4" /></Button>
         </div>
@@ -138,31 +163,19 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Cor Primária</Label>
-                <div className="flex gap-2">
-                  <Input type="color" value={model.theme.primary} onChange={e => updateTheme('primary', e.target.value)} className="w-12 h-10 p-1" />
-                  <Input type="text" value={model.theme.primary} onChange={e => updateTheme('primary', e.target.value)} className="flex-1 uppercase font-mono text-sm" />
-                </div>
+                <div className="flex gap-2"><Input type="color" value={model.theme.primary} onChange={e => updateTheme('primary', e.target.value)} className="w-12 h-10 p-1" /><Input type="text" value={model.theme.primary} onChange={e => updateTheme('primary', e.target.value)} className="flex-1 uppercase font-mono text-sm" /></div>
               </div>
               <div className="space-y-2">
                 <Label>Cor Secundária</Label>
-                <div className="flex gap-2">
-                  <Input type="color" value={model.theme.secondary} onChange={e => updateTheme('secondary', e.target.value)} className="w-12 h-10 p-1" />
-                  <Input type="text" value={model.theme.secondary} onChange={e => updateTheme('secondary', e.target.value)} className="flex-1 uppercase font-mono text-sm" />
-                </div>
+                <div className="flex gap-2"><Input type="color" value={model.theme.secondary} onChange={e => updateTheme('secondary', e.target.value)} className="w-12 h-10 p-1" /><Input type="text" value={model.theme.secondary} onChange={e => updateTheme('secondary', e.target.value)} className="flex-1 uppercase font-mono text-sm" /></div>
               </div>
               <div className="space-y-2">
                 <Label>Cor Destaque</Label>
-                <div className="flex gap-2">
-                  <Input type="color" value={model.theme.accent} onChange={e => updateTheme('accent', e.target.value)} className="w-12 h-10 p-1" />
-                  <Input type="text" value={model.theme.accent} onChange={e => updateTheme('accent', e.target.value)} className="flex-1 uppercase font-mono text-sm" />
-                </div>
+                <div className="flex gap-2"><Input type="color" value={model.theme.accent} onChange={e => updateTheme('accent', e.target.value)} className="w-12 h-10 p-1" /><Input type="text" value={model.theme.accent} onChange={e => updateTheme('accent', e.target.value)} className="flex-1 uppercase font-mono text-sm" /></div>
               </div>
               <div className="space-y-2">
                 <Label>Cor Neutra (Fundos)</Label>
-                <div className="flex gap-2">
-                  <Input type="color" value={model.theme.neutral} onChange={e => updateTheme('neutral', e.target.value)} className="w-12 h-10 p-1" />
-                  <Input type="text" value={model.theme.neutral} onChange={e => updateTheme('neutral', e.target.value)} className="flex-1 uppercase font-mono text-sm" />
-                </div>
+                <div className="flex gap-2"><Input type="color" value={model.theme.neutral} onChange={e => updateTheme('neutral', e.target.value)} className="w-12 h-10 p-1" /><Input type="text" value={model.theme.neutral} onChange={e => updateTheme('neutral', e.target.value)} className="flex-1 uppercase font-mono text-sm" /></div>
               </div>
               <p className="text-xs text-slate-500 mt-4">Nota: O branco puro (#FFFFFF) é fixo e não editável.</p>
             </div>
@@ -174,28 +187,29 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
                 <Label>Logo da Empresa</Label>
                 <div className="flex items-center gap-2">
                   <Input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'logo_url')} className="hidden" id="logo-upload" />
-                  <Button variant="outline" className="w-full gap-2" onClick={() => document.getElementById('logo-upload')?.click()}>
-                    <Upload className="w-4 h-4" /> Enviar Logo
-                  </Button>
+                  <Button variant="outline" className="w-full gap-2" onClick={() => document.getElementById('logo-upload')?.click()}><Upload className="w-4 h-4" /> Enviar Logo</Button>
                 </div>
                 {model.logo_url && renderTransformControls('logo_transform', 'Logo')}
               </div>
 
               <div className="space-y-2">
                 <Label>Imagem da Capa</Label>
-                <Input 
-                  type="text" 
-                  placeholder="URL da imagem (ou faça upload)"
-                  value={model.cover_image_url || ''} 
-                  onChange={e => setModel(p => ({ ...p, cover_image_url: e.target.value }))}
-                />
+                <Input type="text" placeholder="URL da imagem (ou faça upload)" value={model.cover_image_url || ''} onChange={e => setModel(p => ({ ...p, cover_image_url: e.target.value, cover_image_transform: getDefaultTransform() }))} />
                 <div className="flex items-center gap-2 mt-2">
                   <Input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'cover_image_url')} className="hidden" id="cover-upload" />
-                  <Button variant="outline" className="w-full gap-2" onClick={() => document.getElementById('cover-upload')?.click()}>
-                    <Upload className="w-4 h-4" /> Enviar Imagem
-                  </Button>
+                  <Button variant="outline" className="w-full gap-2" onClick={() => document.getElementById('cover-upload')?.click()}><Upload className="w-4 h-4" /> Enviar Imagem</Button>
                 </div>
-                {model.cover_image_url && renderTransformControls('cover_image_transform', 'Capa')}
+                {model.cover_image_url && (
+                  <>
+                    <CoverPhotoFramingSelector
+                      imageUrl={model.cover_image_url}
+                      transform={normalizeTransform(model.cover_image_transform)}
+                      onChange={(nextTransform) => setTransform('cover_image_transform', nextTransform)}
+                      onReset={() => resetTransform('cover_image_transform')}
+                    />
+                    {renderTransformControls('cover_image_transform', 'Capa')}
+                  </>
+                )}
               </div>
             </div>
           )}
