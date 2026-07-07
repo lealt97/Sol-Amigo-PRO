@@ -152,22 +152,13 @@ function normalizePatternAsFigmaCrop(pattern: Element) {
   pattern.removeAttribute('patternTransform');
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function getImageCropTransform(transform?: TransformConfig) {
-  const zoom = Math.max(1, Number(transform?.zoom ?? 1));
-  const rotate = Number(transform?.rotate ?? 0);
-
-  if (zoom <= 1) {
-    return { x: 0, y: 0, width: 1, height: 1, transform: rotate ? `rotate(${rotate} 0.5 0.5)` : '' };
-  }
-
+  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
   const x = Number(transform?.x ?? 0) / 595;
   const y = Number(transform?.y ?? 0) / 842;
-  const left = clamp(((1 - zoom) / 2) + x, 1 - zoom, 0);
-  const top = clamp(((1 - zoom) / 2) + y, 1 - zoom, 0);
+  const left = ((1 - zoom) / 2) + x;
+  const top = ((1 - zoom) / 2) + y;
+  const rotate = Number(transform?.rotate ?? 0);
 
   if (!rotate) return { x: left, y: top, width: zoom, height: zoom, transform: '' };
 
@@ -201,7 +192,7 @@ function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transfor
   image.setAttribute('y', String(crop.y));
   image.setAttribute('width', String(crop.width));
   image.setAttribute('height', String(crop.height));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   if (crop.transform) image.setAttribute('transform', crop.transform);
   setHref(image, imageUrl);
 
