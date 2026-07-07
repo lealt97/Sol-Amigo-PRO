@@ -62,7 +62,7 @@ export function CoverPhotoFramingSelector({ imageUrl, transform, onChange, onRes
       <div>
         <Label className="text-xs text-slate-200 uppercase tracking-wider font-semibold">Enquadramento da imagem original</Label>
         <p className="text-xs text-slate-300 mt-1">
-          Clique no ponto principal da paisagem. Esse ponto será priorizado no crop da área foto_aqui.
+          Com zoom 1.00x a imagem aparece inteira na capa. Ao aumentar o zoom, clique no ponto principal da paisagem para priorizar essa área no crop.
         </p>
       </div>
 
