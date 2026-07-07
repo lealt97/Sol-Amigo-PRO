@@ -14,6 +14,8 @@ interface DesignPdfEditorProps {
   onSave: () => void;
 }
 
+const defaultTransform: TransformConfig = { zoom: 1, x: 0, y: 0, rotate: 0 };
+
 export function DesignPdfEditor({ model: initialModel, onClose, onSave }: DesignPdfEditorProps) {
   const [model, setModel] = useState<PdfUserModel>(initialModel);
   const [isSaving, setIsSaving] = useState(false);
@@ -30,6 +32,13 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     setModel(prev => ({
       ...prev,
       [target]: { ...prev[target], [key]: value }
+    }));
+  };
+
+  const resetTransform = (target: 'logo_transform' | 'cover_image_transform') => {
+    setModel(prev => ({
+      ...prev,
+      [target]: { ...defaultTransform }
     }));
   };
 
@@ -51,10 +60,12 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     if (!file) return;
 
     try {
-      // Show some loading state conceptually
       const url = await pdfModelService.uploadAsset(file, target === 'logo_url' ? 'logos' : 'pdf-assets');
-      setModel(prev => ({ ...prev, [target]: url }));
-      toast.success('Upload concluído!');
+      setModel(prev => target === 'cover_image_url'
+        ? { ...prev, cover_image_url: url, cover_image_transform: { ...defaultTransform } }
+        : { ...prev, logo_url: url }
+      );
+      toast.success(target === 'cover_image_url' ? 'Imagem enviada. Ajuste o enquadramento com zoom e setas.' : 'Upload concluído!');
     } catch (err) {
       toast.error('Erro ao fazer upload da imagem.');
     }
@@ -67,6 +78,9 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     return (
       <div className="space-y-3 mt-4 border-t border-brand-border pt-4">
         <Label className="text-xs text-slate-500 uppercase tracking-wider">{label} - Ajustes</Label>
+        {target === 'cover_image_transform' && (
+          <p className="text-xs text-slate-500">A imagem começa centralizada. Use zoom e setas para definir a área de interesse do crop.</p>
+        )}
         
         <div className="flex gap-2 justify-center">
           <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'zoom', Math.max(0.1, t.zoom - 0.1))}><ZoomOut className="w-4 h-4" /></Button>
@@ -83,6 +97,10 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
           </div>
           <Button type="button" variant="outline" size="icon" onClick={() => updateTransform(target, 'x', t.x + step)}><ArrowRight className="w-4 h-4" /></Button>
         </div>
+
+        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => resetTransform(target)}>
+          Resetar enquadramento
+        </Button>
       </div>
     );
   };
@@ -187,7 +205,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
                   type="text" 
                   placeholder="URL da imagem (ou faça upload)"
                   value={model.cover_image_url || ''} 
-                  onChange={e => setModel(p => ({ ...p, cover_image_url: e.target.value }))}
+                  onChange={e => setModel(p => ({ ...p, cover_image_url: e.target.value, cover_image_transform: { ...defaultTransform } }))}
                 />
                 <div className="flex items-center gap-2 mt-2">
                   <Input type="file" accept="image/*" onChange={e => handleFileUpload(e, 'cover_image_url')} className="hidden" id="cover-upload" />
