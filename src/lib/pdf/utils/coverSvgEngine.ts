@@ -16,6 +16,13 @@ type CoverTheme = {
   original?: PdfTheme;
 };
 
+type PhotoBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
@@ -28,18 +35,22 @@ const COLOR_ALIASES: Record<string, keyof PdfTheme> = {
   '#39B66A': 'primary',
   '#15AE51': 'primary',
   '#16AF52': 'primary',
+  '#1AA6BE': 'primary',
   '#C49133': 'secondary',
   '#AFB77D': 'secondary',
   '#FFCC00': 'secondary',
   '#DEC488': 'secondary',
+  '#DD400B': 'secondary',
   '#FACB5C': 'accent',
   '#FFD600': 'accent',
   '#64B0F3': 'accent',
+  '#D4D5D7': 'accent',
   '#1F2A2A': 'neutral',
   '#1E1E1E': 'neutral',
   '#3A3A3C': 'neutral',
   '#183956': 'neutral',
   '#D9D9D9': 'neutral',
+  '#524848': 'neutral',
 };
 
 function normalizeHex(value: string | null) {
@@ -97,6 +108,8 @@ function applyTheme(doc: Document, theme: CoverTheme) {
   doc.querySelectorAll('[fill], [stroke]').forEach((element) => applyPaintToElement(element, theme));
   forceGroupPaint(doc, '[id*="cor_primaria"], [id*="Cor_primaria"], [id*="primary"]', theme.current.primary);
   forceGroupPaint(doc, '[id*="cor_secund"], [id*="Cor_secund"], [id*="secondary"]', theme.current.secondary);
+  forceGroupPaint(doc, '[id*="cor_destaque"], [id*="Cor_destaque"], [id*="accent"]', theme.current.accent);
+  forceGroupPaint(doc, '[id*="cor_neutra"], [id*="Cor_neutra"], [id*="neutral"]', theme.current.neutral);
 }
 
 function setHref(element: Element | null, href: string) {
@@ -105,9 +118,13 @@ function setHref(element: Element | null, href: string) {
   element.setAttributeNS(XLINK_NS, 'xlink:href', href);
 }
 
-function getPatternIdFromFill(fill: string | null) {
-  const match = fill?.match(/url\(#([^\)]+)\)/);
+function getUrlReference(value: string | null) {
+  const match = value?.match(/url\(#([^\)]+)\)/);
   return match?.[1] || null;
+}
+
+function getPatternIdFromFill(fill: string | null) {
+  return getUrlReference(fill);
 }
 
 function isPhotoId(element: Element) {
@@ -171,6 +188,80 @@ function getImageCropTransform(transform?: TransformConfig) {
   };
 }
 
+function parsePhotoBounds(value: string | null): PhotoBounds | null {
+  if (!value) return null;
+
+  const [x, y, width, height] = value
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+
+  if ([x, y, width, height].some((item) => Number.isNaN(item))) return null;
+  return { x, y, width, height };
+}
+
+function getLayerImageTransform(bounds: PhotoBounds, transform?: TransformConfig) {
+  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
+  const offsetX = Number(transform?.x ?? 0);
+  const offsetY = Number(transform?.y ?? 0);
+  const rotate = Number(transform?.rotate ?? 0);
+  const width = bounds.width * zoom;
+  const height = bounds.height * zoom;
+  const x = bounds.x + ((bounds.width - width) / 2) + offsetX;
+  const y = bounds.y + ((bounds.height - height) / 2) + offsetY;
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+
+  return {
+    x,
+    y,
+    width,
+    height,
+    transform: rotate ? `rotate(${rotate} ${centerX} ${centerY})` : '',
+  };
+}
+
+function clearElement(element: Element) {
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+}
+
+function hidePhotoIcon(doc: Document) {
+  doc.querySelectorAll('[id*="foto_aqui_placeholder"], [id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
+    element.setAttribute('display', 'none');
+  });
+}
+
+function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  if (!imageUrl) return false;
+
+  const layer = doc.getElementById('cover-photo-layer');
+  if (!layer) return false;
+
+  const coverGroup = doc.getElementById('cover-photo') || layer.parentElement;
+  const bounds = parsePhotoBounds(coverGroup?.getAttribute('data-photo-bounds') || null) || { x: 0, y: 0, width: 595, height: 842 };
+  const crop = getLayerImageTransform(bounds, transform);
+
+  clearElement(layer);
+
+  const image = doc.createElementNS(SVG_NS, 'image');
+  image.setAttribute('id', 'cover-photo-image');
+  image.setAttribute('data-pdf-role', 'cover-photo-image');
+  image.setAttribute('data-pdf-image-mode', 'clip-layer');
+  image.setAttribute('x', String(crop.x));
+  image.setAttribute('y', String(crop.y));
+  image.setAttribute('width', String(crop.width));
+  image.setAttribute('height', String(crop.height));
+  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  if (crop.transform) image.setAttribute('transform', crop.transform);
+  setHref(image, imageUrl);
+
+  layer.appendChild(image);
+  hidePhotoIcon(doc);
+  return true;
+}
+
 function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
   if (!imageUrl) return;
 
@@ -203,12 +294,6 @@ function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transfor
   hidePhotoIcon(doc);
 }
 
-function hidePhotoIcon(doc: Document) {
-  doc.querySelectorAll('[id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
-    element.setAttribute('display', 'none');
-  });
-}
-
 function replaceLogo(doc: Document, logoUrl?: string | null, transform?: TransformConfig) {
   if (!logoUrl) return;
 
@@ -220,7 +305,7 @@ function replaceLogo(doc: Document, logoUrl?: string | null, transform?: Transfo
   if (!logoText) return;
 
   const image = doc.createElementNS(SVG_NS, 'image');
-  image.setAttribute('id', 'company-logo');
+  image.setAttribute('id', 'company-logo-image');
   setHref(image, logoUrl);
   image.setAttribute('x', '32');
   image.setAttribute('y', '32');
@@ -261,7 +346,8 @@ export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: Cove
 
   applyTheme(doc, theme);
   applyTexts(doc, values);
-  applyPhotoAsFigmaCrop(doc, values.coverImageUrl, values.coverImageTransform);
+  const photoApplied = applyPhotoAsClipLayer(doc, values.coverImageUrl, values.coverImageTransform);
+  if (!photoApplied) applyPhotoAsFigmaCrop(doc, values.coverImageUrl, values.coverImageTransform);
   replaceLogo(doc, values.logoUrl, values.logoTransform);
 
   return new XMLSerializer().serializeToString(doc);
