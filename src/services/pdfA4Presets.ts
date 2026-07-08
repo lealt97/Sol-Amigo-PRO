@@ -110,13 +110,4 @@ export const A4_PRESETS: PdfTemplatePreset[] = [
     default_theme: { primary: '#15AE51', secondary: '#051225', accent: '#FFD600', neutral: '#1E1E1E' },
     page_config: pageConfig,
   },
-  {
-    id: 'preset-11',
-    name: 'A4 11 — Comercial Solar',
-    thumbnail_url: coverPath('A4 - 11.svg'),
-    svg_file_url: coverPath('A4 - 11.svg'),
-    svg_content: coverSvg('A4 - 11.svg'),
-    default_theme: { primary: '#1AA6BE', secondary: '#DD400B', accent: '#D4D5D7', neutral: '#524848' },
-    page_config: pageConfig,
-  },
 ];
