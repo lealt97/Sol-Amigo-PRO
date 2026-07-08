@@ -16,6 +16,13 @@ type CoverTheme = {
   original?: PdfTheme;
 };
 
+type PhotoBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
@@ -105,9 +112,13 @@ function setHref(element: Element | null, href: string) {
   element.setAttributeNS(XLINK_NS, 'xlink:href', href);
 }
 
-function getPatternIdFromFill(fill: string | null) {
-  const match = fill?.match(/url\(#([^\)]+)\)/);
+function getUrlReference(value: string | null) {
+  const match = value?.match(/url\(#([^\)]+)\)/);
   return match?.[1] || null;
+}
+
+function getPatternIdFromFill(fill: string | null) {
+  return getUrlReference(fill);
 }
 
 function isPhotoId(element: Element) {
@@ -171,6 +182,202 @@ function getImageCropTransform(transform?: TransformConfig) {
   };
 }
 
+function parsePhotoBounds(value: string | null): PhotoBounds | null {
+  if (!value) return null;
+  const [x, y, width, height] = value
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+
+  if ([x, y, width, height].some((item) => Number.isNaN(item))) return null;
+  return { x, y, width, height };
+}
+
+function boundsFromMask(mask: Element): PhotoBounds | null {
+  const x = Number(mask.getAttribute('x') || 0);
+  const y = Number(mask.getAttribute('y') || 0);
+  const width = Number(mask.getAttribute('width') || 595);
+  const height = Number(mask.getAttribute('height') || 842);
+
+  if ([x, y, width, height].some((item) => Number.isNaN(item))) return null;
+  return { x, y, width, height };
+}
+
+function boundsToString(bounds: PhotoBounds) {
+  return `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`;
+}
+
+function getOrCreateDefs(doc: Document) {
+  const svg = doc.documentElement;
+  let defs = doc.querySelector('defs');
+
+  if (!defs) {
+    defs = doc.createElementNS(SVG_NS, 'defs');
+    svg.insertBefore(defs, svg.firstChild);
+  }
+
+  return defs;
+}
+
+function removeExistingStandardPhotoMask(doc: Document) {
+  doc.getElementById('clip-foto-aqui')?.remove();
+}
+
+function cloneShapeForClipPath(doc: Document, sourceShape: Element) {
+  const shape = sourceShape.cloneNode(false) as Element;
+  shape.setAttribute('id', 'photo-mask');
+  shape.removeAttribute('fill');
+  shape.removeAttribute('stroke');
+  shape.removeAttribute('style');
+  shape.removeAttribute('mask');
+  shape.removeAttribute('filter');
+  shape.removeAttribute('opacity');
+
+  if (!shape.getAttribute('clip-rule') && sourceShape.getAttribute('fill-rule')) {
+    shape.setAttribute('clip-rule', sourceShape.getAttribute('fill-rule') || 'evenodd');
+  }
+
+  return shape;
+}
+
+function createClipPathFromShape(doc: Document, sourceShape: Element) {
+  removeExistingStandardPhotoMask(doc);
+
+  const defs = getOrCreateDefs(doc);
+  const clipPath = doc.createElementNS(SVG_NS, 'clipPath');
+  clipPath.setAttribute('id', 'clip-foto-aqui');
+  clipPath.setAttribute('clipPathUnits', 'userSpaceOnUse');
+  clipPath.appendChild(cloneShapeForClipPath(doc, sourceShape));
+  defs.insertBefore(clipPath, defs.firstChild);
+}
+
+function removeLegacyPattern(doc: Document, shape: Element) {
+  const patternId = getPatternIdFromFill(shape.getAttribute('fill'));
+  const pattern = getPatternElement(doc, patternId);
+
+  if (!pattern) return;
+
+  pattern.querySelectorAll('image').forEach((image) => image.remove());
+  pattern.remove();
+}
+
+function isMaskedBy(maskedElement: Element, maskId: string) {
+  return getUrlReference(maskedElement.getAttribute('mask')) === maskId;
+}
+
+function findLegacyPhotoMask(doc: Document) {
+  const masks = Array.from(doc.querySelectorAll('mask'));
+
+  for (const mask of masks) {
+    const shape = Array.from(mask.querySelectorAll('path, rect, polygon, polyline, circle, ellipse')).find((element) => {
+      return isPhotoId(element) || Boolean(getPatternIdFromFill(element.getAttribute('fill')));
+    });
+
+    if (!shape) continue;
+
+    const maskId = mask.getAttribute('id');
+    if (!maskId) continue;
+
+    const maskedGroup = Array.from(doc.querySelectorAll('g[mask]')).find((group) => isMaskedBy(group, maskId));
+    if (!maskedGroup) continue;
+
+    return { mask, shape, maskedGroup };
+  }
+
+  return null;
+}
+
+function normalizeLegacyPhotoMaskToStandard(doc: Document) {
+  if (doc.getElementById('cover-photo-layer')) return;
+
+  const legacy = findLegacyPhotoMask(doc);
+  if (!legacy) return;
+
+  const bounds = boundsFromMask(legacy.mask) || { x: 0, y: 0, width: 595, height: 842 };
+
+  createClipPathFromShape(doc, legacy.shape);
+
+  const coverGroup = doc.createElementNS(SVG_NS, 'g');
+  coverGroup.setAttribute('id', 'cover-photo');
+  coverGroup.setAttribute('clip-path', 'url(#clip-foto-aqui)');
+  coverGroup.setAttribute('data-photo-mask', 'true');
+  coverGroup.setAttribute('data-photo-bounds', boundsToString(bounds));
+
+  const placeholder = doc.createElementNS(SVG_NS, 'g');
+  placeholder.setAttribute('id', 'foto_aqui_placeholder');
+
+  Array.from(legacy.maskedGroup.childNodes).forEach((node) => {
+    placeholder.appendChild(node.cloneNode(true));
+  });
+
+  const layer = doc.createElementNS(SVG_NS, 'g');
+  layer.setAttribute('id', 'cover-photo-layer');
+  layer.setAttribute('data-dynamic-photo-layer', 'true');
+
+  coverGroup.appendChild(placeholder);
+  coverGroup.appendChild(layer);
+
+  legacy.maskedGroup.parentNode?.replaceChild(coverGroup, legacy.maskedGroup);
+  removeLegacyPattern(doc, legacy.shape);
+  legacy.mask.remove();
+}
+
+function getLayerImageTransform(bounds: PhotoBounds, transform?: TransformConfig) {
+  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
+  const offsetX = Number(transform?.x ?? 0);
+  const offsetY = Number(transform?.y ?? 0);
+  const rotate = Number(transform?.rotate ?? 0);
+  const width = bounds.width * zoom;
+  const height = bounds.height * zoom;
+  const x = bounds.x + ((bounds.width - width) / 2) + offsetX;
+  const y = bounds.y + ((bounds.height - height) / 2) + offsetY;
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+
+  return {
+    x,
+    y,
+    width,
+    height,
+    transform: rotate ? `rotate(${rotate} ${centerX} ${centerY})` : '',
+  };
+}
+
+function clearElement(element: Element) {
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+}
+
+function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  if (!imageUrl) return false;
+
+  const layer = doc.getElementById('cover-photo-layer');
+  if (!layer) return false;
+
+  const coverGroup = doc.getElementById('cover-photo') || layer.parentElement;
+  const bounds = parsePhotoBounds(coverGroup?.getAttribute('data-photo-bounds') || null) || { x: 0, y: 0, width: 595, height: 842 };
+  const crop = getLayerImageTransform(bounds, transform);
+
+  clearElement(layer);
+
+  const image = doc.createElementNS(SVG_NS, 'image');
+  image.setAttribute('id', 'cover-photo-image');
+  image.setAttribute('data-pdf-role', 'cover-photo-image');
+  image.setAttribute('data-pdf-image-mode', 'clip-layer');
+  image.setAttribute('x', String(crop.x));
+  image.setAttribute('y', String(crop.y));
+  image.setAttribute('width', String(crop.width));
+  image.setAttribute('height', String(crop.height));
+  image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  if (crop.transform) image.setAttribute('transform', crop.transform);
+  setHref(image, imageUrl);
+
+  layer.appendChild(image);
+  hidePhotoIcon(doc);
+  return true;
+}
+
 function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
   if (!imageUrl) return;
 
@@ -204,7 +411,7 @@ function applyPhotoAsFigmaCrop(doc: Document, imageUrl?: string | null, transfor
 }
 
 function hidePhotoIcon(doc: Document) {
-  doc.querySelectorAll('[id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
+  doc.querySelectorAll('[id*="foto_aqui_placeholder"], [id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
     element.setAttribute('display', 'none');
   });
 }
@@ -259,9 +466,11 @@ export function buildCoverSvg(svgSource: string, theme: CoverTheme, values: Cove
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgSource, 'image/svg+xml');
 
+  normalizeLegacyPhotoMaskToStandard(doc);
   applyTheme(doc, theme);
   applyTexts(doc, values);
-  applyPhotoAsFigmaCrop(doc, values.coverImageUrl, values.coverImageTransform);
+  const photoApplied = applyPhotoAsClipLayer(doc, values.coverImageUrl, values.coverImageTransform);
+  if (!photoApplied) applyPhotoAsFigmaCrop(doc, values.coverImageUrl, values.coverImageTransform);
   replaceLogo(doc, values.logoUrl, values.logoTransform);
 
   return new XMLSerializer().serializeToString(doc);
