@@ -1,0 +1,8 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[remote "origin"]
+	url = https://github.com/lealt97/Sol-Amigo-proposta-FV
+	fetch = +refs/heads/*:refs/remotes/origin/*
