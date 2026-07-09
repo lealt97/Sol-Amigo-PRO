@@ -31,6 +31,9 @@ const COLOR_ALIASES: Record<string, keyof PdfTheme> = {
 function normalizeHex(value: string | null) {
   if (!value) return '';
   const color = value.trim();
+  const upper = color.toUpperCase();
+  if (upper === 'BLACK') return '#000000';
+  if (upper === 'WHITE') return '#FFFFFF';
   if (!color.startsWith('#')) return color;
   if (color.length === 4) {
     return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`.toUpperCase();
