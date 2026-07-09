@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutTemplate, Plus } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { PdfTemplatePreset } from '../types/pdfDesignTypes';
 
@@ -10,6 +10,16 @@ interface TemplateCarouselProps {
 }
 
 export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, onAddFromPreset }: TemplateCarouselProps) {
+  if (presets.length === 0) {
+    return (
+      <div className="text-center p-12 bg-brand-surface border border-brand-border rounded-xl">
+        <LayoutTemplate className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-brand-dark">Nenhum modelo padrão encontrado</h3>
+        <p className="text-slate-500 mt-2">Verifique os presets SVG cadastrados em public/pdf-assets/covers.</p>
+      </div>
+    );
+  }
+
   const handlePrev = () => onActiveIndexChange(activeIndex === 0 ? presets.length - 1 : activeIndex - 1);
   const handleNext = () => onActiveIndexChange(activeIndex === presets.length - 1 ? 0 : activeIndex + 1);
 
@@ -25,7 +35,7 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
 
         <div className="relative w-full h-full flex items-center justify-center overflow-visible">
           {presets.map((preset, index) => {
-            const length = presets.length || 1;
+            const length = presets.length;
             let diff = index - activeIndex;
             if (diff < -length / 2) diff += length;
             if (diff > length / 2) diff -= length;
