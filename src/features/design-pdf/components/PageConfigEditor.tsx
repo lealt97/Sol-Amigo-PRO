@@ -18,11 +18,13 @@ export function PageConfigEditor({ pageConfig, onChange }: PageConfigEditorProps
   const visiblePages = pageConfig.visiblePages || {};
 
   const togglePage = (key: string) => {
+    const isVisible = visiblePages[key] !== false;
+
     onChange({
       ...pageConfig,
       visiblePages: {
         ...visiblePages,
-        [key]: !visiblePages[key],
+        [key]: !isVisible,
       },
     });
   };
