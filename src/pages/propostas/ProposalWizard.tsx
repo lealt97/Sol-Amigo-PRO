@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -16,6 +21,7 @@ import { StepCosts } from './steps/StepCosts';
 import { StepFinancial } from './steps/StepFinancial';
 import { StepPreview } from './steps/StepPreview';
 import { SolarCalculationPreview } from './SolarCalculationPreview';
+import { validateFullProposal, validateProposalStep } from './validation/proposalWizardValidation';
 
 const STEPS = [
   { id: 'client', title: 'Cliente' },
@@ -45,11 +51,21 @@ export function ProposalWizard() {
     defaultValues: {
       client_id: clientIdFromQuery || '',
       title: 'Nova Proposta',
+      consumption_source: 'average',
       yield_factor: '0.80',
       generation_target_percent: '100',
       oversizing: '1.20',
     }
   });
+
+  const applyValidationUpdates = (updates?: Partial<ProposalFormValues>) => {
+    Object.entries(updates || {}).forEach(([key, value]) => {
+      methods.setValue(key as any, value as any, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    });
+  };
 
   useEffect(() => {
     async function initWizard() {
@@ -79,7 +95,7 @@ export function ProposalWizard() {
             yield_factor: proposal.solar?.yield_factor || '0.80',
             generation_target_percent: proposal.solar?.generation_target_percent || '100',
             oversizing: proposal.solar?.oversizing || '1.20',
-            energy_tariff: proposal.solar?.energy_tariff || '',
+            energy_tariff: proposal.solar?.energy_tariff || proposal.energy_tariff || '',
             loads: proposal.loads || [],
           });
         } else if (user) {
@@ -98,22 +114,46 @@ export function ProposalWizard() {
   }, [id, methods, user]);
 
   const handleNext = async () => {
-    const isStepValid = await methods.trigger();
-    if (isStepValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+    const validation = validateProposalStep(currentStep, methods.getValues());
+
+    if (!validation.isValid) {
+      setError(validation.message || 'Preencha as informações obrigatórias antes de continuar.');
+      if (validation.stepIndex !== undefined && validation.stepIndex !== currentStep) {
+        setCurrentStep(validation.stepIndex);
+      }
+      return;
     }
+
+    applyValidationUpdates(validation.updates);
+    setError(null);
+    setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
   };
 
   const handlePrev = () => {
+    setError(null);
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
   const onSaveDraft = async () => {
     if (!user) return;
+
+    const validation = validateFullProposal(methods.getValues());
+    if (!validation.isValid) {
+      setError(validation.message || 'Preencha as informações obrigatórias antes de salvar a proposta.');
+      if (validation.stepIndex !== undefined) {
+        setCurrentStep(validation.stepIndex);
+      }
+      return;
+    }
+
+    applyValidationUpdates(validation.updates);
     setIsSaving(true);
     setError(null);
     try {
-      const data = methods.getValues();
+      const data = {
+        ...methods.getValues(),
+        ...(validation.updates || {}),
+      };
       if (isEditing) {
         await proposalService.updateProposal(id, data);
         navigate(`/propostas/${id}`);
