@@ -25,6 +25,7 @@ export function StepProject() {
           <Input 
             type="number" 
             step="0.01" 
+            min="0"
             {...register('hsp')} 
             placeholder="Ex: 5.2" 
             error={errors.hsp?.message}
@@ -35,6 +36,7 @@ export function StepProject() {
           <Label>Potência do Módulo W</Label>
           <Input 
             type="number" 
+            min="0"
             {...register('panel_power_w')} 
             placeholder="Ex: 550" 
             error={errors.panel_power_w?.message}
@@ -46,6 +48,8 @@ export function StepProject() {
           <Input 
             type="number" 
             step="0.01"
+            min="0"
+            max="1"
             {...register('yield_factor')} 
             placeholder="Ex: 0.80" 
             error={errors.yield_factor?.message}
@@ -56,6 +60,8 @@ export function StepProject() {
           <Label>Meta de Geração %</Label>
           <Input 
             type="number" 
+            min="1"
+            max="200"
             {...register('generation_target_percent')} 
             placeholder="Ex: 100" 
             error={errors.generation_target_percent?.message}
@@ -67,20 +73,10 @@ export function StepProject() {
           <Input 
             type="number" 
             step="0.01"
+            min="0"
             {...register('oversizing')} 
             placeholder="Ex: 1.20" 
             error={errors.oversizing?.message}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Tarifa de Energia R$/kWh</Label>
-          <Input 
-            type="number" 
-            step="0.01"
-            {...register('energy_tariff')} 
-            placeholder="Ex: 0.95" 
-            error={errors.energy_tariff?.message}
           />
         </div>
       </div>
