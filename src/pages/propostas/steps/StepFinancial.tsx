@@ -1,6 +1,7 @@
 import { useFormContext, useWatch } from 'react-hook-form';
 import { calcularPrecoProposta } from '../../../lib/calculations/pricing';
 import { calcularSistemaSolar } from '../../../lib/calculations/solar';
+import { calcularPayback } from '../../../lib/calculations/payback';
 import { AlertCircle } from 'lucide-react';
 import { PaybackChart } from '../../../components/charts/PaybackChart';
 
@@ -65,7 +66,6 @@ export function StepFinancial() {
     energy_tariff: formatNumber(energy_tariff) || undefined,
   });
 
-  const { calcularPayback } = require('../../../lib/calculations/payback');
   const payback = calcSolar ? calcularPayback({
     investimentoTotal: result.final_price,
     economiaMensal: calcSolar.monthly_savings,
@@ -136,12 +136,28 @@ export function StepFinancial() {
         <div className="p-4 border border-brand-border rounded-lg bg-gray-50">
           <h3 className="text-lg font-medium text-brand-dark mb-6">Retorno do Investimento</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-black/20 rounded-lg border border-brand-border">
               <span className="block text-sm text-slate-500 mb-1">Payback Simples</span>
               <span className="text-xl font-bold text-brand-dark">
                 {payback.paybackFormatado}
               </span>
+            </div>
+            
+            <div
+              className="p-4 rounded-lg border"
+              style={{
+                backgroundColor: payback.viability.backgroundColor,
+                borderColor: payback.viability.borderColor,
+              }}
+            >
+              <span className="block text-sm mb-1" style={{ color: payback.viability.color }}>Status do Investimento</span>
+              <span className="text-xl font-bold" style={{ color: payback.viability.color }}>
+                {payback.viability.label}
+              </span>
+              <p className="mt-2 text-xs" style={{ color: payback.viability.color }}>
+                {payback.viability.description}
+              </p>
             </div>
             
             <div className="p-4 bg-black/20 rounded-lg border border-brand-border">
