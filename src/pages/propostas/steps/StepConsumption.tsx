@@ -70,6 +70,42 @@ export function StepConsumption() {
         </Select>
       </div>
 
+      <div className="p-4 rounded-lg bg-brand-surface border border-brand-border space-y-3">
+        <div>
+          <h3 className="text-sm font-medium text-brand-dark">Conta de energia</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Informe tarifa, valor da conta ou ambos. O sistema usa esses dados para calcular economia, payback e viabilidade.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="bill_amount">Valor Médio da Conta (R$)</Label>
+            <Input
+              id="bill_amount"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Ex: 450.00"
+              {...register('bill_amount')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="energy_tariff">Tarifa de Energia (R$/kWh)</Label>
+            <Input
+              id="energy_tariff"
+              type="number"
+              step="0.0001"
+              min="0"
+              placeholder="Ex: 0.95"
+              {...register('energy_tariff')}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-slate-500">
+          Combinações aceitas: consumo + tarifa, consumo + valor da conta, ou valor da conta + tarifa.
+        </p>
+      </div>
+
       {consumptionSource === 'average' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -77,18 +113,9 @@ export function StepConsumption() {
             <Input 
               id="monthly_consumption_kwh" 
               type="number" 
+              min="0"
               placeholder="Ex: 500" 
               {...register('monthly_consumption_kwh')} 
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="bill_amount">Valor Médio da Conta (R$)</Label>
-            <Input 
-              id="bill_amount" 
-              type="number" 
-              step="0.01"
-              placeholder="Ex: 450.00" 
-              {...register('bill_amount')} 
             />
           </div>
         </div>
@@ -103,6 +130,7 @@ export function StepConsumption() {
                 <Input
                   id={`history.${idx}`}
                   type="number"
+                  min="0"
                   placeholder="kWh"
                   {...register(`history.${idx}` as const)}
                 />
