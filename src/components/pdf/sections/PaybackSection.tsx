@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
+import { classificarPayback } from '../../../lib/calculations/payback';
 
 const styles = StyleSheet.create({
   sectionTitle: {
@@ -16,7 +17,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 8,
     borderLeft: '4px solid #10b981',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   paybackLabel: {
     fontSize: 12,
@@ -28,6 +29,27 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#065f46', // emerald-800
+  },
+  viabilityBox: {
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    marginBottom: 20,
+  },
+  viabilityLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  viabilityValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  viabilityDescription: {
+    fontSize: 10,
+    lineHeight: 1.4,
   },
   table: {
     width: '100%',
@@ -96,14 +118,16 @@ export const PaybackSection = ({ proposal }: { proposal: Proposal }) => {
 
   if (!solar || !solar.payback_formatted) return null;
 
+  const investimento = proposal.final_price || 0;
+  const economiaAnual = solar.annual_savings || 0;
+  const paybackDecimal = investimento > 0 && economiaAnual > 0 ? investimento / economiaAnual : null;
+  const viability = classificarPayback(paybackDecimal);
+
   // Gerar dados simplificados para tabela
   // Mostrar anos: 1, 3, 5, payback, 10, 15, 20, 25
   const anosExibicao = [1, 3, 5, Math.ceil(solar.payback_years || 0), 10, 15, 20, 25]
     .filter((v, i, a) => a.indexOf(v) === i) // unique
     .sort((a, b) => a - b); // sort
-
-  const investimento = proposal.final_price || 0;
-  const economiaAnual = solar.annual_savings || 0;
 
   return (
     <View>
@@ -112,6 +136,12 @@ export const PaybackSection = ({ proposal }: { proposal: Proposal }) => {
       <View style={styles.paybackBox}>
         <Text style={styles.paybackLabel}>Tempo de Retorno (Payback Simples)</Text>
         <Text style={styles.paybackValue}>{solar.payback_formatted}</Text>
+      </View>
+
+      <View style={[styles.viabilityBox, { backgroundColor: viability.backgroundColor, borderColor: viability.borderColor }]}>
+        <Text style={[styles.viabilityLabel, { color: viability.color }]}>Status do investimento</Text>
+        <Text style={[styles.viabilityValue, { color: viability.color }]}>{viability.label}</Text>
+        <Text style={[styles.viabilityDescription, { color: viability.color }]}>{viability.description}</Text>
       </View>
 
       <Text style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 10, color: '#3f3f46' }}>
