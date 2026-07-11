@@ -2,20 +2,42 @@ import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { ProposalDocument } from '../../components/pdf/ProposalDocument';
 import { Proposal } from '../../types/proposal';
+import { PdfUserModel } from '../../types/pdfModels';
 import { supabase } from '../supabase/client';
 import { pdfModelService } from '../../services/pdfModelService';
 import { generateSvgCoverImage } from './utils/svgToImage';
 
-export async function generateAndUploadPdf(proposal: Proposal): Promise<string | null> {
+async function resolvePdfModel(
+  proposal: Proposal,
+  selectedModelId?: string | null
+): Promise<PdfUserModel | null> {
+  const models = await pdfModelService.getUserModels(proposal.user_id);
+
+  if (selectedModelId) {
+    const selectedModel = models.find((model) => model.id === selectedModelId);
+
+    if (selectedModel) {
+      return selectedModel;
+    }
+
+    console.warn('Selected PDF model was not found for this proposal user. Falling back to default model.');
+  }
+
+  return models.find((model) => model.is_default) || models[0] || null;
+}
+
+export async function generateAndUploadPdf(
+  proposal: Proposal,
+  selectedModelId?: string | null
+): Promise<string | null> {
   try {
     let coverImage: string | null = null;
     
-    // Attempt to load user's default template
+    // Attempt to load the selected template for this generation, falling back to the user's default template.
     try {
-      const models = await pdfModelService.getUserModels(proposal.user_id);
-      const defaultModel = models.find(m => m.is_default) || models[0];
-      if (defaultModel) {
-        coverImage = await generateSvgCoverImage(defaultModel, proposal);
+      const model = await resolvePdfModel(proposal, selectedModelId);
+      if (model) {
+        coverImage = await generateSvgCoverImage(model, proposal);
       }
     } catch (templateError) {
       console.warn('Could not load custom cover template, falling back to default', templateError);
@@ -31,7 +53,7 @@ export async function generateAndUploadPdf(proposal: Proposal): Promise<string |
     const filePath = `${proposal.user_id}/${fileName}`;
     
     // Check if bucket exists, if not, it will fail but we assume 'proposals' bucket exists
-    const { data: uploadData, error: uploadError } = await supabase
+    const { error: uploadError } = await supabase
       .storage
       .from('proposals')
       .upload(filePath, blob, {

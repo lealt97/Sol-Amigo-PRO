@@ -3,8 +3,11 @@ import { toast } from 'sonner';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { proposalService } from '../../services/proposalService';
 import { proposalEventService } from '../../services/proposalEventService';
+import { pdfModelService } from '../../services/pdfModelService';
 import { Proposal } from '../../types/proposal';
+import { PdfUserModel } from '../../types/pdfModels';
 import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { ArrowLeft, Edit, Copy, FileText, User, Download, Link as LinkIcon, CheckCircle, XCircle, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase/client';
@@ -24,6 +27,14 @@ export function ProposalDetails() {
   const [events, setEvents] = useState<any[]>([]);
   const [showWaModal, setShowWaModal] = useState(false);
   const [waMessage, setWaMessage] = useState('');
+  const [pdfModels, setPdfModels] = useState<PdfUserModel[]>([]);
+  const [selectedPdfModelId, setSelectedPdfModelId] = useState('');
+  const [isLoadingPdfModels, setIsLoadingPdfModels] = useState(false);
+
+  const defaultPdfModel = pdfModels.find((model) => model.is_default) || pdfModels[0];
+  const selectedPdfModel = selectedPdfModelId
+    ? pdfModels.find((model) => model.id === selectedPdfModelId)
+    : defaultPdfModel;
 
   useEffect(() => {
     async function loadProposal() {
@@ -32,14 +43,37 @@ export function ProposalDetails() {
         setIsLoading(true);
         const data = await proposalService.getProposalById(id);
         setProposal(data);
+
+        const eventData = await proposalEventService.getEvents(id);
+        setEvents(eventData);
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar detalhes da proposta');
       } finally {
         setIsLoading(false);
       }
     }
+
     loadProposal();
   }, [id]);
+
+  useEffect(() => {
+    async function loadPdfModels() {
+      if (!proposal?.user_id) return;
+
+      try {
+        setIsLoadingPdfModels(true);
+        const models = await pdfModelService.getUserModels(proposal.user_id);
+        setPdfModels(models);
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao carregar modelos do Design PDF. O PDF ainda poderá usar o padrão.');
+      } finally {
+        setIsLoadingPdfModels(false);
+      }
+    }
+
+    loadPdfModels();
+  }, [proposal?.user_id]);
 
   const handleDuplicate = async () => {
     if (!user || !proposal) return;
@@ -47,14 +81,14 @@ export function ProposalDetails() {
       const { id, created_at, updated_at, code, client, ...rest } = proposal;
       const duplicated = await proposalService.createProposal(
         { ...rest, title: `${proposal.title || 'Proposta'} (Cópia)` },
-        user.id, true
+        user.id,
+        true
       );
       navigate(`/propostas/${duplicated.id}/editar`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao duplicar proposta');
     }
   };
-
 
   const handleSendWhatsApp = async () => {
     if (!proposal) return;
@@ -70,16 +104,15 @@ export function ProposalDetails() {
     }
 
     let publicToken = proposal.public_token;
-    
     const updates: any = {
       sent_whatsapp_at: new Date().toISOString()
     };
-    
+
     if (!publicToken) {
       publicToken = crypto.randomUUID();
       updates.public_token = publicToken;
     }
-    
+
     if (proposal.status === 'draft') {
       updates.status = 'pending';
     }
@@ -89,14 +122,13 @@ export function ProposalDetails() {
         .from('proposals')
         .update(updates)
         .eq('id', proposal.id);
-        
+
       if (updateError) throw updateError;
-      
+
       setProposal({
         ...proposal,
         ...updates
       });
-
     } catch (err: any) {
       console.error(err);
       toast.error('Erro ao atualizar dados da proposta antes do envio.');
@@ -105,16 +137,16 @@ export function ProposalDetails() {
 
     const publicLink = `${window.location.origin}/proposta/${publicToken}`;
     const power = proposal.solar?.installed_power_kwp ? proposal.solar.installed_power_kwp.toFixed(2) : '0';
-    const savings = formatMoney(proposal.solar?.estimated_monthly_savings);
+    const savings = formatMoney(proposal.solar?.monthly_savings);
     const finalPrice = formatMoney(proposal.final_price);
     const payback = proposal.solar?.payback_formatted || '0 anos';
-    
+
     const message = `Olá, ${proposal.client.name}! Tudo bem?\n\nSegue sua proposta personalizada de energia solar fotovoltaica:\n\nPotência do sistema: ${power} kWp\nEconomia mensal estimada: ${savings}\nInvestimento: ${finalPrice}\nPayback estimado: ${payback}\n\nVocê pode visualizar e aprovar sua proposta pelo link abaixo:\n${publicLink}\n\nQualquer dúvida, estou à disposição.`;
-    
+
     setWaMessage(message);
     setShowWaModal(true);
   };
-  
+
   const openWhatsApp = () => {
     if (!proposal?.client?.phone) return;
     const phoneNum = proposal.client.phone.replace(/\D/g, '');
@@ -132,9 +164,10 @@ export function ProposalDetails() {
     if (!proposal) return;
     setGeneratingPdf(true);
     try {
-      const url = await generateAndUploadPdf(proposal);
+      const url = await generateAndUploadPdf(proposal, selectedPdfModelId || undefined);
       if (url) {
         setProposal({ ...proposal, pdf_url: url });
+        toast.success(selectedPdfModel ? `PDF gerado com o modelo ${selectedPdfModel.name}.` : 'PDF gerado com o modelo padrão.');
         window.open(url, '_blank');
       } else {
         toast.error('Erro ao gerar o PDF. Verifique se o bucket de storage está configurado.');
@@ -147,7 +180,6 @@ export function ProposalDetails() {
     }
   };
 
-
   const handleStatusChange = async (newStatus: Proposal['status']) => {
     if (!proposal) return;
     try {
@@ -155,13 +187,12 @@ export function ProposalDetails() {
         .from('proposals')
         .update({ status: newStatus })
         .eq('id', proposal.id);
-        
+
       if (updateError) throw updateError;
-      
+
       setProposal({ ...proposal, status: newStatus });
       await proposalEventService.logEvent(proposal.id, 'status_changed', `Status alterado manualmente para ${newStatus}`);
-      
-      // reload events
+
       const eventData = await proposalEventService.getEvents(proposal.id);
       setEvents(eventData);
     } catch (err: any) {
@@ -181,6 +212,7 @@ export function ProposalDetails() {
       viewed: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
       pending: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
       accepted: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
+      approved: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
       rejected: 'bg-red-50 text-red-600 border-red-100',
       expired: 'bg-slate-700/10 text-slate-700 border-slate-700/20',
     };
@@ -190,6 +222,7 @@ export function ProposalDetails() {
       viewed: 'Visualizada',
       pending: 'Pendente',
       accepted: 'Aprovada',
+      approved: 'Aprovada',
       rejected: 'Recusada',
       expired: 'Expirada',
     };
@@ -218,7 +251,7 @@ export function ProposalDetails() {
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
         <div className="flex items-center gap-4">
           <Link to="/propostas">
             <Button variant="ghost" size="icon">
@@ -230,7 +263,7 @@ export function ProposalDetails() {
               <h1 className="text-2xl font-bold text-brand-dark">{proposal.title || 'Proposta sem título'}</h1>
               <div className="flex items-center gap-2">
                 {getStatusBadge(proposal.status)}
-                <select 
+                <select
                   value={proposal.status}
                   onChange={(e) => handleStatusChange(e.target.value as Proposal['status'])}
                   className="bg-brand-surface text-xs text-slate-500 border border-brand-border rounded px-2 py-1 outline-none"
@@ -248,9 +281,35 @@ export function ProposalDetails() {
             </p>
           </div>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <Button 
+
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-end gap-3 w-full lg:w-auto">
+          <div className="w-full sm:w-72 space-y-1">
+            <label htmlFor="pdf_model_id" className="text-xs font-medium text-slate-500">
+              Modelo PDF desta geração
+            </label>
+            <Select
+              id="pdf_model_id"
+              value={selectedPdfModelId}
+              onChange={(event) => setSelectedPdfModelId(event.target.value)}
+              disabled={isLoadingPdfModels || pdfModels.length === 0}
+            >
+              <option value="">
+                {defaultPdfModel ? `Usar padrão do Design PDF (${defaultPdfModel.name})` : 'Usar padrão do Design PDF'}
+              </option>
+              {pdfModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}{model.is_default ? ' • padrão' : ''}
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-slate-500">
+              {isLoadingPdfModels
+                ? 'Carregando modelos...'
+                : 'A escolha vale apenas para este PDF e não muda o padrão global.'}
+            </p>
+          </div>
+
+          <Button
             onClick={handleSendWhatsApp}
             className="bg-green-500 hover:bg-green-600 text-brand-dark gap-2"
           >
@@ -258,33 +317,34 @@ export function ProposalDetails() {
             Enviar WhatsApp
           </Button>
 
-          {proposal.pdf_url ? (
-            <Button 
-              onClick={() => window.open(proposal.pdf_url || '', '_blank')} 
+          {proposal.pdf_url && (
+            <Button
+              onClick={() => window.open(proposal.pdf_url || '', '_blank')}
               className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
             >
               <Download className="w-4 h-4" />
               Baixar PDF
             </Button>
-          ) : (
-            <Button 
-              onClick={handleGeneratePdf} 
-              className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
-              disabled={generatingPdf}
-            >
-              <FileText className="w-4 h-4" />
-              {generatingPdf ? 'Gerando...' : 'Gerar PDF'}
-            </Button>
           )}
-          <Button 
-            variant="outline" 
+
+          <Button
+            onClick={handleGeneratePdf}
+            className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
+            disabled={generatingPdf}
+          >
+            <FileText className="w-4 h-4" />
+            {generatingPdf ? 'Gerando...' : proposal.pdf_url ? 'Gerar novo PDF' : 'Gerar PDF'}
+          </Button>
+
+          <Button
+            variant="outline"
             onClick={handleDuplicate}
             className="gap-2"
           >
             <Copy className="w-4 h-4" />
             Duplicar
           </Button>
-          <Button 
+          <Button
             onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
             className="gap-2"
           >
@@ -313,9 +373,9 @@ export function ProposalDetails() {
                 <p className="text-sm text-brand-dark">{proposal.client?.phone || '-'}</p>
                 <p className="text-sm text-brand-dark">{proposal.client?.email || '-'}</p>
               </div>
-              <Button 
-                variant="outline" 
-                className="w-full mt-2" 
+              <Button
+                variant="outline"
+                className="w-full mt-2"
                 onClick={() => navigate(`/clientes/${proposal.client_id}`)}
               >
                 Ver Ficha do Cliente
@@ -337,9 +397,9 @@ export function ProposalDetails() {
                     <p className="text-xs text-slate-500 truncate">
                       {window.location.origin}/proposta/{proposal.public_token}
                     </p>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-6 w-6 text-slate-500 hover:text-brand-dark"
                       onClick={() => {
                         navigator.clipboard.writeText(`${window.location.origin}/proposta/${proposal.public_token}`);
@@ -349,7 +409,7 @@ export function ProposalDetails() {
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
-                  <a 
+                  <a
                     href={`/proposta/${proposal.public_token}`}
                     target="_blank"
                     rel="noreferrer"
@@ -368,14 +428,14 @@ export function ProposalDetails() {
                   )}
                   {proposal.accepted_at && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-emerald-400 flex items-center gap-1"><CheckCircle className="w-4 h-4"/> Aceita em:</span>
+                      <span className="text-emerald-400 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Aceita em:</span>
                       <span className="text-emerald-400">{formatDate(proposal.accepted_at)}</span>
                     </div>
                   )}
                   {proposal.rejected_at && (
                     <div className="flex flex-col gap-1 text-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-red-400 flex items-center gap-1"><XCircle className="w-4 h-4"/> Recusada em:</span>
+                        <span className="text-red-400 flex items-center gap-1"><XCircle className="w-4 h-4" /> Recusada em:</span>
                         <span className="text-red-400">{formatDate(proposal.rejected_at)}</span>
                       </div>
                       {proposal.rejection_reason && (
@@ -408,65 +468,64 @@ export function ProposalDetails() {
               {activeTab === 'history' && <span className="absolute bottom-[-9px] left-0 right-0 h-[2px] bg-brand-blue rounded-t-md" />}
             </button>
           </div>
-          
-          {activeTab === 'overview' && (
 
-          <Card className="flex-1 flex flex-col">
-            <CardHeader>
-              <CardTitle className="text-lg">Visão Geral da Proposta</CardTitle>
-              <CardDescription>Resumo dos dados comerciais.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {proposal.solar ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Potência</p>
-                    <p className="text-lg font-bold text-brand-dark">
-                      {proposal.solar.installed_power_kwp?.toFixed(2) || '-'} <span className="text-sm font-normal text-slate-500">kWp</span>
-                    </p>
+          {activeTab === 'overview' && (
+            <Card className="flex-1 flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-lg">Visão Geral da Proposta</CardTitle>
+                <CardDescription>Resumo dos dados comerciais.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {proposal.solar ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-500 mb-1">Potência</p>
+                      <p className="text-lg font-bold text-brand-dark">
+                        {proposal.solar.installed_power_kwp?.toFixed(2) || '-'} <span className="text-sm font-normal text-slate-500">kWp</span>
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-500 mb-1">Consumo Médio</p>
+                      <p className="text-lg font-bold text-brand-dark">
+                        {proposal.monthly_consumption_kwh || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-500 mb-1">Geração</p>
+                      <p className="text-lg font-bold text-blue-400">
+                        {proposal.solar.estimated_monthly_generation_kwh?.toFixed(0) || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-500 mb-1">Investimento</p>
+                      <p className="text-lg font-bold text-brand-dark">
+                        {formatMoney(proposal.final_price)}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-500 mb-1">Payback</p>
+                      <p className="text-lg font-bold text-emerald-500">
+                        {proposal.solar.payback_formatted || '-'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Consumo Médio</p>
-                    <p className="text-lg font-bold text-brand-dark">
-                      {proposal.monthly_consumption_kwh || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
+                ) : (
+                  <div className="bg-gray-50 border border-brand-border rounded-lg p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
+                    <FileText className="w-12 h-12 text-slate-500 mb-4" />
+                    <h3 className="text-lg font-medium text-brand-dark mb-2">Proposta Incompleta</h3>
+                    <p className="text-sm text-slate-500 max-w-sm mb-6">
+                      Esta proposta não possui dados técnicos e financeiros preenchidos.
                     </p>
+                    <Button onClick={() => navigate(`/propostas/${proposal.id}/editar`)} className="gap-2">
+                      <Edit className="w-4 h-4" />
+                      Continuar Editando
+                    </Button>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Geração</p>
-                    <p className="text-lg font-bold text-blue-400">
-                      {proposal.solar.estimated_monthly_generation_kwh?.toFixed(0) || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
-                    </p>
-                  </div>
-                  <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Investimento</p>
-                    <p className="text-lg font-bold text-brand-dark">
-                      {formatMoney(proposal.final_price)}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Payback</p>
-                    <p className="text-lg font-bold text-emerald-500">
-                      {proposal.solar.payback_formatted || '-'}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-gray-50 border border-brand-border rounded-lg p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
-                  <FileText className="w-12 h-12 text-slate-500 mb-4" />
-                  <h3 className="text-lg font-medium text-brand-dark mb-2">Proposta Incompleta</h3>
-                  <p className="text-sm text-slate-500 max-w-sm mb-6">
-                    Esta proposta não possui dados técnicos e financeiros preenchidos.
-                  </p>
-                  <Button onClick={() => navigate(`/propostas/${proposal.id}/editar`)} className="gap-2">
-                    <Edit className="w-4 h-4" />
-                    Continuar Editando
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
           )}
-          
+
           {activeTab === 'history' && (
             <Card className="flex-1">
               <CardHeader>
@@ -478,7 +537,7 @@ export function ProposalDetails() {
                   {events.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-4">Nenhum evento registrado.</p>
                   ) : (
-                    events.map((evt: any, i: number) => (
+                    events.map((evt: any) => (
                       <div key={evt.id} className="relative pl-6 border-l border-brand-border pb-6 last:pb-0">
                         <div className="absolute left-[-5px] top-1 w-2.5 h-2.5 rounded-full bg-brand-blue border-2 border-brand-border" />
                         <div className="flex flex-col gap-1">
