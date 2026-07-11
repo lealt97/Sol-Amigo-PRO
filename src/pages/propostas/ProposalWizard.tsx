@@ -55,6 +55,7 @@ export function ProposalWizard() {
       yield_factor: '0.80',
       generation_target_percent: '100',
       oversizing: '1.20',
+      additional_costs: [],
     }
   });
 
@@ -72,6 +73,8 @@ export function ProposalWizard() {
       try {
         if (id) {
           const proposal = await proposalService.getProposalById(id);
+          const otherCosts = Number(proposal.other_costs) || 0;
+
           methods.reset({
             client_id: proposal.client_id,
             title: proposal.title || '',
@@ -86,7 +89,8 @@ export function ProposalWizard() {
             freight_cost: proposal.freight_cost || '',
             taxes: proposal.taxes || '',
             commission: proposal.commission || '',
-            other_costs: proposal.other_costs || '',
+            other_costs: otherCosts || '',
+            additional_costs: otherCosts > 0 ? [{ description: 'Custos adicionais', amount: otherCosts }] : [],
             margin_percentage: proposal.margin_percentage || '',
             discount_percentage: proposal.discount_percentage || '',
             cep: proposal.solar?.cep || '',
