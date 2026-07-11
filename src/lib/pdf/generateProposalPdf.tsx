@@ -32,19 +32,26 @@ export async function generateAndUploadPdf(
 ): Promise<string | null> {
   try {
     let coverImage: string | null = null;
+    let selectedModel: PdfUserModel | null = null;
     
     // Attempt to load the selected template for this generation, falling back to the user's default template.
     try {
-      const model = await resolvePdfModel(proposal, selectedModelId);
-      if (model) {
-        coverImage = await generateSvgCoverImage(model, proposal);
+      selectedModel = await resolvePdfModel(proposal, selectedModelId);
+      if (selectedModel) {
+        coverImage = await generateSvgCoverImage(selectedModel, proposal);
       }
     } catch (templateError) {
       console.warn('Could not load custom cover template, falling back to default', templateError);
     }
 
-    // Generate PDF blob
-    const asPdf = pdf(<ProposalDocument proposal={proposal} coverImage={coverImage} />);
+    // Generate PDF blob. The internal pages inherit the same theme used by the selected/default cover model.
+    const asPdf = pdf(
+      <ProposalDocument
+        proposal={proposal}
+        coverImage={coverImage}
+        pdfTheme={selectedModel?.theme}
+      />
+    );
     const blob = await asPdf.toBlob();
     
     // Create unique filename
