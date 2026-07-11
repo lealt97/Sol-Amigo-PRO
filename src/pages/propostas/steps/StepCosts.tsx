@@ -200,7 +200,7 @@ export function StepCosts() {
                   variant="ghost"
                   size="icon"
                   onClick={() => remove(index)}
-                  className="text-red-600 hover:text-red-400 hover:bg-red-50"
+                  className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
                   aria-label="Remover custo adicional"
                 >
                   <Trash2 className="w-4 h-4" />

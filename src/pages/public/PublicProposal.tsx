@@ -229,7 +229,7 @@ export function PublicProposal() {
                     <Button 
                       variant="outline" 
                       onClick={() => setShowRejectReason(true)}
-                      className="flex-1 sm:flex-none border-red-500/30 text-red-600 hover:bg-red-50 hover:border-red-500/50"
+                      className="flex-1 sm:flex-none border-red-500/30 text-red-500 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
                       disabled={processing}
                     >
                       <XCircle className="w-4 h-4 mr-2" />

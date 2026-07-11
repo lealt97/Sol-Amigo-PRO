@@ -172,14 +172,14 @@ export function Dashboard() {
                     <div className="flex items-center justify-end gap-1">
                       <Link 
                         to={`/propostas/${prop.id}`} 
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-dark hover:bg-slate-100 transition-colors"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-white hover:bg-gray-100 transition-colors"
                         title="Visualizar Proposta"
                       >
                         <Eye className="w-4 h-4" />
                       </Link>
                       <Link 
                         to={`/propostas/${prop.id}/editar`} 
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-blue hover:bg-slate-100 transition-colors"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-light hover:bg-brand-blue/10 transition-colors"
                         title="Editar Proposta"
                       >
                         <Edit className="w-4 h-4" />

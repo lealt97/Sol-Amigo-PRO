@@ -153,7 +153,7 @@ export function ClientList() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-brand-dark"
+                          className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
                           title="Visualizar"
                           onClick={() => navigate(`/clientes/${client.id}`)}
                         >
@@ -162,7 +162,7 @@ export function ClientList() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-brand-blue"
+                          className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
                           title="Editar"
                           onClick={() => navigate(`/clientes/${client.id}/editar`)}
                         >
@@ -171,7 +171,7 @@ export function ClientList() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-brand-blue"
+                          className="h-8 w-8 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                           title="Nova Proposta"
                           onClick={() => navigate(`/propostas/nova?clienteId=${client.id}`)}
                         >
@@ -180,7 +180,7 @@ export function ClientList() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-8 w-8 text-slate-500 hover:text-red-600"
+                          className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
                           title="Excluir"
                           onClick={() => triggerDelete(client.id, client.name)}
                         >

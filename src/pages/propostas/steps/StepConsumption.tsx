@@ -242,7 +242,7 @@ export function StepConsumption() {
                         variant="ghost"
                         size="icon"
                         onClick={() => remove(index)}
-                        className="h-8 w-8 text-red-600 hover:text-red-400 hover:bg-red-50"
+                        className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

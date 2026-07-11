@@ -279,7 +279,7 @@ export function ClientDetails() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-brand-dark"
+                                className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
                                 title="Visualizar Proposta"
                                 onClick={() => navigate(`/propostas/${prop.id}`)}
                               >
@@ -288,7 +288,7 @@ export function ClientDetails() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-brand-blue"
+                                className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
                                 title="Editar Proposta"
                                 onClick={() => navigate(`/propostas/${prop.id}/editar`)}
                               >
@@ -297,7 +297,7 @@ export function ClientDetails() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-red-600"
+                                className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
                                 title="Excluir Proposta"
                                 onClick={() => triggerDeleteProposal(prop.id, prop.title)}
                               >

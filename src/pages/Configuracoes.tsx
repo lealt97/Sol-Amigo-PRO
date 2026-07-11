@@ -514,7 +514,7 @@ export function Configuracoes() {
                           )}
                           <button
                             onClick={() => handleDeleteLogo(logoUrl)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors cursor-pointer"
+                            className="text-red-500 hover:text-red-400 hover:bg-red-500/10 p-1.5 rounded transition-colors cursor-pointer"
                             title="Excluir logo"
                           >
                             <Trash2 className="w-4 h-4" />
