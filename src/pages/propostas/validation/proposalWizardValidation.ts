@@ -149,6 +149,10 @@ function validateConsumptionStep(values: ProposalFormValues): StepValidationResu
 }
 
 function validateProjectStep(values: ProposalFormValues): StepValidationResult {
+  if (isNegativeWhenFilled(values.roof_area_m2)) {
+    return { isValid: false, stepIndex: 2, message: 'A área útil do telhado não pode ser negativa.' };
+  }
+
   if (!hasPositive(values.hsp)) {
     return { isValid: false, stepIndex: 2, message: 'Informe a irradiação solar HSP.' };
   }
