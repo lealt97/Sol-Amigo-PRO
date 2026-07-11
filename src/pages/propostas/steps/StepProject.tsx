@@ -1,7 +1,6 @@
 import { useFormContext } from 'react-hook-form';
 import { Input } from '../../../components/ui/Input';
 import { Label } from '../../../components/ui/Label';
-import { Select } from '../../../components/ui/Select';
 import { ProposalFormValues } from '../../../lib/validations/proposal.schema';
 
 export function StepProject() {
@@ -12,7 +11,7 @@ export function StepProject() {
       <div>
         <h2 className="text-xl font-semibold text-brand-dark mb-2">Dimensionamento Solar</h2>
         <p className="text-sm text-slate-500">
-          Informe os dados técnicos do sistema e as características principais do local de instalação.
+          Informe os parâmetros técnicos usados para calcular a potência, quantidade de módulos e geração estimada.
         </p>
       </div>
       
@@ -24,34 +23,6 @@ export function StepProject() {
             placeholder="00000-000" 
             error={errors.cep?.message}
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Tipo de Telhado</Label>
-          <Select {...register('roof_type')}>
-            <option value="">Selecione o tipo de telhado</option>
-            <option value="Telhado cerâmico">Telhado cerâmico</option>
-            <option value="Telhado metálico">Telhado metálico</option>
-            <option value="Telhado de fibrocimento">Telhado de fibrocimento</option>
-            <option value="Laje">Laje</option>
-            <option value="Solo / estrutura própria">Solo / estrutura própria</option>
-            <option value="Outro">Outro</option>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Área útil do telhado m²</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min="0"
-            {...register('roof_area_m2')}
-            placeholder="Ex: 48"
-            error={errors.roof_area_m2?.message}
-          />
-          <p className="text-xs text-slate-500">
-            Use a área aproximada disponível para posicionamento dos módulos.
-          </p>
         </div>
         
         <div className="space-y-2">

@@ -80,6 +80,10 @@ export const proposalService = {
       bill_amount: formatNumber(proposal.bill_amount),
       roof_type: proposal.roof_type || null,
       roof_area_m2: formatNumber(proposal.roof_area_m2),
+      roof_image_url: proposal.roof_image_url || null,
+      module_width_m: formatNumber(proposal.module_width_m),
+      module_height_m: formatNumber(proposal.module_height_m),
+      roof_layout_json: proposal.roof_layout_json || null,
       kit_cost: formatNumber(proposal.kit_cost),
       labor_cost: formatNumber(proposal.labor_cost),
       fixed_costs: formatNumber(proposal.fixed_costs),
@@ -151,6 +155,10 @@ export const proposalService = {
     if (proposal.bill_amount !== undefined) formattedData.bill_amount = formatNumber(proposal.bill_amount);
     if (proposal.roof_type !== undefined) formattedData.roof_type = proposal.roof_type || null;
     if (proposal.roof_area_m2 !== undefined) formattedData.roof_area_m2 = formatNumber(proposal.roof_area_m2);
+    if (proposal.roof_image_url !== undefined) formattedData.roof_image_url = proposal.roof_image_url || null;
+    if (proposal.module_width_m !== undefined) formattedData.module_width_m = formatNumber(proposal.module_width_m);
+    if (proposal.module_height_m !== undefined) formattedData.module_height_m = formatNumber(proposal.module_height_m);
+    if (proposal.roof_layout_json !== undefined) formattedData.roof_layout_json = proposal.roof_layout_json || null;
     if (proposal.kit_cost !== undefined) formattedData.kit_cost = formatNumber(proposal.kit_cost);
     if (proposal.labor_cost !== undefined) formattedData.labor_cost = formatNumber(proposal.labor_cost);
     if (proposal.fixed_costs !== undefined) formattedData.fixed_costs = formatNumber(proposal.fixed_costs);

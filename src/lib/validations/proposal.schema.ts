@@ -21,14 +21,20 @@ export const proposalSchema = z.object({
   
   // Projeto Solar
   cep: z.string().optional().or(z.literal('')),
-  roof_type: z.string().optional().or(z.literal('')),
-  roof_area_m2: z.union([z.string(), z.number()]).optional(),
   hsp: z.union([z.string(), z.number()]).optional(),
   panel_power_w: z.union([z.string(), z.number()]).optional(),
   yield_factor: z.union([z.string(), z.number()]).optional(),
   generation_target_percent: z.union([z.string(), z.number()]).optional(),
   oversizing: z.union([z.string(), z.number()]).optional(),
   energy_tariff: z.union([z.string(), z.number()]).optional(),
+
+  // Local de instalação
+  roof_type: z.string().optional().or(z.literal('')),
+  roof_area_m2: z.union([z.string(), z.number()]).optional(),
+  roof_image_url: z.string().optional().or(z.literal('')),
+  module_width_m: z.union([z.string(), z.number()]).optional(),
+  module_height_m: z.union([z.string(), z.number()]).optional(),
+  roof_layout_json: z.any().optional(),
   
   // Custos
   kit_cost: z.union([z.string(), z.number()]).optional(),

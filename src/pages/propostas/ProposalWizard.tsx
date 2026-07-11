@@ -17,16 +17,19 @@ import { ArrowLeft, ArrowRight, Save, CheckCircle2 } from 'lucide-react';
 import { StepClient } from './steps/StepClient';
 import { StepConsumption } from './steps/StepConsumption';
 import { StepProject } from './steps/StepProject';
+import { StepInstallation } from './steps/StepInstallation';
 import { StepCosts } from './steps/StepCosts';
 import { StepFinancial } from './steps/StepFinancial';
 import { StepPreview } from './steps/StepPreview';
 import { SolarCalculationPreview } from './SolarCalculationPreview';
 import { validateFullProposal, validateProposalStep } from './validation/proposalWizardValidation';
+import { EMPTY_ROOF_LAYOUT } from '../../types/roofLayout';
 
 const STEPS = [
   { id: 'client', title: 'Cliente' },
   { id: 'consumption', title: 'Consumo' },
   { id: 'project', title: 'Projeto Solar' },
+  { id: 'installation', title: 'Local de Instalação' },
   { id: 'costs', title: 'Custos' },
   { id: 'financial', title: 'Financeiro' },
   { id: 'preview', title: 'Preview' },
@@ -54,6 +57,10 @@ export function ProposalWizard() {
       consumption_source: 'average',
       roof_type: '',
       roof_area_m2: '',
+      roof_image_url: '',
+      module_width_m: '1.13',
+      module_height_m: '2.28',
+      roof_layout_json: EMPTY_ROOF_LAYOUT,
       yield_factor: '0.80',
       generation_target_percent: '100',
       oversizing: '1.20',
@@ -98,6 +105,10 @@ export function ProposalWizard() {
             cep: proposal.solar?.cep || '',
             roof_type: proposal.roof_type || '',
             roof_area_m2: proposal.roof_area_m2 || '',
+            roof_image_url: proposal.roof_image_url || '',
+            module_width_m: proposal.module_width_m || '1.13',
+            module_height_m: proposal.module_height_m || '2.28',
+            roof_layout_json: proposal.roof_layout_json || EMPTY_ROOF_LAYOUT,
             hsp: proposal.solar?.hsp || '',
             panel_power_w: proposal.solar?.panel_power_w || '',
             yield_factor: proposal.solar?.yield_factor || '0.80',
@@ -246,9 +257,10 @@ export function ProposalWizard() {
                 {currentStep === 0 && <StepClient />}
                 {currentStep === 1 && <StepConsumption />}
                 {currentStep === 2 && <StepProject />}
-                {currentStep === 3 && <StepCosts />}
-                {currentStep === 4 && <StepFinancial />}
-                {currentStep === 5 && <StepPreview />}
+                {currentStep === 3 && <StepInstallation />}
+                {currentStep === 4 && <StepCosts />}
+                {currentStep === 5 && <StepFinancial />}
+                {currentStep === 6 && <StepPreview />}
               </form>
 
               <div className="flex justify-between mt-8 pt-6 border-t border-brand-border">
