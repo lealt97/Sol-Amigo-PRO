@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
+import { getSectionTitleStyle, usePdfTheme } from '../pdfTheme';
 
 const styles = StyleSheet.create({
   sectionTitle: {
@@ -8,7 +9,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 18,
     color: '#18181b',
-    borderBottom: '2px solid #3b82f6',
+    borderBottomWidth: 2,
+    borderBottomStyle: 'solid',
+    borderBottomColor: '#3b82f6',
     paddingBottom: 5,
   },
   eyebrow: {
@@ -35,7 +38,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     padding: 18,
     backgroundColor: '#eff6ff',
-    borderLeft: '4px solid #3b82f6',
+    borderLeftWidth: 4,
+    borderLeftStyle: 'solid',
+    borderLeftColor: '#3b82f6',
     borderRadius: 8,
   },
   highlightText: {
@@ -60,16 +65,17 @@ const styles = StyleSheet.create({
 });
 
 export const IntroLetterSection = ({ proposal }: { proposal: Proposal }) => {
+  const theme = usePdfTheme();
   const clientName = proposal.client?.name || 'cliente';
   const companyName = proposal.profile?.company_name || 'nossa equipe';
   const sellerName = proposal.profile?.seller_name || proposal.profile?.company_name || 'Equipe comercial';
 
   return (
     <View>
-      <Text style={styles.eyebrow}>Proposta comercial fotovoltaica</Text>
-      <Text style={styles.sectionTitle}>Carta de Apresentação</Text>
+      <Text style={[styles.eyebrow, { color: theme.secondary }]}>Proposta comercial fotovoltaica</Text>
+      <Text style={[styles.sectionTitle, getSectionTitleStyle(theme)]}>Carta de Apresentação</Text>
 
-      <Text style={styles.greeting}>Olá, {clientName}.</Text>
+      <Text style={[styles.greeting, { color: theme.neutral }]}>Olá, {clientName}.</Text>
 
       <Text style={styles.paragraph}>
         Preparamos esta proposta para apresentar uma solução de energia solar fotovoltaica personalizada para o seu perfil de consumo.
@@ -82,8 +88,8 @@ export const IntroLetterSection = ({ proposal }: { proposal: Proposal }) => {
         técnicos necessários para dimensionar um sistema compatível com a sua necessidade.
       </Text>
 
-      <View style={styles.highlightBox}>
-        <Text style={styles.highlightText}>
+      <View style={[styles.highlightBox, { backgroundColor: theme.primarySoft, borderLeftColor: theme.primary }]}> 
+        <Text style={[styles.highlightText, { color: theme.primary }]}> 
           A proposta foi estruturada para facilitar a decisão: primeiro mostramos o resumo do investimento, depois o diagnóstico,
           a solução técnica, a geração estimada, o retorno financeiro e os próximos passos para execução do projeto.
         </Text>
@@ -95,7 +101,7 @@ export const IntroLetterSection = ({ proposal }: { proposal: Proposal }) => {
       </Text>
 
       <View style={styles.signatureBlock}>
-        <Text style={styles.signatureName}>{sellerName}</Text>
+        <Text style={[styles.signatureName, { color: theme.neutral }]}>{sellerName}</Text>
         <Text style={styles.signatureRole}>{companyName}</Text>
       </View>
     </View>
