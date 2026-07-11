@@ -27,6 +27,7 @@ const styles = StyleSheet.create({
   modulePlanBox: { width: '38%', height: 174, backgroundColor: '#f8fafc', borderWidth: 1, borderStyle: 'solid', borderColor: '#e4e4e7', borderRadius: 8, padding: 10 },
   planTitle: { fontSize: 10, fontWeight: 'bold', color: '#18181b', marginBottom: 6 },
   planSvg: { width: '100%', height: 92, borderRadius: 4 },
+  overlayPlanSvg: { width: '100%', height: '100%' },
   legend: { marginTop: 7 },
   legendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   legendDot: { width: 7, height: 7, borderRadius: 4, marginRight: 5 },
@@ -79,12 +80,12 @@ function getStringColor(layout: RoofLayoutData, stringId: string, fallback: stri
   return layout.strings.find((string) => string.id === stringId)?.color || fallback;
 }
 
-function RoofPlanSvg({ layout, showLabels = false }: { layout: RoofLayoutData; showLabels?: boolean }) {
+function RoofPlanSvg({ layout, showLabels = false, overlay = false }: { layout: RoofLayoutData; showLabels?: boolean; overlay?: boolean }) {
   const modules = layout.modules || [];
   const strings = layout.strings?.length ? layout.strings : DEFAULT_ROOF_LAYOUT_STRINGS;
 
   return (
-    <Svg style={styles.planSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
+    <Svg style={overlay ? styles.overlayPlanSvg : styles.planSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
       {strings.map((string) => {
         const stringModules = modules.filter((module) => module.stringId === string.id);
         return stringModules.slice(1).map((module, index) => {
@@ -186,7 +187,7 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
           {roofImageUrl ? (
             <View style={styles.roofImageLayer}>
               <Image src={roofImageUrl} style={styles.roofImage} />
-              {hasSavedLayout && <View style={styles.roofOverlay}><RoofPlanSvg layout={layout} showLabels /></View>}
+              {hasSavedLayout && <View style={styles.roofOverlay}><RoofPlanSvg layout={layout} showLabels overlay /></View>}
             </View>
           ) : (
             <View style={styles.placeholder}>
