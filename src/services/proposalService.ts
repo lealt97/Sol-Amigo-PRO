@@ -8,7 +8,21 @@ import { calcularPrecoProposta } from '../lib/calculations/pricing';
 
 const formatNumber = (val: any) => {
   if (val === '' || val === null || val === undefined) return null;
-  return Number(val);
+  const parsed = Number(val);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getAdditionalCostsTotal = (proposal: Partial<ProposalFormValues>) => {
+  return (proposal.additional_costs || []).reduce((sum, cost) => {
+    const amount = formatNumber(cost.amount) || 0;
+    return sum + Math.max(0, amount);
+  }, 0);
+};
+
+const resolveOtherCosts = (proposal: Partial<ProposalFormValues>) => {
+  const additionalCostsTotal = getAdditionalCostsTotal(proposal);
+  if (additionalCostsTotal > 0) return Number(additionalCostsTotal.toFixed(2));
+  return formatNumber(proposal.other_costs) || 0;
 };
 
 export const proposalService = {
@@ -43,6 +57,7 @@ export const proposalService = {
   },
 
   async createProposal(proposal: ProposalFormValues, userId: string, isDuplicate = false) {
+    const otherCosts = resolveOtherCosts(proposal);
     const pricing = calcularPrecoProposta({
       kit_cost: formatNumber(proposal.kit_cost) || 0,
       labor_cost: formatNumber(proposal.labor_cost) || 0,
@@ -50,7 +65,7 @@ export const proposalService = {
       freight_cost: formatNumber(proposal.freight_cost) || 0,
       taxes: formatNumber(proposal.taxes) || 0,
       commission: formatNumber(proposal.commission) || 0,
-      other_costs: formatNumber(proposal.other_costs) || 0,
+      other_costs: otherCosts,
       margin_percentage: formatNumber(proposal.margin_percentage) || 0,
       discount_percentage: formatNumber(proposal.discount_percentage) || 0,
     });
@@ -71,7 +86,7 @@ export const proposalService = {
       freight_cost: formatNumber(proposal.freight_cost),
       taxes: formatNumber(proposal.taxes),
       commission: formatNumber(proposal.commission),
-      other_costs: formatNumber(proposal.other_costs),
+      other_costs: otherCosts || null,
       margin_percentage: formatNumber(proposal.margin_percentage),
       discount_percentage: formatNumber(proposal.discount_percentage),
       energy_tariff: formatNumber(proposal.energy_tariff),
@@ -109,6 +124,7 @@ export const proposalService = {
   },
 
   async updateProposal(id: string, proposal: Partial<ProposalFormValues>) {
+    const otherCosts = resolveOtherCosts(proposal);
     const pricing = calcularPrecoProposta({
       kit_cost: proposal.kit_cost !== undefined ? formatNumber(proposal.kit_cost) || 0 : 0,
       labor_cost: proposal.labor_cost !== undefined ? formatNumber(proposal.labor_cost) || 0 : 0,
@@ -116,7 +132,7 @@ export const proposalService = {
       freight_cost: proposal.freight_cost !== undefined ? formatNumber(proposal.freight_cost) || 0 : 0,
       taxes: proposal.taxes !== undefined ? formatNumber(proposal.taxes) || 0 : 0,
       commission: proposal.commission !== undefined ? formatNumber(proposal.commission) || 0 : 0,
-      other_costs: proposal.other_costs !== undefined ? formatNumber(proposal.other_costs) || 0 : 0,
+      other_costs: otherCosts,
       margin_percentage: proposal.margin_percentage !== undefined ? formatNumber(proposal.margin_percentage) || 0 : 0,
       discount_percentage: proposal.discount_percentage !== undefined ? formatNumber(proposal.discount_percentage) || 0 : 0,
     });
@@ -139,7 +155,7 @@ export const proposalService = {
     if (proposal.freight_cost !== undefined) formattedData.freight_cost = formatNumber(proposal.freight_cost);
     if (proposal.taxes !== undefined) formattedData.taxes = formatNumber(proposal.taxes);
     if (proposal.commission !== undefined) formattedData.commission = formatNumber(proposal.commission);
-    if (proposal.other_costs !== undefined) formattedData.other_costs = formatNumber(proposal.other_costs);
+    if (proposal.other_costs !== undefined || proposal.additional_costs !== undefined) formattedData.other_costs = otherCosts || null;
     if (proposal.margin_percentage !== undefined) formattedData.margin_percentage = formatNumber(proposal.margin_percentage);
     if (proposal.discount_percentage !== undefined) formattedData.discount_percentage = formatNumber(proposal.discount_percentage);
     if (proposal.energy_tariff !== undefined) formattedData.energy_tariff = formatNumber(proposal.energy_tariff);
@@ -149,7 +165,8 @@ export const proposalService = {
       proposal.kit_cost !== undefined || proposal.labor_cost !== undefined || 
       proposal.fixed_costs !== undefined || proposal.freight_cost !== undefined || 
       proposal.taxes !== undefined || proposal.commission !== undefined || 
-      proposal.other_costs !== undefined || proposal.margin_percentage !== undefined || 
+      proposal.other_costs !== undefined || proposal.additional_costs !== undefined ||
+      proposal.margin_percentage !== undefined || 
       proposal.discount_percentage !== undefined
     ) {
       formattedData.total_cost = pricing.total_cost;

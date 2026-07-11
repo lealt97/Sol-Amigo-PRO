@@ -1,16 +1,27 @@
-import { useFormContext, useWatch } from 'react-hook-form';
+import { useEffect, useMemo } from 'react';
+import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 import { Label } from '../../../components/ui/Label';
 import { Input } from '../../../components/ui/Input';
+import { Button } from '../../../components/ui/Button';
 import { calcularPrecoProposta } from '../../../lib/calculations/pricing';
-import { AlertCircle } from 'lucide-react';
+import { ProposalFormValues } from '../../../lib/validations/proposal.schema';
+import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 
 const formatNumber = (val: any) => {
   if (val === '' || val === null || val === undefined) return 0;
-  return Number(val);
+  const parsed = Number(val);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const roundMoney = (value: number) => Number(value.toFixed(2));
+
 export function StepCosts() {
-  const { register, control } = useFormContext();
+  const { register, control, setValue } = useFormContext<ProposalFormValues>();
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'additional_costs',
+  });
 
   const watchedValues = useWatch({
     control,
@@ -21,16 +32,30 @@ export function StepCosts() {
       'freight_cost',
       'taxes',
       'commission',
-      'other_costs',
       'margin_percentage',
       'discount_percentage'
     ]
   });
 
+  const additionalCosts = useWatch({ control, name: 'additional_costs' }) || [];
+
   const [
-    kit_cost, labor_cost, fixed_costs, freight_cost, 
-    taxes, commission, other_costs, margin_percentage, discount_percentage
+    kit_cost, labor_cost, fixed_costs, freight_cost,
+    taxes, commission, margin_percentage, discount_percentage
   ] = watchedValues;
+
+  const additionalCostsTotal = useMemo(() => {
+    return roundMoney(
+      additionalCosts.reduce((sum, item) => sum + Math.max(0, formatNumber(item?.amount)), 0)
+    );
+  }, [additionalCosts]);
+
+  useEffect(() => {
+    setValue('other_costs', additionalCostsTotal > 0 ? additionalCostsTotal : '', {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  }, [additionalCostsTotal, setValue]);
 
   const result = calcularPrecoProposta({
     kit_cost: formatNumber(kit_cost),
@@ -39,7 +64,7 @@ export function StepCosts() {
     freight_cost: formatNumber(freight_cost),
     taxes: formatNumber(taxes),
     commission: formatNumber(commission),
-    other_costs: formatNumber(other_costs),
+    other_costs: additionalCostsTotal,
     margin_percentage: formatNumber(margin_percentage),
     discount_percentage: formatNumber(discount_percentage),
   });
@@ -49,76 +74,145 @@ export function StepCosts() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="kit_cost">Custo do Kit (R$)</Label>
-          <Input 
-            id="kit_cost" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('kit_cost')} 
-          />
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-brand-dark">Custos principais</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Informe os custos fixos da proposta. Custos extras podem ser adicionados abaixo.
+          </p>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="labor_cost">Mão de Obra (R$)</Label>
-          <Input 
-            id="labor_cost" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('labor_cost')} 
-          />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="kit_cost">Custo do Kit (R$)</Label>
+            <Input
+              id="kit_cost"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('kit_cost')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="labor_cost">Mão de Obra (R$)</Label>
+            <Input
+              id="labor_cost"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('labor_cost')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fixed_costs">Custos Fixos (R$)</Label>
+            <Input
+              id="fixed_costs"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('fixed_costs')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="freight_cost">Frete (R$)</Label>
+            <Input
+              id="freight_cost"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('freight_cost')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="taxes">Impostos (R$)</Label>
+            <Input
+              id="taxes"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('taxes')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="commission">Comissão (R$)</Label>
+            <Input
+              id="commission"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('commission')}
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="fixed_costs">Custos Fixos / Adicionais (R$)</Label>
-          <Input 
-            id="fixed_costs" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('fixed_costs')} 
-          />
+      </div>
+
+      <div className="border-t border-brand-border pt-6 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-brand-dark">Custos adicionais</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Adicione linhas como deslocamento, ART, projeto, homologação, içamento ou materiais extras.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => append({ description: '', amount: '' })}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Adicionar Custo
+          </Button>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="freight_cost">Frete (R$)</Label>
-          <Input 
-            id="freight_cost" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('freight_cost')} 
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="taxes">Impostos (R$)</Label>
-          <Input 
-            id="taxes" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('taxes')} 
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="commission">Comissão (R$)</Label>
-          <Input 
-            id="commission" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('commission')} 
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="other_costs">Outros Custos (R$)</Label>
-          <Input 
-            id="other_costs" 
-            type="number" 
-            step="0.01" 
-            placeholder="0.00" 
-            {...register('other_costs')} 
-          />
+
+        <input type="hidden" {...register('other_costs')} />
+
+        {fields.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-brand-border bg-brand-surface p-4 text-sm text-slate-500">
+            Nenhum custo adicional informado. Clique em <strong>+ Adicionar Custo</strong> para incluir custos extras.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {fields.map((field, index) => (
+              <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_180px_44px] gap-3 items-end rounded-lg border border-brand-border bg-gray-50 p-3">
+                <div className="space-y-2">
+                  <Label htmlFor={`additional_costs.${index}.description`}>Descrição do custo</Label>
+                  <Input
+                    id={`additional_costs.${index}.description`}
+                    placeholder="Ex: ART, homologação, deslocamento"
+                    {...register(`additional_costs.${index}.description` as const)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`additional_costs.${index}.amount`}>Valor (R$)</Label>
+                  <Input
+                    id={`additional_costs.${index}.amount`}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...register(`additional_costs.${index}.amount` as const)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => remove(index)}
+                  className="text-red-600 hover:text-red-400 hover:bg-red-50"
+                  aria-label="Remover custo adicional"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-between items-center rounded-lg bg-brand-surface border border-brand-border p-4">
+          <span className="text-slate-500">Total dos custos adicionais</span>
+          <span className="font-bold text-brand-dark">{formatMoney(additionalCostsTotal)}</span>
         </div>
       </div>
 
@@ -127,22 +221,22 @@ export function StepCosts() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="margin_percentage">Margem Desejada (%)</Label>
-            <Input 
-              id="margin_percentage" 
-              type="number" 
-              step="0.01" 
-              placeholder="0.00" 
-              {...register('margin_percentage')} 
+            <Input
+              id="margin_percentage"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('margin_percentage')}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="discount_percentage">Desconto (%)</Label>
-            <Input 
-              id="discount_percentage" 
-              type="number" 
-              step="0.01" 
-              placeholder="0.00" 
-              {...register('discount_percentage')} 
+            <Input
+              id="discount_percentage"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              {...register('discount_percentage')}
             />
           </div>
         </div>
@@ -158,6 +252,13 @@ export function StepCosts() {
             <span className="text-slate-500">Custo Total</span>
             <span className="text-brand-dark font-medium">{formatMoney(result.total_cost)}</span>
           </div>
+
+          {additionalCostsTotal > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Custos adicionais</span>
+              <span className="text-brand-dark font-medium">{formatMoney(additionalCostsTotal)}</span>
+            </div>
+          )}
           
           <div className="flex justify-between items-center">
             <span className="text-slate-500">Preço de Venda Bruto</span>

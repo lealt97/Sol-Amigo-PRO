@@ -26,6 +26,18 @@ const isNegativeWhenFilled = (value: unknown) => {
   return toNumber(value) < 0;
 };
 
+const hasFilledValue = (value: unknown) => value !== '' && value !== null && value !== undefined;
+
+function getAdditionalCostsTotal(values: Partial<ProposalFormValues>): number {
+  const additionalCosts = values.additional_costs || [];
+  return additionalCosts.reduce((sum, cost) => sum + Math.max(0, toNumber(cost.amount)), 0);
+}
+
+function getOtherCostsForPricing(values: Partial<ProposalFormValues>): number {
+  const additionalCostsTotal = getAdditionalCostsTotal(values);
+  return additionalCostsTotal > 0 ? additionalCostsTotal : toNumber(values.other_costs);
+}
+
 function resolveConsumptionAndEnergy(values: ProposalFormValues): StepValidationResult {
   const source = values.consumption_source || 'average';
   const updates: Partial<ProposalFormValues> = {};
@@ -179,6 +191,29 @@ function validateCostsStep(values: ProposalFormValues): StepValidationResult {
     return { isValid: false, stepIndex: 3, message: 'Os custos da proposta não podem ser negativos.' };
   }
 
+  const additionalCosts = values.additional_costs || [];
+  const hasNegativeAdditionalCost = additionalCosts.some((cost) => isNegativeWhenFilled(cost.amount));
+  if (hasNegativeAdditionalCost) {
+    return { isValid: false, stepIndex: 3, message: 'Os custos adicionais não podem ter valor negativo.' };
+  }
+
+  const invalidAdditionalCost = additionalCosts.find((cost) => {
+    const description = String(cost.description || '').trim();
+    const hasDescription = description.length > 0;
+    const hasAmount = hasFilledValue(cost.amount);
+
+    if (!hasDescription && !hasAmount) return false;
+    return !hasDescription || !hasPositive(cost.amount);
+  });
+
+  if (invalidAdditionalCost) {
+    return {
+      isValid: false,
+      stepIndex: 3,
+      message: 'Preencha descrição e valor maior que zero para cada custo adicional, ou remova a linha vazia.',
+    };
+  }
+
   if (!hasPositive(values.kit_cost)) {
     return { isValid: false, stepIndex: 3, message: 'Informe o custo do kit para calcular o investimento.' };
   }
@@ -193,7 +228,12 @@ function validateCostsStep(values: ProposalFormValues): StepValidationResult {
     return { isValid: false, stepIndex: 3, message: 'Informe um desconto entre 0% e 100%.' };
   }
 
-  return { isValid: true };
+  const additionalCostsTotal = getAdditionalCostsTotal(values);
+  const updates: Partial<ProposalFormValues> = {
+    other_costs: additionalCostsTotal > 0 ? round(additionalCostsTotal, 2) : values.other_costs || '',
+  };
+
+  return { isValid: true, updates };
 }
 
 function validateFinancialStep(values: ProposalFormValues): StepValidationResult {
@@ -222,7 +262,7 @@ function validateFinancialStep(values: ProposalFormValues): StepValidationResult
     freight_cost: toNumber(values.freight_cost),
     taxes: toNumber(values.taxes),
     commission: toNumber(values.commission),
-    other_costs: toNumber(values.other_costs),
+    other_costs: getOtherCostsForPricing(values),
     margin_percentage: toNumber(values.margin_percentage),
     discount_percentage: toNumber(values.discount_percentage),
   });
@@ -241,7 +281,13 @@ function validateFinancialStep(values: ProposalFormValues): StepValidationResult
     return { isValid: false, stepIndex: 4, message: 'Não foi possível calcular o payback. Revise tarifa, consumo, geração e investimento.' };
   }
 
-  return { isValid: true, updates: energyValidation.updates };
+  return {
+    isValid: true,
+    updates: {
+      ...energyValidation.updates,
+      other_costs: round(getOtherCostsForPricing(values), 2),
+    },
+  };
 }
 
 export function validateProposalStep(stepIndex: number, values: ProposalFormValues): StepValidationResult {

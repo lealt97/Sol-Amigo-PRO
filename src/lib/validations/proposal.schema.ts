@@ -36,6 +36,11 @@ export const proposalSchema = z.object({
   taxes: z.union([z.string(), z.number()]).optional(),
   commission: z.union([z.string(), z.number()]).optional(),
   other_costs: z.union([z.string(), z.number()]).optional(),
+  additional_costs: z.array(z.object({
+    id: z.string().optional(),
+    description: z.string().optional().or(z.literal('')),
+    amount: z.union([z.string(), z.number()]).optional(),
+  })).optional(),
   margin_percentage: z.union([z.string(), z.number()]).optional(),
   discount_percentage: z.union([z.string(), z.number()]).optional(),
 });
