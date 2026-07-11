@@ -191,6 +191,8 @@ export function ProposalWizard() {
     return <div className="text-brand-blue animate-pulse">Carregando proposta...</div>;
   }
 
+  const isInstallationStep = STEPS[currentStep]?.id === 'installation';
+
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full">
       <div className="flex items-center justify-between">
@@ -244,8 +246,8 @@ export function ProposalWizard() {
       </div>
 
       <FormProvider {...methods}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <Card className="lg:col-span-2">
+        <div className={`grid grid-cols-1 gap-6 items-start ${isInstallationStep ? '' : 'lg:grid-cols-3'}`}>
+          <Card className={isInstallationStep ? 'w-full' : 'lg:col-span-2'}>
             <CardContent className="p-6">
               {error && (
                 <div className="mb-6 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-md">
@@ -290,9 +292,11 @@ export function ProposalWizard() {
             </CardContent>
           </Card>
           
-          <div className="lg:col-span-1 lg:sticky lg:top-6">
-            <SolarCalculationPreview />
-          </div>
+          {!isInstallationStep && (
+            <div className="lg:col-span-1 lg:sticky lg:top-6">
+              <SolarCalculationPreview />
+            </div>
+          )}
         </div>
       </FormProvider>
     </div>
