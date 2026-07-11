@@ -7,8 +7,9 @@ import { Client } from '../../types/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
-import { Search, Plus, MoreHorizontal, FileText, PenTool, Trash2 } from 'lucide-react';
+import { Search, Plus, FileText, Edit, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 
 export function ClientList() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -17,6 +18,12 @@ export function ClientList() {
   const [error, setError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Custom Delete Modal State for Clients
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const navigate = useNavigate();
 
   const loadClients = async () => {
@@ -48,15 +55,24 @@ export function ClientList() {
     setFilteredClients(filtered);
   }, [searchTerm, clients]);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o cliente ${name}?`)) {
-      return;
-    }
+  const triggerDelete = (id: string, name: string) => {
+    setClientToDelete({ id, name });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!clientToDelete) return;
     try {
-      await clientService.deleteClient(id);
-      loadClients();
+      setIsDeleting(true);
+      await clientService.deleteClient(clientToDelete.id);
+      toast.success('Cliente excluído com sucesso!');
+      await loadClients();
+      setDeleteModalOpen(false);
+      setClientToDelete(null);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir cliente');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -138,10 +154,10 @@ export function ClientList() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-slate-500 hover:text-brand-dark"
-                          title="Detalhes"
+                          title="Visualizar"
                           onClick={() => navigate(`/clientes/${client.id}`)}
                         >
-                          <MoreHorizontal className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -150,7 +166,7 @@ export function ClientList() {
                           title="Editar"
                           onClick={() => navigate(`/clientes/${client.id}/editar`)}
                         >
-                          <PenTool className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -166,7 +182,7 @@ export function ClientList() {
                           size="icon" 
                           className="h-8 w-8 text-slate-500 hover:text-red-600"
                           title="Excluir"
-                          onClick={() => handleDelete(client.id, client.name)}
+                          onClick={() => triggerDelete(client.id, client.name)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -185,6 +201,15 @@ export function ClientList() {
           </table>
         </div>
       </Card>
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Excluir Cliente"
+        description={`Tem certeza que deseja excluir o cliente "${clientToDelete?.name || ''}"? Esta ação é permanente, removerá todos os dados e propostas associados a este cliente e não poderá ser desfeita.`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

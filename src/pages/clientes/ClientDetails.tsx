@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { clientService } from '../../services/clientService';
+import { proposalService } from '../../services/proposalService';
 import { supabase } from '../../lib/supabase/client';
 import { Client } from '../../types/client';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { ArrowLeft, Edit, Plus, MapPin, Phone, Mail, FileText, Zap } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, MapPin, Phone, Mail, FileText, Zap, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
+import { toast } from 'sonner';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 
 export function ClientDetails() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +18,11 @@ export function ClientDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<any[]>([]);
+
+  // Custom Delete Modal State for Proposals
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [proposalToDelete, setProposalToDelete] = useState<{ id: string; title: string | null } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     async function loadClient() {
@@ -41,6 +49,27 @@ export function ClientDetails() {
     }
     loadClient();
   }, [id]);
+
+  const triggerDeleteProposal = (proposalId: string, title: string | null) => {
+    setProposalToDelete({ id: proposalId, title });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteProposal = async () => {
+    if (!proposalToDelete) return;
+    try {
+      setIsDeleting(true);
+      await proposalService.deleteProposal(proposalToDelete.id);
+      toast.success('Proposta excluída com sucesso!');
+      setProposals((prev) => prev.filter((p) => p.id !== proposalToDelete.id));
+      setDeleteModalOpen(false);
+      setProposalToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir proposta');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const formatMoney = (val: number | null | undefined) => {
     if (val == null) return '-';
@@ -246,9 +275,35 @@ export function ClientDetails() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <Button variant="ghost" size="sm" onClick={() => navigate(`/propostas/${prop.id}`)}>
-                              Ver Detalhes
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-500 hover:text-brand-dark"
+                                title="Visualizar Proposta"
+                                onClick={() => navigate(`/propostas/${prop.id}`)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-500 hover:text-brand-blue"
+                                title="Editar Proposta"
+                                onClick={() => navigate(`/propostas/${prop.id}/editar`)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-500 hover:text-red-600"
+                                title="Excluir Proposta"
+                                onClick={() => triggerDeleteProposal(prop.id, prop.title)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -272,6 +327,15 @@ export function ClientDetails() {
           )}
         </div>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDeleteProposal}
+        title="Excluir Proposta"
+        description={`Tem certeza que deseja excluir a proposta "${proposalToDelete?.title || 'Sem título'}"? Esta ação é permanente e não poderá ser desfeita.`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

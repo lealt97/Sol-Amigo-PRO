@@ -7,9 +7,10 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
-import { Search, Plus, MoreHorizontal, Copy, PenTool, Trash2, FileText } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Copy, Edit, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
+import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 
 export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -18,6 +19,12 @@ export function ProposalList() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  
+  // Custom Delete Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [proposalToDelete, setProposalToDelete] = useState<{ id: string; title: string | null } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -50,15 +57,24 @@ export function ProposalList() {
     setFilteredProposals(filtered);
   }, [searchTerm, statusFilter, proposals]);
 
-  const handleDelete = async (id: string, title: string | null) => {
-    if (!window.confirm(`Tem certeza que deseja excluir a proposta ${title || 'Sem título'}?`)) {
-      return;
-    }
+  const triggerDelete = (id: string, title: string | null) => {
+    setProposalToDelete({ id, title });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!proposalToDelete) return;
     try {
-      await proposalService.deleteProposal(id);
-      loadProposals();
+      setIsDeleting(true);
+      await proposalService.deleteProposal(proposalToDelete.id);
+      toast.success('Proposta excluída com sucesso!');
+      await loadProposals();
+      setDeleteModalOpen(false);
+      setProposalToDelete(null);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir proposta');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -192,10 +208,10 @@ export function ProposalList() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-slate-500 hover:text-brand-dark"
-                          title="Detalhes"
+                          title="Visualizar"
                           onClick={() => navigate(`/propostas/${proposal.id}`)}
                         >
-                          <FileText className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -204,7 +220,7 @@ export function ProposalList() {
                           title="Editar"
                           onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
                         >
-                          <PenTool className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -220,7 +236,7 @@ export function ProposalList() {
                           size="icon" 
                           className="h-8 w-8 text-slate-500 hover:text-red-600"
                           title="Excluir"
-                          onClick={() => handleDelete(proposal.id, proposal.title)}
+                          onClick={() => triggerDelete(proposal.id, proposal.title)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -239,6 +255,15 @@ export function ProposalList() {
           </table>
         </div>
       </Card>
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Excluir Proposta"
+        description={`Tem certeza que deseja excluir a proposta "${proposalToDelete?.title || 'Sem título'}"? Esta ação é permanente e não poderá ser desfeita.`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

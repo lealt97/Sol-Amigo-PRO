@@ -8,7 +8,7 @@ import { Profile } from '../types/profile';
 import { DatabaseSetupAlert } from '../components/ui/DatabaseSetupAlert';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Building2, Image as ImageIcon, User, Settings as SettingsIcon, Shield, Upload, Save, Loader2, Lock, UserX, AlertTriangle, Check, Trash } from 'lucide-react';
+import { Building2, Image as ImageIcon, User, Settings as SettingsIcon, Shield, Upload, Save, Loader2, Lock, UserX, AlertTriangle, Check, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
 import { extractActiveLogo, extractAllLogos, serializeLogos } from '../utils/logoHelper';
 
@@ -517,7 +517,7 @@ export function Configuracoes() {
                             className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors cursor-pointer"
                             title="Excluir logo"
                           >
-                            <Trash className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>

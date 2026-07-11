@@ -303,6 +303,11 @@ export const proposalService = {
   },
 
   async deleteProposal(id: string) {
+    // Manually delete related records first to prevent foreign key constraint errors
+    await supabase.from('proposal_events').delete().eq('proposal_id', id);
+    await supabase.from('solar_system_calculations').delete().eq('proposal_id', id);
+    await supabase.from('proposal_loads').delete().eq('proposal_id', id);
+
     const { error } = await supabase
       .from('proposals')
       .delete()

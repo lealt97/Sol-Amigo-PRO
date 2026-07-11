@@ -5,6 +5,7 @@ import { proposalService } from '../services/proposalService';
 import { clientService } from '../services/clientService';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { Link } from 'react-router-dom';
+import { Eye, Edit } from 'lucide-react';
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -168,9 +169,22 @@ export function Dashboard() {
                     <StatusBadge status={prop.status} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link to={`/propostas/${prop.id}`} className="text-xs text-brand-blue hover:text-brand-blue transition-colors">
-                      Visualizar
-                    </Link>
+                    <div className="flex items-center justify-end gap-1">
+                      <Link 
+                        to={`/propostas/${prop.id}`} 
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-dark hover:bg-slate-100 transition-colors"
+                        title="Visualizar Proposta"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Link>
+                      <Link 
+                        to={`/propostas/${prop.id}/editar`} 
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-blue hover:bg-slate-100 transition-colors"
+                        title="Editar Proposta"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

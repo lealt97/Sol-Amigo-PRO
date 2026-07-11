@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Copy, Edit2, Star, Trash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Edit2, Star, Trash2 } from 'lucide-react';
 import { PdfUserModel } from '../types/pdfDesignTypes';
 import { PdfPreview } from './PdfPreview';
 import { Button } from '../../../components/ui/Button';
@@ -157,7 +157,7 @@ export function UserModelCarousel({
                           className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
                           title="Excluir Modelo"
                         >
-                          <Trash className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                       
