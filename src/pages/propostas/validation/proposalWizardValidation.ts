@@ -149,10 +149,6 @@ function validateConsumptionStep(values: ProposalFormValues): StepValidationResu
 }
 
 function validateProjectStep(values: ProposalFormValues): StepValidationResult {
-  if (isNegativeWhenFilled(values.roof_area_m2)) {
-    return { isValid: false, stepIndex: 2, message: 'A área útil do telhado não pode ser negativa.' };
-  }
-
   if (!hasPositive(values.hsp)) {
     return { isValid: false, stepIndex: 2, message: 'Informe a irradiação solar HSP.' };
   }
@@ -179,6 +175,26 @@ function validateProjectStep(values: ProposalFormValues): StepValidationResult {
   return { isValid: true };
 }
 
+function validateInstallationStep(values: ProposalFormValues): StepValidationResult {
+  if (isNegativeWhenFilled(values.roof_area_m2)) {
+    return { isValid: false, stepIndex: 3, message: 'A área útil do telhado/local não pode ser negativa.' };
+  }
+
+  if (isNegativeWhenFilled(values.module_width_m) || isNegativeWhenFilled(values.module_height_m)) {
+    return { isValid: false, stepIndex: 3, message: 'As dimensões do módulo não podem ser negativas.' };
+  }
+
+  if (!hasPositive(values.module_width_m)) {
+    return { isValid: false, stepIndex: 3, message: 'Informe a largura do módulo em metros. Exemplo: 1.13.' };
+  }
+
+  if (!hasPositive(values.module_height_m)) {
+    return { isValid: false, stepIndex: 3, message: 'Informe a altura do módulo em metros. Exemplo: 2.28.' };
+  }
+
+  return { isValid: true };
+}
+
 function validateCostsStep(values: ProposalFormValues): StepValidationResult {
   const costFields: Array<keyof ProposalFormValues> = [
     'kit_cost',
@@ -192,13 +208,13 @@ function validateCostsStep(values: ProposalFormValues): StepValidationResult {
 
   const hasNegativeCost = costFields.some((field) => isNegativeWhenFilled(values[field]));
   if (hasNegativeCost) {
-    return { isValid: false, stepIndex: 3, message: 'Os custos da proposta não podem ser negativos.' };
+    return { isValid: false, stepIndex: 4, message: 'Os custos da proposta não podem ser negativos.' };
   }
 
   const additionalCosts = values.additional_costs || [];
   const hasNegativeAdditionalCost = additionalCosts.some((cost) => isNegativeWhenFilled(cost.amount));
   if (hasNegativeAdditionalCost) {
-    return { isValid: false, stepIndex: 3, message: 'Os custos adicionais não podem ter valor negativo.' };
+    return { isValid: false, stepIndex: 4, message: 'Os custos adicionais não podem ter valor negativo.' };
   }
 
   const invalidAdditionalCost = additionalCosts.find((cost) => {
@@ -213,23 +229,23 @@ function validateCostsStep(values: ProposalFormValues): StepValidationResult {
   if (invalidAdditionalCost) {
     return {
       isValid: false,
-      stepIndex: 3,
+      stepIndex: 4,
       message: 'Preencha descrição e valor maior que zero para cada custo adicional, ou remova a linha vazia.',
     };
   }
 
   if (!hasPositive(values.kit_cost)) {
-    return { isValid: false, stepIndex: 3, message: 'Informe o custo do kit para calcular o investimento.' };
+    return { isValid: false, stepIndex: 4, message: 'Informe o custo do kit para calcular o investimento.' };
   }
 
   const margin = toNumber(values.margin_percentage);
   if (margin < 0 || margin >= 100) {
-    return { isValid: false, stepIndex: 3, message: 'Informe uma margem maior ou igual a 0 e menor que 100%.' };
+    return { isValid: false, stepIndex: 4, message: 'Informe uma margem maior ou igual a 0 e menor que 100%.' };
   }
 
   const discount = toNumber(values.discount_percentage);
   if (discount < 0 || discount > 100) {
-    return { isValid: false, stepIndex: 3, message: 'Informe um desconto entre 0% e 100%.' };
+    return { isValid: false, stepIndex: 4, message: 'Informe um desconto entre 0% e 100%.' };
   }
 
   const additionalCostsTotal = getAdditionalCostsTotal(values);
@@ -272,7 +288,7 @@ function validateFinancialStep(values: ProposalFormValues): StepValidationResult
   });
 
   if (pricing.final_price <= 0) {
-    return { isValid: false, stepIndex: 3, message: 'Complete os custos para calcular o preço final da proposta.' };
+    return { isValid: false, stepIndex: 4, message: 'Complete os custos para calcular o preço final da proposta.' };
   }
 
   const payback = calcularPayback({
@@ -282,7 +298,7 @@ function validateFinancialStep(values: ProposalFormValues): StepValidationResult
   });
 
   if (!payback) {
-    return { isValid: false, stepIndex: 4, message: 'Não foi possível calcular o payback. Revise tarifa, consumo, geração e investimento.' };
+    return { isValid: false, stepIndex: 5, message: 'Não foi possível calcular o payback. Revise tarifa, consumo, geração e investimento.' };
   }
 
   return {
@@ -303,10 +319,12 @@ export function validateProposalStep(stepIndex: number, values: ProposalFormValu
     case 2:
       return validateProjectStep(values);
     case 3:
-      return validateCostsStep(values);
+      return validateInstallationStep(values);
     case 4:
-      return validateFinancialStep(values);
+      return validateCostsStep(values);
     case 5:
+      return validateFinancialStep(values);
+    case 6:
       return validateFullProposal(values);
     default:
       return { isValid: true };
@@ -318,6 +336,7 @@ export function validateFullProposal(values: ProposalFormValues): StepValidation
     validateClientStep(values),
     validateConsumptionStep(values),
     validateProjectStep(values),
+    validateInstallationStep(values),
     validateCostsStep(values),
     validateFinancialStep(values),
   ];
