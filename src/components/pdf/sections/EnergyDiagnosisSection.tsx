@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Svg, Rect, Line, G, Polygon, Text as SvgText } from '@react-pdf/renderer';
+import { View, Text, StyleSheet, Image, Svg, Line, G, Path, Text as SvgText } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
 import { DEFAULT_ROOF_LAYOUT_STRINGS, RoofLayoutData, RoofLayoutModule } from '../../../types/roofLayout';
 import { getSectionTitleStyle, usePdfTheme } from '../pdfTheme';
+
+const MODULE_BLACK_PATH = 'M7.93432 14.0423L0.770895 1.79815V30.2416H15.2291V1.77802L7.93432 14.0423ZM16 31H0V0H16V31Z';
+const MODULE_ACCENT_PATH = 'M0.770895 1.79815V30.2416H15.2291V1.77802L7.93432 14.0423L0.770895 1.79815Z';
 
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#18181b', borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: '#3b82f6', paddingBottom: 5 },
@@ -70,18 +73,31 @@ function buildFallbackLayout(moduleCount: number): RoofLayoutData {
     width: 10,
     height: 15,
     rotation: 0,
+    skewX: 0,
+    skewY: 0,
     stringId: strings[index % strings.length].id,
   }));
 
-  return { modules, strings };
+  return { version: 1, modules, strings };
 }
 
 function getStringColor(layout: RoofLayoutData, stringId: string, fallback: string) {
   return layout.strings.find((string) => string.id === stringId)?.color || fallback;
 }
 
+function getNormalizedModule(module: RoofLayoutModule): RoofLayoutModule {
+  return {
+    ...module,
+    width: module.width || 10,
+    height: module.height || 15,
+    rotation: module.rotation || 0,
+    skewX: module.skewX || 0,
+    skewY: module.skewY || 0,
+  };
+}
+
 function RoofPlanSvg({ layout, showLabels = false, overlay = false }: { layout: RoofLayoutData; showLabels?: boolean; overlay?: boolean }) {
-  const modules = layout.modules || [];
+  const modules = (layout.modules || []).map(getNormalizedModule);
   const strings = layout.strings?.length ? layout.strings : DEFAULT_ROOF_LAYOUT_STRINGS;
 
   return (
@@ -100,21 +116,21 @@ function RoofPlanSvg({ layout, showLabels = false, overlay = false }: { layout: 
       })}
 
       {modules.map((module, index) => {
-        const color = getStringColor(layout, module.stringId, '#2563EB');
-        const cx = module.x + module.width / 2;
-        const cy = module.y + module.height / 2;
-        const arrowTop = module.y + 0.8;
-        const arrowMiddle = module.x + module.width / 2;
+        const color = getStringColor(layout, module.stringId, '#B8B608');
+        const moduleTransform = `translate(${module.x} ${module.y}) rotate(${module.rotation} ${module.width / 2} ${module.height / 2}) skewX(${module.skewX}) skewY(${module.skewY})`;
+        const scaleTransform = `scale(${module.width / 16} ${module.height / 31})`;
 
         return (
-          <G key={module.id} transform={`rotate(${module.rotation || 0} ${cx} ${cy})`}>
-            <Rect x={module.x} y={module.y} width={module.width} height={module.height} rx={0.8} fill="#F8FAFC" stroke={color} strokeWidth={0.7} />
-            <Rect x={module.x + module.width * 0.12} y={module.y + module.height * 0.18} width={module.width * 0.76} height={module.height * 0.58} fill={color} fillOpacity={0.16} />
-            <Line x1={module.x + module.width * 0.5} y1={module.y + module.height * 0.18} x2={module.x + module.width * 0.5} y2={module.y + module.height * 0.76} stroke={color} strokeWidth={0.25} />
-            <Line x1={module.x + module.width * 0.12} y1={module.y + module.height * 0.38} x2={module.x + module.width * 0.88} y2={module.y + module.height * 0.38} stroke={color} strokeWidth={0.25} />
-            <Line x1={module.x + module.width * 0.12} y1={module.y + module.height * 0.58} x2={module.x + module.width * 0.88} y2={module.y + module.height * 0.58} stroke={color} strokeWidth={0.25} />
-            <Polygon points={`${arrowMiddle},${arrowTop} ${module.x + module.width * 0.86},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.2} ${module.x + module.width * 0.6},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.38} ${module.x + module.width * 0.4},${module.y + module.height * 0.2} ${module.x + module.width * 0.14},${module.y + module.height * 0.2}`} fill="#111827" />
-            {showLabels && <SvgText x={cx} y={module.y + module.height - 1.2} fontSize={2.4} textAnchor="middle" fill="#111827">{index + 1}</SvgText>}
+          <G key={module.id} transform={moduleTransform}>
+            <G transform={scaleTransform}>
+              <Path d={MODULE_BLACK_PATH} fill="#000000" />
+              <Path d={MODULE_ACCENT_PATH} fill={color} />
+              {showLabels && (
+                <SvgText x={8} y={29} fontSize={3} textAnchor="middle" fill="#000000">
+                  {index + 1}
+                </SvgText>
+              )}
+            </G>
           </G>
         );
       })}
@@ -187,7 +203,11 @@ export const EnergyDiagnosisSection = ({ proposal }: { proposal: Proposal }) => 
           {roofImageUrl ? (
             <View style={styles.roofImageLayer}>
               <Image src={roofImageUrl} style={styles.roofImage} />
-              {hasSavedLayout && <View style={styles.roofOverlay}><RoofPlanSvg layout={layout} showLabels overlay /></View>}
+              {hasSavedLayout && (
+                <View style={styles.roofOverlay}>
+                  <RoofPlanSvg layout={layout} showLabels overlay />
+                </View>
+              )}
             </View>
           ) : (
             <View style={styles.placeholder}>
