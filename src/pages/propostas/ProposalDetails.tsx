@@ -251,111 +251,132 @@ export function ProposalDetails() {
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
-      <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-brand-border">
+        <div className="flex items-center gap-3">
           <Link to="/propostas">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="hover:bg-brand-surface border border-transparent hover:border-brand-border">
+              <ArrowLeft className="h-5 w-5 text-slate-400" />
             </Button>
           </Link>
           <div>
-            <div className="flex flex-wrap items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-brand-dark">{proposal.title || 'Proposta sem título'}</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-white tracking-tight">{proposal.title || 'Proposta sem título'}</h1>
               <div className="flex items-center gap-2">
                 {getStatusBadge(proposal.status)}
                 <select
                   value={proposal.status}
                   onChange={(e) => handleStatusChange(e.target.value as Proposal['status'])}
-                  className="bg-brand-surface text-xs text-slate-500 border border-brand-border rounded px-2 py-1 outline-none"
+                  className="bg-brand-surface text-xs text-slate-300 border border-brand-border rounded px-2.5 py-1 outline-none font-semibold cursor-pointer focus:border-brand-blue"
                 >
                   <option value="draft">Rascunho</option>
-                  <option value="pending">Pendente (Enviada)</option>
+                  <option value="pending">Pendente</option>
                   <option value="approved">Aprovada</option>
                   <option value="rejected">Recusada</option>
                   <option value="expired">Expirada</option>
                 </select>
               </div>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-400 mt-1">
               {proposal.code ? `Código: ${proposal.code} • ` : ''}Criada em {formatDate(proposal.created_at)}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-end gap-3 w-full lg:w-auto">
-          <div className="w-full sm:w-72 space-y-1">
-            <label htmlFor="pdf_model_id" className="text-xs font-medium text-slate-500">
-              Modelo PDF desta geração
-            </label>
-            <Select
-              id="pdf_model_id"
-              value={selectedPdfModelId}
-              onChange={(event) => setSelectedPdfModelId(event.target.value)}
-              disabled={isLoadingPdfModels || pdfModels.length === 0}
-            >
-              <option value="">
-                {defaultPdfModel ? `Usar padrão do Design PDF (${defaultPdfModel.name})` : 'Usar padrão do Design PDF'}
-              </option>
-              {pdfModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}{model.is_default ? ' • padrão' : ''}
-                </option>
-              ))}
-            </Select>
-            <p className="text-[11px] text-slate-500">
-              {isLoadingPdfModels
-                ? 'Carregando modelos...'
-                : 'A escolha vale apenas para este PDF e não muda o padrão global.'}
-            </p>
-          </div>
-
-          <Button
-            onClick={handleSendWhatsApp}
-            className="bg-green-500 hover:bg-green-600 text-brand-dark gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Enviar WhatsApp
-          </Button>
-
-          {proposal.pdf_url && (
-            <Button
-              onClick={() => window.open(proposal.pdf_url || '', '_blank')}
-              className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Baixar PDF
-            </Button>
-          )}
-
-          <Button
-            onClick={handleGeneratePdf}
-            className="bg-brand-blue hover:bg-brand-blue-hover text-white gap-2"
-            disabled={generatingPdf}
-          >
-            <FileText className="w-4 h-4" />
-            {generatingPdf ? 'Gerando...' : proposal.pdf_url ? 'Gerar novo PDF' : 'Gerar PDF'}
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={handleDuplicate}
-            className="gap-2"
-          >
-            <Copy className="w-4 h-4" />
-            Duplicar
-          </Button>
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
           <Button
             onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
-            className="gap-2"
+            className="flex-1 md:flex-none bg-brand-blue hover:bg-brand-blue-hover text-white gap-2 font-bold px-4 py-2 cursor-pointer shadow-md"
           >
             <Edit className="w-4 h-4" />
             Editar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDuplicate}
+            className="flex-1 md:flex-none border-brand-border bg-white/5 hover:bg-white/10 text-white gap-2 px-4 py-2 cursor-pointer"
+          >
+            <Copy className="w-4 h-4" />
+            Duplicar
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-1 flex flex-col gap-6">
+          <Card className="border-brand-border bg-brand-surface shadow-xl">
+            <CardHeader className="pb-3 border-b border-brand-border/60">
+              <CardTitle className="text-base font-bold text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-brand-blue" />
+                Documento & Envio
+              </CardTitle>
+              <CardDescription className="text-slate-400 text-xs">
+                Gere e baixe a proposta comercial em PDF ou envie ao cliente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {/* PDF Model selector inside the action card */}
+              <div className="space-y-1.5">
+                <label htmlFor="pdf_model_id" className="text-xs font-semibold text-slate-300">
+                  Modelo de Design PDF
+                </label>
+                <Select
+                  id="pdf_model_id"
+                  value={selectedPdfModelId}
+                  onChange={(event) => setSelectedPdfModelId(event.target.value)}
+                  disabled={isLoadingPdfModels || pdfModels.length === 0}
+                  className="w-full bg-slate-900 border-brand-border text-xs text-white"
+                >
+                  <option value="">
+                    {defaultPdfModel ? `Padrão (${defaultPdfModel.name})` : 'Usar modelo padrão'}
+                  </option>
+                  {pdfModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}{model.is_default ? ' (Padrão)' : ''}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  {isLoadingPdfModels
+                    ? 'Carregando modelos do Design PDF...'
+                    : 'A escolha vale para esta geração e não muda o modelo global padrão.'}
+                </p>
+              </div>
+
+              <div className="h-px bg-brand-border/60" />
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2.5">
+                <Button
+                  onClick={handleGeneratePdf}
+                  className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white gap-2 font-bold justify-center cursor-pointer shadow-md py-2.5"
+                  disabled={generatingPdf}
+                >
+                  <FileText className="w-4 h-4" />
+                  {generatingPdf ? 'Gerando...' : proposal.pdf_url ? 'Gerar Novo PDF' : 'Gerar PDF'}
+                </Button>
+
+                {proposal.pdf_url && (
+                  <Button
+                    onClick={() => window.open(proposal.pdf_url || '', '_blank')}
+                    variant="outline"
+                    className="w-full border-brand-border bg-white/5 hover:bg-white/10 text-white gap-2 justify-center font-bold cursor-pointer py-2.5"
+                  >
+                    <Download className="w-4 h-4 text-brand-blue" />
+                    Baixar/Visualizar PDF
+                  </Button>
+                )}
+
+                <Button
+                  onClick={handleSendWhatsApp}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold justify-center cursor-pointer shadow-md py-2.5"
+                >
+                  <Send className="w-4 h-4" />
+                  Enviar por WhatsApp
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -477,40 +498,40 @@ export function ProposalDetails() {
               </CardHeader>
               <CardContent>
                 {proposal.solar ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Potência</p>
-                      <p className="text-lg font-bold text-brand-dark">
-                        {proposal.solar.installed_power_kwp?.toFixed(2) || '-'} <span className="text-sm font-normal text-slate-500">kWp</span>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="p-4 bg-slate-950/40 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-400 mb-1">Potência</p>
+                      <p className="text-lg font-bold text-white">
+                        {proposal.solar.installed_power_kwp?.toFixed(2) || '-'} <span className="text-xs font-normal text-slate-400">kWp</span>
                       </p>
                     </div>
-                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Consumo Médio</p>
-                      <p className="text-lg font-bold text-brand-dark">
-                        {proposal.monthly_consumption_kwh || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
+                    <div className="p-4 bg-slate-950/40 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-400 mb-1">Consumo Médio</p>
+                      <p className="text-lg font-bold text-white">
+                        {proposal.monthly_consumption_kwh || '-'} <span className="text-xs font-normal text-slate-400">kWh</span>
                       </p>
                     </div>
-                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Geração</p>
-                      <p className="text-lg font-bold text-blue-400">
-                        {proposal.solar.estimated_monthly_generation_kwh?.toFixed(0) || '-'} <span className="text-sm font-normal text-slate-500">kWh</span>
+                    <div className="p-4 bg-slate-950/40 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-400 mb-1">Geração Est.</p>
+                      <p className="text-lg font-bold text-brand-blue">
+                        {proposal.solar.estimated_monthly_generation_kwh?.toFixed(0) || '-'} <span className="text-xs font-normal text-slate-400">kWh</span>
                       </p>
                     </div>
-                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Investimento</p>
-                      <p className="text-lg font-bold text-brand-dark">
+                    <div className="p-4 bg-slate-950/40 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-400 mb-1">Investimento</p>
+                      <p className="text-lg font-bold text-white">
                         {formatMoney(proposal.final_price)}
                       </p>
                     </div>
-                    <div className="p-4 bg-gray-50 border border-brand-border rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Payback</p>
-                      <p className="text-lg font-bold text-emerald-500">
+                    <div className="p-4 bg-slate-950/40 border border-brand-border rounded-lg">
+                      <p className="text-xs text-slate-400 mb-1">Payback</p>
+                      <p className="text-lg font-bold text-emerald-400">
                         {proposal.solar.payback_formatted || '-'}
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 border border-brand-border rounded-lg p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
+                  <div className="bg-slate-950/40 border border-brand-border rounded-lg p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
                     <FileText className="w-12 h-12 text-slate-500 mb-4" />
                     <h3 className="text-lg font-medium text-brand-dark mb-2">Proposta Incompleta</h3>
                     <p className="text-sm text-slate-500 max-w-sm mb-6">
