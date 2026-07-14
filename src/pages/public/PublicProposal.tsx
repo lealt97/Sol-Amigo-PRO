@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useParams } from 'react-router-dom';
 import { publicProposalService } from '../../services/publicProposalService';
 import { Button } from '../../components/ui/Button';
-import { FileText, CheckCircle, XCircle, Clock, Zap, DollarSign, PiggyBank, TrendingDown } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, Clock, Zap, DollarSign, PiggyBank, TrendingDown, Package } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { extractActiveLogo } from '../../utils/logoHelper';
 
@@ -47,7 +47,6 @@ export function PublicProposal() {
     setProcessing(true);
     try {
       await publicProposalService.updateStatus(publicToken, status, status === 'rejected' ? rejectReason : undefined, proposal?.id);
-      // Reload proposal to get new status
       const data = await publicProposalService.getProposalByToken(publicToken);
       setProposal(data);
       if (status === 'approved') {
@@ -67,7 +66,7 @@ export function PublicProposal() {
   if (loading) {
     return (
       <div className="min-h-screen bg-brand-gray flex flex-col items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue mb-4"></div>
         <p className="text-slate-500">Carregando proposta...</p>
       </div>
     );
@@ -85,31 +84,29 @@ export function PublicProposal() {
     );
   }
 
-  // Permite aceitar se for 'pending', 'sent' ou 'draft' (para facilitar os testes)
   const canAct = ['pending', 'sent', 'draft', 'viewed'].includes(proposal.status);
-  
-  // Format numbers
-  const power = proposal.solar?.installed_power_kwp || 0;
-  const savings = proposal.solar?.estimated_monthly_savings || 0;
-  const payback = proposal.solar?.payback_time_years || 0;
+  const logoUrl = extractActiveLogo(proposal.company?.logo_url || null);
+  const kit = proposal.solar_kit_snapshot || null;
+  const power = Number(proposal.solar?.installed_power_kwp || kit?.kit_power_kwp || 0);
+  const savings = Number(proposal.solar?.monthly_savings || 0);
+  const paybackText = proposal.solar?.payback_formatted
+    || (proposal.solar?.payback_years ? `${Number(proposal.solar.payback_years).toFixed(1)} anos` : 'A calcular');
+  const companyName = proposal.company?.name || proposal.profile?.company_name || 'Empresa de Energia Solar';
 
   return (
     <div className="min-h-screen bg-brand-gray py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        
-        {/* Header / Logo */}
         <div className="flex flex-col items-center justify-center text-center space-y-4">
-          {extractActiveLogo(proposal.company?.logo_url || null) ? (
-            <img src={extractActiveLogo(proposal.company.logo_url)!} alt={proposal.company.name} className="h-16 object-contain" />
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="h-16 object-contain" />
           ) : (
             <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
               <Zap className="w-8 h-8 text-brand-dark" />
             </div>
           )}
-          <h1 className="text-2xl font-bold text-brand-dark">{proposal.company?.name || 'Aero Energia Solar'}</h1>
+          <h1 className="text-2xl font-bold text-brand-dark">{companyName}</h1>
         </div>
 
-        {/* Card Principal */}
         <div className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden shadow-2xl">
           <div className="p-6 sm:p-8 border-b border-brand-border">
             <div className="flex justify-between items-start mb-6">
@@ -122,7 +119,6 @@ export function PublicProposal() {
                 </h3>
               </div>
               
-              {/* Status Badge */}
               <div className="hidden sm:block">
                 {proposal.status === 'approved' || proposal.status === 'accepted' ? (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -159,7 +155,7 @@ export function PublicProposal() {
           <div className="p-6 sm:p-8 bg-brand-surface">
             <h4 className="text-lg font-medium text-brand-dark mb-6">Resumo do Sistema</h4>
             
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="bg-brand-gray p-4 rounded-lg border border-brand-border">
                 <Zap className="w-5 h-5 text-brand-blue mb-2" />
                 <p className="text-xs text-slate-500 mb-1">Potência</p>
@@ -169,7 +165,7 @@ export function PublicProposal() {
               <div className="bg-brand-gray p-4 rounded-lg border border-brand-border">
                 <DollarSign className="w-5 h-5 text-blue-400 mb-2" />
                 <p className="text-xs text-slate-500 mb-1">Investimento</p>
-                <p className="text-lg font-bold text-brand-dark">{formatCurrency(proposal.final_price || 0)}</p>
+                <p className="text-lg font-bold text-brand-dark">{formatCurrency(Number(proposal.final_price || 0))}</p>
               </div>
               
               <div className="bg-brand-gray p-4 rounded-lg border border-brand-border">
@@ -181,11 +177,28 @@ export function PublicProposal() {
               <div className="bg-brand-gray p-4 rounded-lg border border-brand-border">
                 <PiggyBank className="w-5 h-5 text-purple-400 mb-2" />
                 <p className="text-xs text-slate-500 mb-1">Payback</p>
-                <p className="text-lg font-bold text-brand-dark">{payback.toFixed(1)} anos</p>
+                <p className="text-lg font-bold text-brand-dark">{paybackText}</p>
               </div>
             </div>
+
+            {kit && (
+              <div className="mb-8 rounded-xl border border-brand-blue/20 bg-brand-blue/10 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-brand-blue">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-brand-dark">Kit selecionado: {kit.name}</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {Number(kit.kit_power_kwp || 0).toFixed(2)} kWp · {kit.module_quantity} módulos de {kit.module_power_w} W
+                      {kit.inverter_power_kw ? ` · Inversor ${kit.inverter_power_kw} kW` : ''}
+                      {kit.supplier ? ` · Fornecedor: ${kit.supplier}` : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
-            {/* View PDF Button */}
             <div className="flex justify-center mb-8">
               {proposal.pdf_url ? (
                 <a 
@@ -202,7 +215,6 @@ export function PublicProposal() {
               )}
             </div>
 
-            {/* Actions */}
             {canAct ? (
               <div className="border-t border-brand-border pt-8">
                 {showRejectReason ? (
@@ -265,14 +277,14 @@ export function PublicProposal() {
                 )}
               </div>
             )}
-            
           </div>
         </div>
         
-        {/* Footer */}
         <div className="text-center">
           <p className="text-slate-500 text-xs">
-            Aero Energia Solar • CNPJ 00.000.000/0001-00
+            {companyName}
+            {proposal.company?.email ? ` • ${proposal.company.email}` : ''}
+            {proposal.company?.website ? ` • ${proposal.company.website}` : ''}
           </p>
         </div>
       </div>
