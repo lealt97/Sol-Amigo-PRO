@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase/client';
 import { Profile } from '../types/profile';
 
+const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9_.-]/g, '-');
+
 export const profileService = {
   async getProfile(userId: string) {
     const { data, error } = await supabase
@@ -55,6 +57,33 @@ export const profileService = {
     const { error: uploadError } = await supabase.storage
       .from('logos')
       .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('logos')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  },
+
+  async uploadSellerSignature(file: File, userId: string) {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    const isAllowed = allowedTypes.includes(file.type) || file.name.toLowerCase().endsWith('.svg');
+
+    if (!isAllowed) {
+      throw new Error('Envie uma assinatura em PNG, JPG ou SVG.');
+    }
+
+    const safeName = sanitizeFileName(file.name);
+    const filePath = `seller-signatures/${userId}/${Date.now()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('logos')
+      .upload(filePath, file, {
+        contentType: file.type || (file.name.toLowerCase().endsWith('.svg') ? 'image/svg+xml' : 'image/png'),
+        upsert: true,
+      });
 
     if (uploadError) throw uploadError;
 
