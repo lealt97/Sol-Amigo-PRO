@@ -591,7 +591,7 @@ export function RoofLayoutEditor({
                 onClick={(event) => handleModuleClick(event, module.id)}
                 onContextMenu={(event) => handleModuleContextMenu(event, module.id)}
                 onKeyDown={handleModuleKeyDown}
-                className={`absolute relative cursor-move bg-transparent p-0 transition-shadow focus:outline-none ${isSelected ? 'shadow-lg' : ''}`}
+                className={`absolute cursor-move bg-transparent p-0 transition-shadow focus:outline-none ${isSelected ? 'shadow-lg' : ''}`}
                 style={{
                   left: `${module.x}%`,
                   top: `${module.y}%`,
