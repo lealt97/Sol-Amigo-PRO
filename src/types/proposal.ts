@@ -1,6 +1,7 @@
 import { SolarSystemCalculation } from './solar';
 import { ProposalLoad } from './loadSurvey';
 import { RoofLayoutData } from './roofLayout';
+import { SolarKitSnapshot } from './solarKit';
 
 export interface Proposal {
   id: string;
@@ -22,6 +23,8 @@ export interface Proposal {
   module_width_m?: number | null;
   module_height_m?: number | null;
   roof_layout_json?: RoofLayoutData | null;
+  selected_solar_kit_id?: string | null;
+  solar_kit_snapshot?: SolarKitSnapshot | null;
   kit_cost: number | null;
   labor_cost: number | null;
   fixed_costs: number | null;
