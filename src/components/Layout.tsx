@@ -22,6 +22,7 @@ export function Layout() {
     { path: '/propostas/nova', label: 'Nova Proposta', icon: PlusCircle },
     { path: '/design-pdf', label: 'Design PDF', icon: PenTool },
     { path: '/configuracoes', label: 'Configurações da Conta', icon: Settings },
+    { path: '/configuracoes/assinatura', label: 'Assinatura do Vendedor', icon: PenTool },
   ];
 
   const getPageTitle = () => {
