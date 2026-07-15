@@ -63,6 +63,7 @@ export function ClientDetails() {
 
   const isOpenProposal = (proposal: any) => {
     return OPEN_PROPOSAL_STATUSES.includes(proposal.status)
+      && !proposal.pdf_url
       && !proposal.sent_whatsapp_at
       && !proposal.public_viewed_at
       && !proposal.accepted_at
@@ -72,7 +73,6 @@ export function ClientDetails() {
   const openProposals = proposals
     .filter(isOpenProposal)
     .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
-  const activeProposal = openProposals[0] || null;
   const closedOrSentProposals = proposals.filter((proposal) => !isOpenProposal(proposal));
 
   const getProposalProgress = (proposal: any) => {
@@ -136,13 +136,7 @@ export function ClientDetails() {
     loadClient();
   }, [id]);
 
-  const openActiveProposal = () => {
-    if (activeProposal) {
-      const { stepIndex } = getProposalProgress(activeProposal);
-      navigate(`/propostas/${activeProposal.id}/editar?step=${stepIndex}`);
-      return;
-    }
-
+  const startNewProposal = () => {
     if (client) {
       navigate(`/propostas/nova?clienteId=${client.id}`);
     }
@@ -313,65 +307,73 @@ export function ClientDetails() {
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="text-lg">Propostas do Cliente</CardTitle>
-                <CardDescription>Acompanhe a proposta em andamento e o histórico comercial deste cliente.</CardDescription>
+                <CardDescription>Acompanhe as propostas pendentes e o histórico comercial deste cliente.</CardDescription>
               </div>
-              <Button onClick={openActiveProposal} className="gap-2 bg-brand-blue text-white hover:bg-brand-blue-hover">
-                {activeProposal ? <ArrowRight className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {activeProposal ? 'Continuar Proposta' : 'Nova Proposta'}
+              <Button onClick={startNewProposal} className="gap-2 bg-brand-blue text-white hover:bg-brand-blue-hover">
+                <Plus className="w-4 h-4" />
+                Nova Proposta
               </Button>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col gap-5">
-              {activeProposal && (() => {
-                const { stepName, percentage, stepIndex, remaining } = getProposalProgress(activeProposal);
-                return (
-                  <div className="rounded-2xl border border-brand-blue/30 bg-brand-blue/10 p-5 shadow-md">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {getStatusBadge(activeProposal.status)}
-                          <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-slate-950/20 px-2.5 py-1 text-[11px] text-slate-400">
-                            <Clock className="h-3 w-3" /> Última alteração: {formatDate(activeProposal.updated_at || activeProposal.created_at)}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-white">{activeProposal.title || 'Nova Proposta'}</h3>
-                          <p className="mt-1 text-xs text-slate-400">Código: {activeProposal.code || 'Será gerado ao salvar'} · Valor: {formatMoney(activeProposal.final_price)}</p>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <span className="text-slate-400">Etapa atual: <strong className="text-brand-blue">{stepName}</strong></span>
-                            <span className="font-semibold text-brand-blue">{percentage}%</span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-border">
-                            <div className="h-1.5 rounded-full bg-brand-blue transition-all duration-500" style={{ width: `${percentage}%` }} />
-                          </div>
-                          {remaining.length > 0 && (
-                            <p className="text-[11px] text-slate-500">Faltam: {remaining.join(', ')}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex w-full items-center gap-2 xl:w-auto">
-                        <Button 
-                          onClick={() => navigate(`/propostas/${activeProposal.id}/editar?step=${stepIndex}`)}
-                          className="flex-1 gap-2 bg-brand-blue hover:bg-brand-blue-hover text-white xl:flex-none"
-                        >
-                          <ArrowRight className="w-4 h-4" />
-                          Continuar Proposta
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-brand-border hover:border-red-500/20"
-                          title="Excluir proposta"
-                          onClick={() => triggerDeleteProposal(activeProposal.id, activeProposal.title)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+              {openProposals.length > 0 && (
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-brand-dark">Propostas em preenchimento</h3>
+                    <p className="text-xs text-slate-500">Estas propostas ainda não foram concluídas. Use apenas continuar ou excluir.</p>
                   </div>
-                );
-              })()}
+                  {openProposals.map((proposal) => {
+                    const { stepName, percentage, stepIndex, remaining } = getProposalProgress(proposal);
+                    return (
+                      <div key={proposal.id} className="rounded-2xl border border-brand-blue/30 bg-brand-blue/10 p-5 shadow-md">
+                        <div className="flex flex-col gap-4">
+                          <div className="min-w-0 flex-1 space-y-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {getStatusBadge(proposal.status)}
+                              <span className="inline-flex items-center gap-1 rounded-full border border-brand-border bg-slate-950/20 px-2.5 py-1 text-[11px] text-slate-400">
+                                <Clock className="h-3 w-3" /> Última alteração: {formatDate(proposal.updated_at || proposal.created_at)}
+                              </span>
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-bold text-white">{proposal.title || 'Nova Proposta'}</h3>
+                              <p className="mt-1 text-xs text-slate-400">Código: {proposal.code || 'Será gerado ao salvar'} · Valor: {formatMoney(proposal.final_price)}</p>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-400">Etapa atual: <strong className="text-brand-blue">{stepName}</strong></span>
+                                <span className="font-semibold text-brand-blue">{percentage}%</span>
+                              </div>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-border">
+                                <div className="h-1.5 rounded-full bg-brand-blue transition-all duration-500" style={{ width: `${percentage}%` }} />
+                              </div>
+                              {remaining.length > 0 && (
+                                <p className="text-[11px] text-slate-500">Faltam: {remaining.join(', ')}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex w-full items-center gap-2">
+                            <Button 
+                              onClick={() => navigate(`/propostas/${proposal.id}/editar?step=${stepIndex}`)}
+                              className="flex-1 gap-2 bg-brand-blue hover:bg-brand-blue-hover text-white"
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                              Continuar Proposta
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-brand-border hover:border-red-500/20"
+                              title="Excluir proposta"
+                              onClick={() => triggerDeleteProposal(proposal.id, proposal.title)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {proposals.length === 0 ? (
                 <div className="bg-gray-50 border border-brand-border rounded-lg p-8 flex flex-col items-center justify-center flex-1 text-center min-h-[300px]">
@@ -380,86 +382,92 @@ export function ClientDetails() {
                   <p className="text-sm text-slate-500 max-w-sm mb-6">
                     Este cliente ainda não possui nenhuma proposta comercial vinculada ao seu cadastro.
                   </p>
-                  <Button onClick={openActiveProposal} className="gap-2">
+                  <Button onClick={startNewProposal} className="gap-2">
                     <Plus className="w-4 h-4" />
                     Gerar Primeira Proposta
                   </Button>
                 </div>
               ) : closedOrSentProposals.length > 0 ? (
-                <div className="overflow-auto rounded-xl border border-brand-border">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 bg-brand-gray text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      <tr>
-                        <th className="px-4 py-3 border-b border-brand-border">Proposta</th>
-                        <th className="px-4 py-3 border-b border-brand-border">Valor</th>
-                        <th className="px-4 py-3 border-b border-brand-border">Status</th>
-                        <th className="px-4 py-3 border-b border-brand-border">Último Evento</th>
-                        <th className="px-4 py-3 border-b border-brand-border text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-brand-border">
-                      {closedOrSentProposals.map(prop => {
-                        const lastEvent = getLastEvent(prop);
-                        return (
-                          <tr key={prop.id} className="hover:bg-brand-surface transition-colors">
-                            <td className="px-4 py-3">
-                              <p className="text-sm font-medium text-brand-dark">{prop.title || 'Sistema Solar'}</p>
-                              <p className="text-xs text-slate-500">{formatDate(prop.created_at)} {prop.code && `- ${prop.code}`}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="text-sm text-brand-dark font-medium">{formatMoney(prop.final_price)}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              {getStatusBadge(prop.status)}
-                            </td>
-                            <td className="px-4 py-3">
-                              {lastEvent ? (
-                                <div>
-                                  <p className="text-xs text-brand-dark">{lastEvent.description || lastEvent.event_type}</p>
-                                  <p className="text-[10px] text-slate-500">{formatDate(lastEvent.created_at)}</p>
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-brand-dark">Propostas concluídas ou enviadas</h3>
+                    <p className="text-xs text-slate-500">Aqui entram propostas que já podem ser visualizadas, editadas ou acompanhadas.</p>
+                  </div>
+                  <div className="overflow-auto rounded-xl border border-brand-border">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-brand-gray text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3 border-b border-brand-border">Proposta</th>
+                          <th className="px-4 py-3 border-b border-brand-border">Valor</th>
+                          <th className="px-4 py-3 border-b border-brand-border">Status</th>
+                          <th className="px-4 py-3 border-b border-brand-border">Último Evento</th>
+                          <th className="px-4 py-3 border-b border-brand-border text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-brand-border">
+                        {closedOrSentProposals.map(prop => {
+                          const lastEvent = getLastEvent(prop);
+                          return (
+                            <tr key={prop.id} className="hover:bg-brand-surface transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="text-sm font-medium text-brand-dark">{prop.title || 'Sistema Solar'}</p>
+                                <p className="text-xs text-slate-500">{formatDate(prop.created_at)} {prop.code && `- ${prop.code}`}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-sm text-brand-dark font-medium">{formatMoney(prop.final_price)}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                {getStatusBadge(prop.status)}
+                              </td>
+                              <td className="px-4 py-3">
+                                {lastEvent ? (
+                                  <div>
+                                    <p className="text-xs text-brand-dark">{lastEvent.description || lastEvent.event_type}</p>
+                                    <p className="text-[10px] text-slate-500">{formatDate(lastEvent.created_at)}</p>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500">-</p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
+                                    title="Visualizar Proposta"
+                                    onClick={() => navigate(`/propostas/${prop.id}`)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                                    title="Editar Proposta"
+                                    onClick={() => navigate(`/propostas/${prop.id}/editar`)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                                    title="Excluir Proposta"
+                                    onClick={() => triggerDeleteProposal(prop.id, prop.title)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                              ) : (
-                                <p className="text-xs text-slate-500">-</p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                                  title="Visualizar Proposta"
-                                  onClick={() => navigate(`/propostas/${prop.id}`)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                                  title="Editar Proposta"
-                                  onClick={() => navigate(`/propostas/${prop.id}/editar`)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                                  title="Excluir Proposta"
-                                  onClick={() => triggerDeleteProposal(prop.id, prop.title)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              ) : activeProposal ? (
+              ) : openProposals.length > 0 ? (
                 <p className="text-center text-sm text-slate-500">Nenhuma proposta finalizada ou enviada ainda.</p>
               ) : null}
             </CardContent>
