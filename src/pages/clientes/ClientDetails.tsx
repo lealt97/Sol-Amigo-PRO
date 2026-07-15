@@ -57,6 +57,9 @@ export function ClientDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [proposalToDelete, setProposalToDelete] = useState<{ id: string; title: string | null } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isOpenProposal = (proposal: any) => {
     return OPEN_PROPOSAL_STATUSES.includes(proposal.status)
@@ -106,11 +109,6 @@ export function ClientDetails() {
     const percentage = Math.min(Math.round(((stepIndex + 1) / 7) * 100), 100);
     return { stepName, percentage, stepIndex, remaining };
   };
-
-  // Custom Delete Modal State for Proposals
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [proposalToDelete, setProposalToDelete] = useState<{ id: string; title: string | null } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     async function loadClient() {
@@ -240,13 +238,6 @@ export function ClientDetails() {
             >
               <Edit className="w-4 h-4" />
               Editar Cliente
-            </Button>
-            <Button 
-              onClick={openActiveProposal}
-              className="gap-2 bg-brand-blue text-white hover:bg-brand-blue-hover"
-            >
-              {activeProposal ? <ArrowRight className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {activeProposal ? 'Continuar Proposta' : 'Nova Proposta'}
             </Button>
           </div>
         </div>
