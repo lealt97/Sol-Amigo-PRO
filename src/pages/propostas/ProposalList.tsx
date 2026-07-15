@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
-import { Search, Plus, Copy, Edit, Trash2, Eye } from 'lucide-react';
+import { Search, Plus, Copy, Edit, Trash2, Eye, ArrowRight } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
@@ -99,7 +99,8 @@ export function ProposalList() {
       const { id, created_at, updated_at, code, client, ...rest } = proposal;
       const duplicated = await proposalService.createProposal(
         { ...rest, title: `${proposal.title || 'Proposta'} (Cópia)` },
-        user.id
+        user.id,
+        true
       );
       navigate(`/propostas/${duplicated.id}/editar`);
     } catch (err: any) {
@@ -225,34 +226,39 @@ export function ProposalList() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {!inFilling && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
+                              title="Visualizar"
+                              onClick={() => navigate(`/propostas/${proposal.id}`)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                            title="Visualizar"
-                            onClick={() => navigate(`/propostas/${proposal.id}`)}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                            variant={inFilling ? 'secondary' : 'ghost'}
+                            size={inFilling ? 'sm' : 'icon'}
+                            className={inFilling ? 'h-8 gap-2' : 'h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10'}
                             title={editTitle}
                             aria-label={editTitle}
                             onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
                           >
-                            <Edit className="w-4 h-4" />
+                            {inFilling ? <ArrowRight className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                            {inFilling ? 'Continuar' : null}
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                            title="Duplicar"
-                            onClick={() => handleDuplicate(proposal)}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
+                          {!inFilling && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                              title="Duplicar"
+                              onClick={() => handleDuplicate(proposal)}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button 
                             variant="ghost" 
                             size="icon" 
