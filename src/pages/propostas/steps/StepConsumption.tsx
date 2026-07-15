@@ -123,7 +123,7 @@ export function StepConsumption() {
 
       {consumptionSource === 'historical' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 scroll-after-3-grid">
             {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((month, idx) => (
               <div key={idx} className="space-y-2">
                 <Label htmlFor={`history.${idx}`}>{month}</Label>
@@ -170,9 +170,9 @@ export function StepConsumption() {
             </Button>
           </div>
 
-          <div className="border border-brand-border rounded-lg overflow-hidden">
+          <div className="border border-brand-border rounded-lg overflow-hidden scroll-after-3-table">
             <table className="w-full text-sm text-left text-slate-500">
-              <thead className="text-xs text-slate-500 uppercase bg-brand-surface border-b border-brand-border">
+              <thead className="text-xs text-slate-500 uppercase bg-brand-surface border-b border-brand-border sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-3">Equipamento</th>
                   <th className="px-4 py-3 w-28">Potência (W)</th>
