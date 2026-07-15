@@ -6,10 +6,11 @@ import { supabase } from '../../lib/supabase/client';
 import { Client } from '../../types/client';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
-import { ArrowLeft, Edit, Plus, MapPin, Phone, Mail, FileText, Zap, Trash2, Eye, Clock, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, MapPin, Phone, Mail, FileText, Zap, Trash2, Eye, Clock } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { toast } from 'sonner';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
+import { ContinueProposalButton } from '../../components/proposals/ContinueProposalButton';
 
 const OPEN_PROPOSAL_STATUSES = ['draft', 'pending'];
 
@@ -352,13 +353,7 @@ export function ClientDetails() {
                               </div>
                             </div>
                             <div className="flex w-full items-center gap-2">
-                              <Button 
-                                onClick={() => navigate(`/propostas/${proposal.id}/editar?step=${stepIndex}`)}
-                                className="flex-1 gap-2 bg-brand-blue hover:bg-brand-blue-hover text-white"
-                              >
-                                <ArrowRight className="w-4 h-4" />
-                                Continuar Proposta
-                              </Button>
+                              <ContinueProposalButton to={`/propostas/${proposal.id}/editar?step=${stepIndex}`} className="flex-1" />
                               <Button
                                 variant="ghost"
                                 size="icon"
