@@ -1,11 +1,15 @@
 import { Card } from '../components/ui/Card';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
-import { proposalService } from '../services/proposalService';
-import { clientService } from '../services/clientService';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { Link } from 'react-router-dom';
-import { Eye, Edit } from 'lucide-react';
+import { ArrowRight, Eye, Edit } from 'lucide-react';
+
+const PENDING_PROPOSAL_STATUSES = ['draft', 'pending'];
+
+function isProposalPending(proposal: any) {
+  return PENDING_PROPOSAL_STATUSES.includes(proposal.status);
+}
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -20,7 +24,7 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-0.5 text-[10px] border rounded-full ${styles[status]}`}>
+    <span className={`px-2 py-0.5 text-[10px] border rounded-full ${styles[status] || styles.pending}`}>
       {
       status === 'draft' || status === 'pending' ? 'Pendente' :
       status === 'sent' ? 'Enviada' :
@@ -154,40 +158,58 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody className="text-sm bg-brand-surface">
-              {propostasRecentes.map((prop) => (
-                <tr key={prop.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-brand-dark">{prop.client?.name}</td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{formatDate(prop.created_at)}</td>
-                  <td className="px-4 py-3 text-xs text-brand-dark">
-    {(() => {
-      const solarObj = Array.isArray(prop.solar) ? prop.solar[0] : prop.solar;
-      return solarObj?.installed_power_kwp ? solarObj.installed_power_kwp.toFixed(1) + ' kWp' : '-';
-    })()}
-  </td>
-                  <td className="px-4 py-3 font-mono text-brand-dark">{formatCurrency(prop.final_price || 0)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={prop.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link 
-                        to={`/propostas/${prop.id}`} 
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-white hover:bg-gray-100 transition-colors"
-                        title="Visualizar Proposta"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                      <Link 
-                        to={`/propostas/${prop.id}/editar`} 
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-light hover:bg-brand-blue/10 transition-colors"
-                        title="Editar Proposta"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {propostasRecentes.map((prop) => {
+                const pending = isProposalPending(prop);
+
+                return (
+                  <tr key={prop.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-brand-dark">{prop.client?.name}</td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">{formatDate(prop.created_at)}</td>
+                    <td className="px-4 py-3 text-xs text-brand-dark">
+                      {(() => {
+                        const solarObj = Array.isArray(prop.solar) ? prop.solar[0] : prop.solar;
+                        return solarObj?.installed_power_kwp ? solarObj.installed_power_kwp.toFixed(1) + ' kWp' : '-';
+                      })()}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-brand-dark">{formatCurrency(prop.final_price || 0)}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={prop.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {pending ? (
+                          <Link 
+                            to={`/propostas/${prop.id}/editar`} 
+                            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-brand-blue px-3 text-xs font-semibold text-white transition-colors hover:bg-brand-blue-hover"
+                            title="Continuar proposta"
+                            aria-label="Continuar proposta"
+                          >
+                            <ArrowRight className="w-4 h-4" />
+                            Continuar
+                          </Link>
+                        ) : (
+                          <>
+                            <Link 
+                              to={`/propostas/${prop.id}`} 
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-white hover:bg-gray-100 transition-colors"
+                              title="Visualizar Proposta"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                            <Link 
+                              to={`/propostas/${prop.id}/editar`} 
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:text-brand-light hover:bg-brand-blue/10 transition-colors"
+                              title="Editar Proposta"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Link>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {propostasRecentes.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-sm">
