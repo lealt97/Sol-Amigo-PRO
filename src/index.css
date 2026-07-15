@@ -105,13 +105,32 @@ div.space-y-2.pt-2.border-t.border-brand-border {
   scrollbar-color: #386A9E rgba(14, 35, 55, 0.55);
 }
 
+/* Tabelas do layout também passam a mostrar cerca de 3 linhas antes do scroll. */
+div.overflow-x-auto:has(> table),
+div.overflow-auto:has(> table) {
+  max-height: 17rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #386A9E rgba(14, 35, 55, 0.55);
+}
+
+div.overflow-x-auto:has(> table) thead,
+div.overflow-auto:has(> table) thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 .scroll-after-3-cards::-webkit-scrollbar,
 .scroll-after-3-table::-webkit-scrollbar,
 .scroll-after-3-compact::-webkit-scrollbar,
 .scroll-after-3-timeline::-webkit-scrollbar,
 .scroll-after-3-grid::-webkit-scrollbar,
 div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border)::-webkit-scrollbar,
-div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar {
+div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar,
+div.overflow-x-auto:has(> table)::-webkit-scrollbar,
+div.overflow-auto:has(> table)::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
@@ -122,7 +141,9 @@ div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar {
 .scroll-after-3-timeline::-webkit-scrollbar-track,
 .scroll-after-3-grid::-webkit-scrollbar-track,
 div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border)::-webkit-scrollbar-track,
-div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-track {
+div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-track,
+div.overflow-x-auto:has(> table)::-webkit-scrollbar-track,
+div.overflow-auto:has(> table)::-webkit-scrollbar-track {
   background: rgba(14, 35, 55, 0.55);
   border-radius: 999px;
 }
@@ -133,7 +154,9 @@ div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-track {
 .scroll-after-3-timeline::-webkit-scrollbar-thumb,
 .scroll-after-3-grid::-webkit-scrollbar-thumb,
 div.space-y-6:has(> div.relative.pl-6.border-l.border-brand-border)::-webkit-scrollbar-thumb,
-div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-thumb {
+div.space-y-2.pt-2.border-t.border-brand-border::-webkit-scrollbar-thumb,
+div.overflow-x-auto:has(> table)::-webkit-scrollbar-thumb,
+div.overflow-auto:has(> table)::-webkit-scrollbar-thumb {
   background: #386A9E;
   border-radius: 999px;
 }
