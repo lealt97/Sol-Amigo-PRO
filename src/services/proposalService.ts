@@ -27,6 +27,43 @@ const resolveOtherCosts = (proposal: Partial<ProposalFormValues>) => {
   return formatNumber(proposal.other_costs) || 0;
 };
 
+const generateFallbackProposalCode = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID().slice(0, 8).toUpperCase()
+    : Math.random().toString(36).slice(2, 10).toUpperCase();
+
+  return `FV-${year}${month}${day}-${random}`;
+};
+
+const generateProposalCode = async (userId: string, attempt = 0) => {
+  const currentYear = new Date().getFullYear();
+  const startOfYear = `${currentYear}-01-01T00:00:00.000Z`;
+  const startOfNextYear = `${currentYear + 1}-01-01T00:00:00.000Z`;
+
+  const { count, error } = await supabase
+    .from('proposals')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', startOfYear)
+    .lt('created_at', startOfNextYear);
+
+  if (error) {
+    console.error('Error generating proposal code:', error);
+    return generateFallbackProposalCode();
+  }
+
+  const sequence = (count || 0) + 1 + attempt;
+  return `FV-${currentYear}-${String(sequence).padStart(4, '0')}`;
+};
+
+const isDuplicateCodeError = (error: any) => {
+  return error?.code === '23505' || String(error?.message || '').toLowerCase().includes('duplicate');
+};
+
 export const proposalService = {
   async getProposals() {
     const { data, error } = await supabase
@@ -74,7 +111,7 @@ export const proposalService = {
       user_id: userId,
       client_id: proposal.client_id,
       title: proposal.title || 'Nova Proposta',
-      status: 'draft',
+      status: 'pending',
       consumption_source: proposal.consumption_source,
       
       estimated_daily_consumption: formatNumber(proposal.estimated_daily_consumption),
@@ -107,13 +144,31 @@ export const proposalService = {
       markup_percentage: pricing.markup_percentage,
     };
 
-    const { data, error } = await supabase
-      .from('proposals')
-      .insert([formattedData])
-      .select()
-      .single();
+    let data: any = null;
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const code = await generateProposalCode(userId, attempt);
+      const { data: insertedData, error } = await supabase
+        .from('proposals')
+        .insert([{ ...formattedData, code }])
+        .select()
+        .single();
+
+      if (!error) {
+        data = insertedData;
+        lastError = null;
+        break;
+      }
+
+      lastError = error;
+      if (!isDuplicateCodeError(error)) {
+        break;
+      }
+    }
       
-    if (error) throw error;
+    if (lastError) throw lastError;
+    if (!data) throw new Error('Erro ao criar proposta.');
     
     // Calcula e salva os dados solares
     await this.upsertSolarCalculation(data.id, proposal, pricing.final_price);
