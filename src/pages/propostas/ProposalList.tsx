@@ -7,10 +7,11 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
-import { Search, Plus, Copy, Edit, Trash2, Eye, ArrowRight } from 'lucide-react';
+import { Search, Plus, Copy, Edit, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
+import { ContinueProposalButton } from '../../components/proposals/ContinueProposalButton';
 
 const PENDING_STATUSES = ['draft', 'pending'];
 
@@ -206,7 +207,6 @@ export function ProposalList() {
               ) : filteredProposals.length > 0 ? (
                 filteredProposals.map((proposal) => {
                   const inFilling = isProposalInFilling(proposal);
-                  const editTitle = inFilling ? 'Continuar preenchimento' : 'Editar proposta';
 
                   return (
                     <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
@@ -236,17 +236,20 @@ export function ProposalList() {
                               <Eye className="w-4 h-4" />
                             </Button>
                           )}
-                          <Button 
-                            variant={inFilling ? 'secondary' : 'ghost'}
-                            size={inFilling ? 'sm' : 'icon'}
-                            className={inFilling ? 'h-8 gap-2' : 'h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10'}
-                            title={editTitle}
-                            aria-label={editTitle}
-                            onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
-                          >
-                            {inFilling ? <ArrowRight className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                            {inFilling ? 'Continuar' : null}
-                          </Button>
+                          {inFilling ? (
+                            <ContinueProposalButton to={`/propostas/${proposal.id}/editar`} />
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
+                              title="Editar proposta"
+                              aria-label="Editar proposta"
+                              onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
                           {!inFilling && (
                             <Button 
                               variant="ghost" 
