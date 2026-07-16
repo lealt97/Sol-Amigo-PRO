@@ -3,7 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json',
 };
@@ -38,17 +38,30 @@ function extractLegacyStoragePath(pdfUrl: string | null): string | null {
   return null;
 }
 
+async function readToken(request: Request): Promise<string | null> {
+  if (request.method === 'GET') {
+    return new URL(request.url).searchParams.get('token');
+  }
+
+  if (request.method === 'POST') {
+    const body = await request.json();
+    return typeof body?.token === 'string' ? body.token : null;
+  }
+
+  return null;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  if (request.method !== 'POST') {
+  if (!['GET', 'POST'].includes(request.method)) {
     return jsonResponse({ error: 'Método não permitido.' }, 405);
   }
 
   try {
-    const { token } = await request.json();
+    const token = await readToken(request);
 
     if (typeof token !== 'string' || token.trim().length < 20 || token.length > 128) {
       return jsonResponse({ error: 'Token inválido.' }, 400);
@@ -99,6 +112,17 @@ Deno.serve(async (request) => {
     if (signedError || !signedData?.signedUrl) {
       console.error('Error signing public proposal PDF:', signedError);
       return jsonResponse({ error: 'Não foi possível abrir o PDF.' }, 500);
+    }
+
+    if (request.method === 'GET') {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store',
+          Location: signedData.signedUrl,
+        },
+      });
     }
 
     return jsonResponse({
