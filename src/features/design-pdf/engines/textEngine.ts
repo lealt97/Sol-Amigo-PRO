@@ -1,3 +1,5 @@
+import { PdfTheme } from '../types/pdfDesignTypes';
+
 export type CoverTextValues = {
   clientName?: string;
   powerKwp?: string;
@@ -13,6 +15,13 @@ type BoundElement = {
   field: CoverField;
 };
 
+type Bounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const FIELD_ALIASES: Record<CoverField, string[]> = {
@@ -21,6 +30,7 @@ const FIELD_ALIASES: Record<CoverField, string[]> = {
     'slot client name',
     'clientname',
     'client name',
+    'client name value',
     'nome sobrenome',
     'nome do cliente',
     'nome cliente',
@@ -71,6 +81,7 @@ const FIELD_ALIASES: Record<CoverField, string[]> = {
     'validade valor',
     'validade dias',
     'validade 7 dias',
+    'validade 7 d ias',
   ],
 };
 
@@ -82,6 +93,7 @@ function normalizeToken(value: string | null | undefined) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\bk\s+wp\b/g, 'kwp')
+    .replace(/\bd\s+ias\b/g, 'dias')
     .trim();
 }
 
@@ -122,11 +134,16 @@ function fieldFromVisibleText(text: string): CoverField | null {
     return 'date';
   }
 
-  if (/^validade\s*:?\s*(\d+|x+)\s*dias?$/i.test(clean)) {
+  if (/^validade\s*:?\s*(\d+|x+)\s*d\s*ias?$/i.test(clean)) {
     return 'validityText';
   }
 
   return null;
+}
+
+function explicitFieldForElement(element: Element) {
+  return fieldFromBinding(element.getAttribute('data-bind'))
+    || fieldFromBinding(element.getAttribute('id'));
 }
 
 function collectBoundElements(doc: Document): BoundElement[] {
@@ -137,8 +154,7 @@ function collectBoundElements(doc: Document): BoundElement[] {
     if (visited.has(element)) return;
     visited.add(element);
 
-    const explicitField = fieldFromBinding(element.getAttribute('data-bind'))
-      || fieldFromBinding(element.getAttribute('id'));
+    const explicitField = explicitFieldForElement(element);
     const textField = element.matches('text, tspan')
       ? fieldFromVisibleText(element.textContent || '')
       : null;
@@ -150,56 +166,178 @@ function collectBoundElements(doc: Document): BoundElement[] {
   return result;
 }
 
-function resolveFill(element: Element) {
+function isVectorTextLeaf(element: Element) {
+  const tagName = element.tagName.toLowerCase();
+  const supportedLeaf = tagName === 'path' || tagName === 'polygon' || tagName === 'polyline';
+  return supportedLeaf && element.children.length === 0 && Boolean(explicitFieldForElement(element));
+}
+
+function isDynamicSlot(element: Element) {
+  if (element.tagName.toLowerCase() !== 'rect') return false;
+  if (!explicitFieldForElement(element)) return false;
+
+  const binding = normalizeToken(
+    element.getAttribute('data-bind') || element.getAttribute('id'),
+  );
+  const parentSlotGroup = element.closest(
+    '#dynamic_slots, [id="dynamic_slots"], [id*="dynamic_slots"], [data-dynamic-slots]',
+  );
+
+  return binding.startsWith('slot ') || Boolean(parentSlotGroup);
+}
+
+function resolveFill(element: Element, theme?: PdfTheme) {
+  const configuredFill = element.getAttribute('data-text-fill')
+    || element.getAttribute('data-text-color');
+  if (configuredFill) return configuredFill;
+
   const directFill = element.getAttribute('fill');
-  if (directFill && directFill !== 'none' && !directFill.startsWith('url(')) return directFill;
+  if (
+    directFill
+    && directFill !== 'none'
+    && directFill !== 'transparent'
+    && !directFill.startsWith('url(')
+  ) {
+    return directFill;
+  }
 
   const childWithFill = element.querySelector('[fill]:not([fill="none"])');
   const childFill = childWithFill?.getAttribute('fill');
-  if (childFill && !childFill.startsWith('url(')) return childFill;
+  if (childFill && childFill !== 'transparent' && !childFill.startsWith('url(')) {
+    return childFill;
+  }
 
   let parent = element.parentElement;
   while (parent) {
-    const parentFill = parent.getAttribute('fill');
-    if (parentFill && parentFill !== 'none' && !parentFill.startsWith('url(')) return parentFill;
+    const parentFill = parent.getAttribute('data-text-fill') || parent.getAttribute('fill');
+    if (
+      parentFill
+      && parentFill !== 'none'
+      && parentFill !== 'transparent'
+      && !parentFill.startsWith('url(')
+    ) {
+      return parentFill;
+    }
     parent = parent.parentElement;
   }
 
-  return '#1E1E1E';
+  return theme?.neutral || '#1E1E1E';
 }
 
 function fontWeightForField(field: CoverField) {
   return field === 'clientName' || field === 'powerKwp' ? '700' : '500';
 }
 
+function maxFontSizeForField(field: CoverField) {
+  if (field === 'powerKwp') return 24;
+  if (field === 'clientName') return 18;
+  if (field === 'cityState') return 15;
+  if (field === 'date') return 14;
+  return 11;
+}
+
 function calculateFontSize(field: CoverField, value: string, width: number, height: number) {
   const widthFactor = field === 'powerKwp' ? 0.62 : 0.56;
   const widthBased = width / Math.max(value.length * widthFactor, 1);
-  const heightBased = height * 0.88;
-  const maxSize = field === 'powerKwp' ? 24 : 18;
-  return Math.max(7, Math.min(widthBased, heightBased, maxSize));
+  const heightBased = height * (field === 'validityText' ? 0.72 : 0.86);
+  return Math.max(7, Math.min(widthBased, heightBased, maxFontSizeForField(field)));
 }
 
-function isVectorTextLeaf(element: Element) {
-  const tagName = element.tagName.toLowerCase();
-  const supportedLeaf = tagName === 'path' || tagName === 'polygon' || tagName === 'polyline';
-  const hasOwnBinding = Boolean(
-    fieldFromBinding(element.getAttribute('data-bind'))
-      || fieldFromBinding(element.getAttribute('id')),
-  );
-
-  return supportedLeaf && element.children.length === 0 && hasOwnBinding;
+function transformPoint(matrix: DOMMatrix, x: number, y: number) {
+  return {
+    x: matrix.a * x + matrix.c * y + matrix.e,
+    y: matrix.b * x + matrix.d * y + matrix.f,
+  };
 }
 
-function replaceVectorSlots(doc: Document, slots: BoundElement[], values: CoverTextValues) {
+function boundsFromRenderedElement(element: SVGGraphicsElement): Bounds | null {
+  if (typeof element.getBBox !== 'function') return null;
+
+  try {
+    const box = element.getBBox();
+    if (box.width <= 0 || box.height <= 0) return null;
+
+    const matrix = typeof element.getCTM === 'function' ? element.getCTM() : null;
+    if (!matrix) {
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    }
+
+    const points = [
+      transformPoint(matrix, box.x, box.y),
+      transformPoint(matrix, box.x + box.width, box.y),
+      transformPoint(matrix, box.x, box.y + box.height),
+      transformPoint(matrix, box.x + box.width, box.y + box.height),
+    ];
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function directRectBounds(element: Element): Bounds | null {
+  if (element.tagName.toLowerCase() !== 'rect') return null;
+
+  const x = Number(element.getAttribute('x') || 0);
+  const y = Number(element.getAttribute('y') || 0);
+  const width = Number(element.getAttribute('width') || 0);
+  const height = Number(element.getAttribute('height') || 0);
+
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { x, y, width, height };
+}
+
+function selectRenderableSlots(slots: BoundElement[], handledFields: Set<CoverField>) {
+  const selected = new Map<CoverField, BoundElement>();
+
+  slots.forEach((slot) => {
+    if (handledFields.has(slot.field)) return;
+    if (!isVectorTextLeaf(slot.element) && !isDynamicSlot(slot.element)) return;
+
+    const current = selected.get(slot.field);
+    if (!current) {
+      selected.set(slot.field, slot);
+      return;
+    }
+
+    // Preserve the original vector placeholder when it exists. The invisible
+    // rectangle is the fallback used by the cleaned SVG templates.
+    if (isVectorTextLeaf(slot.element) && isDynamicSlot(current.element)) {
+      selected.set(slot.field, slot);
+    }
+  });
+
+  return Array.from(selected.values());
+}
+
+function renderNonTextSlots(
+  doc: Document,
+  slots: BoundElement[],
+  values: CoverTextValues,
+  handledFields: Set<CoverField>,
+  theme?: PdfTheme,
+) {
   if (typeof document === 'undefined' || !document.body) return;
 
-  const vectorSlots = slots.filter(({ element, field }) => {
-    return isVectorTextLeaf(element) && Boolean(valueForField(values, field));
-  });
-  if (!vectorSlots.length) return;
+  const candidates = selectRenderableSlots(slots, handledFields)
+    .filter(({ field }) => Boolean(valueForField(values, field)));
+  if (!candidates.length) return;
 
-  vectorSlots.forEach(({ element }, index) => {
+  candidates.forEach(({ element }, index) => {
     element.setAttribute('data-cover-bind-id', `cover-bind-${index}`);
   });
 
@@ -217,46 +355,47 @@ function replaceVectorSlots(doc: Document, slots: BoundElement[], values: CoverT
   document.body.appendChild(host);
 
   try {
-    vectorSlots.forEach(({ element, field }, index) => {
+    candidates.forEach(({ element, field }, index) => {
       const value = valueForField(values, field);
       if (!value) return;
 
       const renderedElement = renderedSvg.querySelector(
         `[data-cover-bind-id="cover-bind-${index}"]`,
       ) as SVGGraphicsElement | null;
-      if (!renderedElement || typeof renderedElement.getBBox !== 'function') return;
-
-      let box: DOMRect;
-      try {
-        box = renderedElement.getBBox() as unknown as DOMRect;
-      } catch {
-        return;
-      }
-
-      if (!Number.isFinite(box.x) || !Number.isFinite(box.y) || box.width <= 0 || box.height <= 0) {
-        return;
-      }
+      const bounds = renderedElement
+        ? boundsFromRenderedElement(renderedElement) || directRectBounds(element)
+        : directRectBounds(element);
+      if (!bounds) return;
 
       const text = doc.createElementNS(SVG_NS, 'text');
-      const fontSize = calculateFontSize(field, value, box.width, box.height);
-      text.setAttribute('x', String(box.x + box.width / 2));
-      text.setAttribute('y', String(box.y + box.height / 2));
-      text.setAttribute('text-anchor', 'middle');
+      const fontSize = calculateFontSize(field, value, bounds.width, bounds.height);
+      const configuredAnchor = element.getAttribute('data-text-anchor');
+      const anchor = configuredAnchor || (field === 'powerKwp' ? 'middle' : 'start');
+      const x = anchor === 'middle' ? bounds.x + bounds.width / 2 : bounds.x;
+
+      text.setAttribute('x', String(x));
+      text.setAttribute('y', String(bounds.y + bounds.height / 2));
+      text.setAttribute('text-anchor', anchor);
       text.setAttribute('dominant-baseline', 'central');
       text.setAttribute('font-family', 'Arial, Helvetica, sans-serif');
       text.setAttribute('font-size', fontSize.toFixed(2));
       text.setAttribute('font-weight', fontWeightForField(field));
-      text.setAttribute('fill', resolveFill(element));
+      text.setAttribute('fill', resolveFill(element, theme));
       text.setAttribute('data-bind', field);
       text.setAttribute('pointer-events', 'none');
-
-      const transform = element.getAttribute('transform');
-      if (transform) text.setAttribute('transform', transform);
-
       text.textContent = value;
-      element.setAttribute('display', 'none');
-      element.removeAttribute('data-cover-bind-id');
-      element.parentNode?.insertBefore(text, element.nextSibling);
+
+      // Generated text is appended to the SVG root so it does not inherit the
+      // opacity/display of the invisible dynamic_slots group.
+      doc.documentElement.appendChild(text);
+
+      // Only the exact vector glyph placeholder is hidden. Slot rectangles,
+      // groups, icons and static labels remain untouched.
+      if (isVectorTextLeaf(element)) {
+        element.setAttribute('display', 'none');
+      }
+
+      handledFields.add(field);
     });
   } finally {
     host.remove();
@@ -266,14 +405,23 @@ function replaceVectorSlots(doc: Document, slots: BoundElement[], values: CoverT
   }
 }
 
-export function applyDynamicTexts(doc: Document, values: CoverTextValues) {
+export function applyDynamicTexts(
+  doc: Document,
+  values: CoverTextValues,
+  theme?: PdfTheme,
+) {
   const slots = collectBoundElements(doc);
+  const handledFields = new Set<CoverField>();
 
   slots.forEach(({ element, field }) => {
     if (!element.matches('text, tspan')) return;
     const value = valueForField(values, field);
-    if (value) element.textContent = value;
+    if (!value) return;
+
+    element.textContent = value;
+    element.setAttribute('data-bind', field);
+    handledFields.add(field);
   });
 
-  replaceVectorSlots(doc, slots, values);
+  renderNonTextSlots(doc, slots, values, handledFields, theme);
 }
