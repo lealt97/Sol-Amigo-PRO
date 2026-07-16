@@ -48,6 +48,7 @@ export interface Proposal {
   real_margin_percentage: number | null;
   markup_percentage: number | null;
   pdf_url: string | null;
+  pdf_storage_path?: string | null;
   public_token: string | null;
   sent_whatsapp_at: string | null;
   accepted_at: string | null;
@@ -58,7 +59,7 @@ export interface Proposal {
   client_user_agent?: string | null;
   created_at: string;
   updated_at: string;
-  
+
   // Relações
   client?: {
     name: string;
