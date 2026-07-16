@@ -11,9 +11,14 @@ export function calcularTarifaEnergia(valorConta: number, consumoMensalFinal: nu
 }
 
 export function calcularConsumoMedio12Meses(consumos: number[]): number {
-  if (!consumos.length) return 0;
-  const soma = consumos.reduce((acc, val) => acc + val, 0);
-  return soma / 12;
+  const consumosValidos = consumos
+    .slice(0, 12)
+    .filter((consumo) => Number.isFinite(consumo) && consumo >= 0);
+
+  if (!consumosValidos.length) return 0;
+
+  const soma = consumosValidos.reduce((acc, valor) => acc + valor, 0);
+  return soma / consumosValidos.length;
 }
 
 export function calcularConsumoProjetado(consumoMensalFinal: number, metaGeracao: number): number {
@@ -68,14 +73,13 @@ export function calcularSistemaSolar(input: SolarCalculationInput): SolarCalcula
   } = input;
 
   if (!hsp || !panel_power_w || !yield_factor || !generation_target_percent || !oversizing) {
-    return null; // Missing essential inputs for dimensioning
+    return null;
   }
 
   let consumoMensalFinal = input.monthly_consumption_kwh || 0;
   let tarifaEnergia = input.energy_tariff || 0;
   let valorConta = input.current_bill_value || 0;
 
-  // Resolve missing data if possible
   if (consumoMensalFinal > 0 && valorConta > 0 && !tarifaEnergia) {
     tarifaEnergia = calcularTarifaEnergia(valorConta, consumoMensalFinal);
   } else if (valorConta > 0 && tarifaEnergia > 0 && !consumoMensalFinal) {
@@ -85,16 +89,12 @@ export function calcularSistemaSolar(input: SolarCalculationInput): SolarCalcula
   }
 
   const consumoProjetado = calcularConsumoProjetado(consumoMensalFinal, generation_target_percent);
-  
   const potenciaNecessariaKwp = calcularPotenciaNecessaria(consumoProjetado, hsp, yield_factor);
   const quantidadeModulos = calcularQuantidadeModulos(potenciaNecessariaKwp, panel_power_w);
   const potenciaInstaladaKwp = calcularPotenciaInstalada(quantidadeModulos, panel_power_w);
-  
   const geracaoMensalKwh = calcularGeracaoMensal(potenciaInstaladaKwp, hsp, yield_factor);
   const excedente = calcularExcedente(geracaoMensalKwh, consumoMensalFinal);
-  
   const potenciaMinimaInversorKw = calcularPotenciaMinimaInversor(potenciaInstaladaKwp, oversizing);
-  
   const economiaMensal = calcularEconomiaMensal(geracaoMensalKwh, tarifaEnergia, consumoMensalFinal);
   const economiaAnual = calcularEconomiaAnual(economiaMensal);
 
