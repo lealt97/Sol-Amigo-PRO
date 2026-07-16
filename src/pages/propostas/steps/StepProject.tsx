@@ -5,7 +5,9 @@ import { ProposalFormValues } from '../../../lib/validations/proposal.schema';
 
 export function StepProject() {
   const { register, control, formState: { errors } } = useFormContext<ProposalFormValues>();
-  const systemType = useWatch({ control, name: 'system_type' }) || 'on_grid';
+  const selectedKitSnapshot = useWatch({ control, name: 'solar_kit_snapshot' }) as any;
+  const watchedSystemType = useWatch({ control, name: 'system_type' });
+  const systemType = watchedSystemType || selectedKitSnapshot?.system_type || 'on_grid';
   const hasStorage = systemType === 'hybrid' || systemType === 'off_grid';
 
   return (
@@ -23,6 +25,7 @@ export function StepProject() {
           <select
             id="system_type"
             {...register('system_type')}
+            defaultValue={systemType}
             className="flex h-10 w-full rounded-md border border-brand-border bg-gray-50 px-3 py-2 text-sm text-brand-dark outline-none ring-offset-brand-gray transition-colors focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2"
           >
             <option value="on_grid">On-grid</option>
