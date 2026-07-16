@@ -7,6 +7,8 @@ import { supabase } from '../supabase/client';
 import { pdfModelService } from '../../services/pdfModelService';
 import { generateSvgCoverImage } from './utils/svgToImage';
 
+const OWNER_PDF_URL_TTL_SECONDS = 60 * 60;
+
 async function resolvePdfModel(
   proposal: Proposal,
   selectedModelId?: string | null
@@ -69,6 +71,19 @@ async function enrichProposalForPdf(proposal: Proposal): Promise<Proposal> {
   return enrichedProposal as Proposal;
 }
 
+export async function createOwnerProposalPdfUrl(storagePath: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from('proposals')
+    .createSignedUrl(storagePath, OWNER_PDF_URL_TTL_SECONDS);
+
+  if (error || !data?.signedUrl) {
+    console.error('Error creating signed owner PDF URL:', error);
+    return null;
+  }
+
+  return data.signedUrl;
+}
+
 export async function generateAndUploadPdf(
   proposal: Proposal,
   selectedModelId?: string | null
@@ -77,8 +92,7 @@ export async function generateAndUploadPdf(
     const enrichedProposal = await enrichProposalForPdf(proposal);
     let coverImage: string | null = null;
     let selectedModel: PdfUserModel | null = null;
-    
-    // Attempt to load the selected template for this generation, falling back to the user's default template.
+
     try {
       selectedModel = await resolvePdfModel(enrichedProposal, selectedModelId);
       if (selectedModel) {
@@ -88,7 +102,6 @@ export async function generateAndUploadPdf(
       console.warn('Could not load custom cover template, falling back to default', templateError);
     }
 
-    // Generate PDF blob. The internal pages inherit the same theme used by the selected/default cover model.
     const asPdf = pdf(
       <ProposalDocument
         proposal={enrichedProposal}
@@ -97,47 +110,40 @@ export async function generateAndUploadPdf(
       />
     );
     const blob = await asPdf.toBlob();
-    
-    // Create unique filename
-    const timestamp = new Date().getTime();
+
+    const timestamp = Date.now();
     const fileName = `proposta-${enrichedProposal.code || enrichedProposal.id.substring(0, 8)}-${timestamp}.pdf`;
     const filePath = `${enrichedProposal.user_id}/${fileName}`;
-    
-    // Check if bucket exists, if not, it will fail but we assume 'proposals' bucket exists
-    const { error: uploadError } = await supabase
-      .storage
+
+    const { error: uploadError } = await supabase.storage
       .from('proposals')
       .upload(filePath, blob, {
         contentType: 'application/pdf',
-        upsert: true
+        upsert: true,
       });
 
     if (uploadError) {
-      console.error('Error uploading PDF to storage:', uploadError);
+      console.error('Error uploading private PDF to storage:', uploadError);
       return null;
     }
 
-    // Get public URL
-    const { data: urlData } = supabase
-      .storage
-      .from('proposals')
-      .getPublicUrl(filePath);
+    const signedUrl = await createOwnerProposalPdfUrl(filePath);
+    if (!signedUrl) return null;
 
-    // Update proposal with PDF URL
-    if (urlData?.publicUrl) {
-      const { error: updateError } = await supabase
-        .from('proposals')
-        .update({ pdf_url: urlData.publicUrl })
-        .eq('id', enrichedProposal.id);
-        
-      if (updateError) {
-        console.error('Error updating proposal with PDF URL:', updateError);
-      }
-      
-      return urlData.publicUrl;
+    const { error: updateError } = await supabase
+      .from('proposals')
+      .update({
+        pdf_storage_path: filePath,
+        pdf_url: signedUrl,
+      })
+      .eq('id', enrichedProposal.id);
+
+    if (updateError) {
+      console.error('Error updating proposal with private PDF path:', updateError);
+      return null;
     }
 
-    return null;
+    return signedUrl;
   } catch (error) {
     console.error('Error generating PDF:', error);
     return null;
