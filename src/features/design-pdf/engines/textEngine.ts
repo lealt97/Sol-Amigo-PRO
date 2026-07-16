@@ -35,6 +35,7 @@ const FIELD_ALIASES: Record<CoverField, string[]> = {
     'system power',
     'projectpower',
     'project power',
+    'power kwp',
     'potencia valor',
     'potencia do sistema valor',
     'potencia nominal valor',
@@ -80,6 +81,7 @@ function normalizeToken(value: string | null | undefined) {
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\bk\s+wp\b/g, 'kwp')
     .trim();
 }
 
@@ -93,7 +95,8 @@ function fieldFromBinding(binding: string | null | undefined): CoverField | null
   if (!normalized) return null;
 
   for (const field of Object.keys(FIELD_ALIASES) as CoverField[]) {
-    if (FIELD_ALIASES[field].includes(normalized)) return field;
+    const matches = FIELD_ALIASES[field].some((alias) => normalizeToken(alias) === normalized);
+    if (matches) return field;
   }
 
   return null;
