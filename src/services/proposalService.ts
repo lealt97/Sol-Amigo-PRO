@@ -17,6 +17,7 @@ const normalizeSystemType = (value?: string | null) => {
 };
 
 const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';
+const clientSelect = 'name, document, email, phone, city, state';
 
 const getAdditionalCostsTotal = (proposal: Partial<ProposalFormValues>) => {
   return (proposal.additional_costs || []).reduce((sum, cost) => {
@@ -98,7 +99,7 @@ export const proposalService = {
   async getProposals() {
     const { data, error } = await supabase
       .from('proposals')
-      .select(`*, client:clients(name, document, email, phone), profile:profiles(${profileSelect})`)
+      .select(`*, client:clients(${clientSelect}), profile:profiles(${profileSelect})`)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -108,7 +109,7 @@ export const proposalService = {
   async getProposalById(id: string) {
     const { data, error } = await supabase
       .from('proposals')
-      .select(`*, client:clients(name, document, email, phone), solar:solar_system_calculations(*), loads:proposal_loads(*), profile:profiles(${profileSelect})`)
+      .select(`*, client:clients(${clientSelect}), solar:solar_system_calculations(*), loads:proposal_loads(*), profile:profiles(${profileSelect})`)
       .eq('id', id)
       .single();
       
