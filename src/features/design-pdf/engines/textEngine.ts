@@ -180,11 +180,22 @@ function calculateFontSize(field: CoverField, value: string, width: number, heig
   return Math.max(7, Math.min(widthBased, heightBased, maxSize));
 }
 
+function isVectorTextLeaf(element: Element) {
+  const tagName = element.tagName.toLowerCase();
+  const supportedLeaf = tagName === 'path' || tagName === 'polygon' || tagName === 'polyline';
+  const hasOwnBinding = Boolean(
+    fieldFromBinding(element.getAttribute('data-bind'))
+      || fieldFromBinding(element.getAttribute('id')),
+  );
+
+  return supportedLeaf && element.children.length === 0 && hasOwnBinding;
+}
+
 function replaceVectorSlots(doc: Document, slots: BoundElement[], values: CoverTextValues) {
   if (typeof document === 'undefined' || !document.body) return;
 
   const vectorSlots = slots.filter(({ element, field }) => {
-    return !element.matches('text, tspan') && Boolean(valueForField(values, field));
+    return isVectorTextLeaf(element) && Boolean(valueForField(values, field));
   });
   if (!vectorSlots.length) return;
 
