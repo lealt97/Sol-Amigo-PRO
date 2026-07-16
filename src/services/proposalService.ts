@@ -169,6 +169,37 @@ function mergeProposalValues(
   };
 }
 
+function areValuesEquivalent(left: unknown, right: unknown) {
+  if (left === right) return true;
+
+  const leftNumber = formatNumber(left);
+  const rightNumber = formatNumber(right);
+  const bothNumberLike = leftNumber !== null && rightNumber !== null;
+  if (bothNumberLike) return leftNumber === rightNumber;
+
+  try {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  } catch {
+    return false;
+  }
+}
+
+function extractChangedUpdates(
+  base: ProposalFormValues,
+  updates: Partial<ProposalFormValues>,
+): Partial<ProposalFormValues> {
+  const changed: Partial<ProposalFormValues> = {};
+
+  (Object.keys(updates) as Array<keyof ProposalFormValues>).forEach((key) => {
+    const nextValue = updates[key];
+    if (!areValuesEquivalent(base[key], nextValue)) {
+      (changed as any)[key] = nextValue;
+    }
+  });
+
+  return changed;
+}
+
 function buildProposalPayload(values: ProposalFormValues) {
   const { pricing, otherCosts } = buildPricing(values);
 
@@ -370,7 +401,14 @@ export const proposalService = {
   async updateProposal(id: string, updates: Partial<ProposalFormValues>) {
     return enqueueProposalMutation(id, async () => {
       let current = await this.getProposalById(id);
-      let merged = mergeProposalValues(proposalToFormValues(current), updates);
+      const originalValues = proposalToFormValues(current);
+      const changedUpdates = extractChangedUpdates(originalValues, updates);
+
+      if (Object.keys(changedUpdates).length === 0) {
+        return current;
+      }
+
+      let merged = mergeProposalValues(originalValues, changedUpdates);
 
       try {
         return await persistProposalBundle(
@@ -384,7 +422,7 @@ export const proposalService = {
         if (!isRevisionConflict(error)) throw error;
 
         current = await this.getProposalById(id);
-        merged = mergeProposalValues(proposalToFormValues(current), updates);
+        merged = mergeProposalValues(proposalToFormValues(current), changedUpdates);
 
         return persistProposalBundle(
           id,
