@@ -1,121 +1,58 @@
 import { supabase } from '../lib/supabase/client';
-import { proposalEventService } from './proposalEventService';
 
-const PUBLIC_ACTION_STATUSES = ['pending', 'sent', 'draft', 'viewed'];
-const PUBLIC_VIEW_STATUSES = ['pending', 'sent', 'draft'];
+async function getSignedPdfUrl(token: string): Promise<string | null> {
+  const { data, error } = await supabase.functions.invoke('public-proposal-pdf', {
+    body: { token },
+  });
+
+  if (error) {
+    console.error('Error creating signed public proposal PDF URL:', error);
+    return null;
+  }
+
+  return typeof data?.signedUrl === 'string' ? data.signedUrl : null;
+}
 
 export const publicProposalService = {
   async getProposalByToken(token: string) {
     const { data, error } = await supabase
-      .from('proposals')
-      .select(`
-        id, code, title, status, final_price, pdf_url, public_token,
-        accepted_at, rejected_at, rejection_reason, public_viewed_at,
-        created_at, selected_solar_kit_id, solar_kit_snapshot, kit_cost,
-        client_id,
-        user_id,
-        client:clients(name, city, state, document),
-        profile:profiles(company_name, logo_url, seller_name, seller_phone, seller_email, website, company_email, default_validity_days, default_margin_percentage),
-        solar:solar_system_calculations(*)
-      `)
-      .eq('public_token', token)
-      .single();
+      .rpc('get_public_proposal', { p_token: token });
 
     if (error) {
-       console.error('Error fetching public proposal via select:', error);
-       const { data: rpcData, error: rpcError } = await supabase
-         .rpc('get_public_proposal', { p_token: token });
-       if (rpcError) throw rpcError;
-       return rpcData;
+      console.error('Error fetching public proposal via secure RPC:', error);
+      throw error;
     }
 
-    let publicViewedAt = data.public_viewed_at;
-    let currentStatus = data.status;
+    if (!data) return null;
 
-    if (data && !data.public_viewed_at) {
-      publicViewedAt = new Date().toISOString();
-      currentStatus = PUBLIC_VIEW_STATUSES.includes(data.status) ? 'viewed' : data.status;
+    const pdfUrl = data.pdf_available
+      ? await getSignedPdfUrl(token)
+      : null;
 
-      await supabase
-        .from('proposals')
-        .update({
-          public_viewed_at: publicViewedAt,
-          status: currentStatus,
-        })
-        .eq('public_token', token);
-    }
-    
-    // Log view event
-    if (data && data.id) {
-      await proposalEventService.logEvent(data.id, 'public_viewed', 'Cliente visualizou a proposta pelo link público');
-    }
-    
-    let company = { name: 'Empresa', logo_url: '', email: '', website: '' };
-    if (data?.user_id) {
-       const { data: profile } = await supabase
-         .from('profiles')
-         .select('company_name, logo_url, company_email, website')
-         .eq('id', data.user_id)
-         .single();
-       if (profile) {
-         company = {
-           name: profile.company_name,
-           logo_url: profile.logo_url || '',
-           email: profile.company_email || '',
-           website: profile.website || '',
-         };
-       }
-    }
-
-    // Adapt solar to array if needed or use single object
-    const solarCalc = Array.isArray(data.solar) ? data.solar[0] : data.solar;
-    
     return {
       ...data,
-      status: currentStatus,
-      public_viewed_at: publicViewedAt,
-      company,
-      solar: solarCalc,
+      pdf_url: pdfUrl,
     };
   },
 
-  async updateStatus(token: string, status: 'approved' | 'rejected', reason?: string, proposalId?: string) {
-    let updatePayload: any = { status };
-    if (status === 'approved') {
-      updatePayload.accepted_at = new Date().toISOString();
-    } else {
-      updatePayload.rejected_at = new Date().toISOString();
-      updatePayload.rejection_reason = reason;
-    }
-    
-    updatePayload.client_user_agent = navigator.userAgent;
-
+  async updateStatus(
+    token: string,
+    status: 'approved' | 'rejected',
+    reason?: string,
+    _proposalId?: string,
+  ) {
     const { error } = await supabase
-      .from('proposals')
-      .update(updatePayload)
-      .eq('public_token', token)
-      .in('status', PUBLIC_ACTION_STATUSES);
+      .rpc('update_public_proposal_status', {
+        p_token: token,
+        p_status: status,
+        p_reason: reason || null,
+        p_ip: null,
+        p_user_agent: navigator.userAgent,
+      });
 
     if (error) {
-       console.error('Error updating via table, trying RPC:', error);
-       const { error: rpcError } = await supabase
-         .rpc('update_public_proposal_status', { 
-            p_token: token, 
-            p_status: status, 
-            p_reason: reason || null,
-            p_ip: null,
-            p_user_agent: navigator.userAgent
-         });
-       if (rpcError) throw rpcError;
+      console.error('Error updating public proposal via secure RPC:', error);
+      throw error;
     }
-    
-    if (proposalId) {
-      await proposalEventService.logEvent(
-        proposalId, 
-        status === 'approved' ? 'accepted' : 'rejected', 
-        status === 'approved' ? 'Cliente aprovou a proposta' : 'Cliente recusou a proposta',
-        reason ? { reason } : undefined
-      );
-    }
-  }
+  },
 };

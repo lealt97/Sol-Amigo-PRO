@@ -16,6 +16,13 @@ const normalizeSystemType = (value?: string | null) => {
   return 'on_grid';
 };
 
+const buildSecurePdfUrl = (publicToken?: string | null) => {
+  if (!publicToken) return null;
+  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  if (!supabaseUrl) return null;
+  return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;
+};
+
 const profileSelect = 'company_name, logo_url, seller_name, seller_phone, seller_email, seller_signature_url, website, company_email, default_validity_days, default_margin_percentage';
 const clientSelect = 'name, document, email, phone, city, state';
 
@@ -101,7 +108,7 @@ export const proposalService = {
       .from('proposals')
       .select(`*, client:clients(${clientSelect}), profile:profiles(${profileSelect})`)
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data as Proposal[];
   },
@@ -112,15 +119,20 @@ export const proposalService = {
       .select(`*, client:clients(${clientSelect}), solar:solar_system_calculations(*), loads:proposal_loads(*), profile:profiles(${profileSelect})`)
       .eq('id', id)
       .single();
-      
+
     if (error) throw error;
-    
+
     if (data && data.solar && data.solar.length > 0) {
       data.solar = data.solar[0];
     } else {
       data.solar = null;
     }
-    
+
+    const securePdfUrl = buildSecurePdfUrl(data?.public_token);
+    if (data?.pdf_storage_path && securePdfUrl) {
+      data.pdf_url = securePdfUrl;
+    }
+
     return data as Proposal;
   },
 
@@ -184,22 +196,22 @@ export const proposalService = {
       lastError = error;
       if (!isDuplicateCodeError(error)) break;
     }
-      
+
     if (lastError) throw lastError;
     if (!data) throw new Error('Erro ao criar proposta.');
-    
+
     await this.upsertSolarCalculation(data.id, proposal, pricing.final_price);
-    
+
     if (proposal.loads) {
       await this.upsertLoads(data.id, proposal.loads);
     }
-    
+
     await proposalEventService.logEvent(
       data.id,
       isDuplicate ? 'duplicated' : 'created',
       isDuplicate ? 'Proposta duplicada' : 'Proposta criada'
     );
-                
+
     return data as Proposal;
   },
 
@@ -260,16 +272,16 @@ export const proposalService = {
       .eq('id', id)
       .select()
       .single();
-      
+
     if (error) throw error;
-    
+
     await this.upsertSolarCalculation(id, proposal, pricing.final_price);
-    
+
     if (proposal.loads) {
       await this.upsertLoads(id, proposal.loads);
     }
     await proposalEventService.logEvent(id, 'updated', 'Proposta atualizada');
-    
+
     return data as Proposal;
   },
 
@@ -284,7 +296,7 @@ export const proposalService = {
       current_bill_value: formatNumber(proposal.bill_amount) || undefined,
       energy_tariff: formatNumber(proposal.energy_tariff) || undefined,
     });
-    
+
     let paybackData = {};
     if (calc) {
       const { calcularPayback } = await import('../lib/calculations/payback');
@@ -304,7 +316,7 @@ export const proposalService = {
         };
       }
     }
-    
+
     const solarData = {
       proposal_id: proposalId,
       cep: proposal.cep || null,
@@ -346,7 +358,7 @@ export const proposalService = {
 
   async upsertLoads(proposalId: string, loads: any[]) {
     await supabase.from('proposal_loads').delete().eq('proposal_id', proposalId);
-    
+
     if (loads.length > 0) {
       const loadsData = loads.map(load => ({
         proposal_id: proposalId,
@@ -356,7 +368,7 @@ export const proposalService = {
         hours_per_day: formatNumber(load.hours_per_day) || 0,
         daily_consumption: formatNumber(load.daily_consumption) || 0,
       }));
-      
+
       await supabase.from('proposal_loads').insert(loadsData);
     }
   },

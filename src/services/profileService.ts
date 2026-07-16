@@ -12,21 +12,20 @@ export const profileService = {
       .maybeSingle();
 
     if (error) throw error;
-    
+
     if (!data) {
-      // Create an empty profile if one doesn't exist
       const defaultProfile = {
         id: userId,
         name: '',
         company_name: '',
       };
-      
+
       const { data: newData, error: insertError } = await supabase
         .from('profiles')
         .insert([defaultProfile])
         .select()
         .single();
-        
+
       if (insertError) {
         console.warn('Could not create default profile, returning empty object:', insertError);
         return defaultProfile as Profile;
@@ -50,13 +49,15 @@ export const profileService = {
   },
 
   async uploadLogo(file: File, userId: string) {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}-${Math.random()}.${fileExt}`;
-    const filePath = `logos/${fileName}`;
+    const safeName = sanitizeFileName(file.name || 'logo');
+    const filePath = `${userId}/logos/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('logos')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        contentType: file.type || undefined,
+        upsert: false,
+      });
 
     if (uploadError) throw uploadError;
 
@@ -76,7 +77,7 @@ export const profileService = {
     }
 
     const safeName = sanitizeFileName(file.name);
-    const filePath = `seller-signatures/${userId}/${Date.now()}-${safeName}`;
+    const filePath = `${userId}/seller-signatures/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('logos')
@@ -92,5 +93,5 @@ export const profileService = {
       .getPublicUrl(filePath);
 
     return data.publicUrl;
-  }
+  },
 };

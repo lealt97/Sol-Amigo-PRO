@@ -1,4 +1,5 @@
 import { pdfModelService } from '../../../services/pdfModelService';
+import { storageAssetService } from '../../../services/storageAssetService';
 
 export const pdfDesignService = {
   getPresets: pdfModelService.getPresets.bind(pdfModelService),
@@ -11,7 +12,7 @@ export const pdfDesignService = {
   updateModel: pdfModelService.updateModel.bind(pdfModelService),
   deleteModel: pdfModelService.deleteModel.bind(pdfModelService),
   setDefaultModel: pdfModelService.setDefaultModel.bind(pdfModelService),
-  uploadAsset: pdfModelService.uploadAsset.bind(pdfModelService),
+  uploadAsset: storageAssetService.uploadAsset.bind(storageAssetService),
 };
 
 export type PdfDesignService = typeof pdfDesignService;

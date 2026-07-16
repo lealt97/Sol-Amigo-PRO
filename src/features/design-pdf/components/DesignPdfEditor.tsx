@@ -85,16 +85,21 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, target: 'logo_url' | 'cover_image_url') => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     try {
-      const url = await pdfDesignService.uploadAsset(file, target === 'logo_url' ? 'logos' : 'pdf-assets');
+      const url = await pdfDesignService.uploadAsset(
+        file,
+        target === 'logo_url' ? 'logos' : 'pdf-assets',
+        user.id,
+      );
       setModel((prev) => target === 'cover_image_url'
         ? { ...prev, cover_image_url: url, cover_image_transform: getDefaultTransform() }
         : { ...prev, logo_url: url }
       );
       toast.success(target === 'cover_image_url' ? 'Imagem enviada. Escolha o ponto de interesse no enquadramento.' : 'Upload concluído!');
     } catch (err) {
+      console.error('Error uploading isolated PDF asset:', err);
       toast.error('Erro ao fazer upload da imagem.');
     } finally {
       event.target.value = '';
