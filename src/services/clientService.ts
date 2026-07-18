@@ -1,65 +1,63 @@
 import { supabase } from '../lib/supabase/client';
-import { Client } from '../types/client';
-import { ClientFormValues } from '../lib/validations/client.schema';
+import {
+  ClientRepository,
+  createClientOperations,
+} from '../lib/clients/clientFlows';
+import type { Client } from '../types/client';
 
-export const clientService = {
-  async getClients() {
+const supabaseClientRepository: ClientRepository = {
+  async list() {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data as Client[];
   },
 
-  async getClientById(id: string) {
+  async getById(id) {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('id', id)
       .single();
-      
+
     if (error) throw error;
     return data as Client;
   },
 
-  async createClient(client: ClientFormValues, userId: string) {
+  async insert(values) {
     const { data, error } = await supabase
       .from('clients')
-      .insert([{ 
-        ...client, 
-        user_id: userId,
-        avg_consumption_kwh: client.avg_consumption_kwh || null
-      }])
+      .insert([values])
       .select()
       .single();
-      
+
     if (error) throw error;
     return data as Client;
   },
 
-  async updateClient(id: string, client: ClientFormValues) {
+  async update(id, values) {
     const { data, error } = await supabase
       .from('clients')
-      .update({
-        ...client,
-        avg_consumption_kwh: client.avg_consumption_kwh || null
-      })
+      .update(values)
       .eq('id', id)
       .select()
       .single();
-      
+
     if (error) throw error;
     return data as Client;
   },
 
-  async deleteClient(id: string) {
+  async remove(id) {
     const { error } = await supabase
       .from('clients')
       .delete()
       .eq('id', id);
-      
+
     if (error) throw error;
-  }
+  },
 };
+
+export const clientService = createClientOperations(supabaseClientRepository);

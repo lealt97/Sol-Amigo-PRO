@@ -8,7 +8,12 @@
     "noUnusedParameters": true
   },
   "include": [
+    "src/lib/auth/**/*.ts",
     "src/lib/calculations/**/*.ts",
+    "src/lib/clients/**/*.ts",
+    "src/lib/validations/auth.schema.ts",
+    "src/lib/validations/client.schema.ts",
+    "src/types/client.ts",
     "src/types/solar.ts",
     "src/types/pricing.ts",
     "src/types/payback.ts",

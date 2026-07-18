@@ -2,58 +2,41 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
 import { clientService } from '../../services/clientService';
-import { DatabaseSetupAlert } from '../../components/ui/DatabaseSetupAlert';
+import { filterClients } from '../../lib/clients/clientFlows';
 import { Client } from '../../types/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Search, Plus, FileText, Edit, Trash2, Eye } from 'lucide-react';
-import { formatDate } from '../../lib/utils';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 
 export function ClientList() {
   const [clients, setClients] = useState<Client[]>([]);
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rawError, setRawError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Custom Delete Modal State for Clients
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const navigate = useNavigate();
+  const filteredClients = filterClients(clients, searchTerm);
 
   const loadClients = async () => {
     try {
       setIsLoading(true);
-      const data = await clientService.getClients();
-      setClients(data);
-      setFilteredClients(data);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao carregar clientes');
+      setError(null);
+      setClients(await clientService.getClients());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar clientes');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadClients();
+    void loadClients();
   }, []);
-
-  useEffect(() => {
-    const term = searchTerm.toLowerCase();
-    const filtered = clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(term) ||
-        c.email?.toLowerCase().includes(term) ||
-        c.document?.includes(term) ||
-        c.phone?.includes(term)
-    );
-    setFilteredClients(filtered);
-  }, [searchTerm, clients]);
 
   const triggerDelete = (id: string, name: string) => {
     setClientToDelete({ id, name });
@@ -62,6 +45,7 @@ export function ClientList() {
 
   const confirmDelete = async () => {
     if (!clientToDelete) return;
+
     try {
       setIsDeleting(true);
       await clientService.deleteClient(clientToDelete.id);
@@ -69,8 +53,8 @@ export function ClientList() {
       await loadClients();
       setDeleteModalOpen(false);
       setClientToDelete(null);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao excluir cliente');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir cliente');
     } finally {
       setIsDeleting(false);
     }
@@ -99,7 +83,7 @@ export function ClientList() {
               placeholder="Buscar por nome, e-mail, documento..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
         </div>
@@ -126,7 +110,7 @@ export function ClientList() {
                 <tr>
                   <td colSpan={5} className="px-4 py-8">
                     <div className="flex flex-col items-center justify-center space-y-4">
-                      <div className="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
                       <p className="text-slate-500">Carregando clientes...</p>
                     </div>
                   </td>
@@ -150,36 +134,36 @@ export function ClientList() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
                           title="Visualizar"
                           onClick={() => navigate(`/clientes/${client.id}`)}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
                           title="Editar"
                           onClick={() => navigate(`/clientes/${client.id}/editar`)}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10"
                           title="Nova Proposta"
                           onClick={() => navigate(`/propostas/nova?clienteId=${client.id}`)}
                         >
                           <FileText className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
                           title="Excluir"
                           onClick={() => triggerDelete(client.id, client.name)}
