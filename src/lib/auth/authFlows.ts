@@ -1,4 +1,4 @@
-export type AssuranceLevel = 'aal1' | 'aal2' | null;
+export type AssuranceLevel = string | null;
 
 export type TotpFactor = {
   id: string;
