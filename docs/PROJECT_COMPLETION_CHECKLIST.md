@@ -33,12 +33,12 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de cadastro, edição e exclusão de clientes
 - [x] Testes de criação, edição, duplicação e exclusão de propostas
 - [x] Testes de kits solares
-- [ ] Testes de geração e armazenamento de PDF
+- [x] Testes de geração e armazenamento de PDF
 - [ ] Testes do link público, aprovação e recusa
 - [ ] Testes de isolamento entre contas distintas
 - [ ] Adicionar testes E2E com Playwright
 
-Evidência atual: 47 testes automatizados aprovados no GitHub Actions, incluindo cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, cadastro e recomendação de kits solares e preservação do snapshot do kit, com TypeScript completo e build de produção aprovados.
+Evidência atual: 58 testes automatizados aprovados no GitHub Actions, incluindo cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares e geração, repetição, armazenamento, rollback e tratamento de falhas de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 
