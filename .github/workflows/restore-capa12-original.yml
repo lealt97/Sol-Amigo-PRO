@@ -38,3 +38,5 @@ jobs:
           git add "public/pdf-assets/covers/A4 -12.svg" .github
           git commit -m "fix: restaurar arte original da capa A4 12"
           git push
+
+# Disparo explícito após o workflow existir na main.
