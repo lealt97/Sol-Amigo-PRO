@@ -20,8 +20,12 @@ export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(input.svgSource, 'image/svg+xml');
 
-  applyTheme(doc, input.theme);
+  // Dynamic vector placeholders must be read before recoloring the template.
+  // Some Figma exports, including cover 06, place the power value inside the
+  // primary-color group. Applying the theme first makes that value inherit the
+  // background color and the generated text becomes visually invisible.
   applyDynamicTexts(doc, input.texts || {}, input.theme.current);
+  applyTheme(doc, input.theme);
   applyCoverPhoto(doc, input.coverImageUrl, input.coverImageTransform);
   applyLogo(doc, input.logoUrl, input.logoTransform);
 
