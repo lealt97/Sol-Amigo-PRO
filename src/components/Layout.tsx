@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Sun, LayoutDashboard, Users, FileText, PlusCircle, PenTool, Settings, LogOut, Menu, Package } from "lucide-react";
+import { LayoutDashboard, Users, FileText, PlusCircle, PenTool, Settings, LogOut, Menu, Package } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { AnimatedNavbarLogo } from "./brand/AnimatedNavbarLogo";
 import { Button } from "./ui/Button";
 
 export function Layout() {
@@ -34,16 +35,18 @@ export function Layout() {
     <div className="flex h-screen w-full bg-brand-gray text-brand-dark font-sans overflow-hidden">
       <aside className={`${isSidebarExpanded ? "w-64" : "w-20"} transition-all duration-300 border-r border-brand-border bg-brand-surface flex flex-col shrink-0`}>
         <div className={`p-6 ${isSidebarExpanded ? "" : "px-4"}`}>
-          <div className={`flex items-center gap-2 mb-8 ${!isSidebarExpanded ? "justify-center" : ""}`}>
-            <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center text-white font-bold shrink-0">
-              <Sun className="h-5 w-5" />
-            </div>
+          <Link
+            to="/dashboard"
+            aria-label="Ir para o Dashboard"
+            className={`mb-8 flex items-center gap-3 rounded-xl transition-opacity hover:opacity-90 ${!isSidebarExpanded ? "justify-center" : ""}`}
+          >
+            <AnimatedNavbarLogo className={`${isSidebarExpanded ? "h-12 w-12" : "h-10 w-10"} shrink-0`} />
             {isSidebarExpanded && (
               <h1 className="text-lg font-semibold tracking-tight text-brand-dark whitespace-nowrap">
                 SolAmigo <span className="text-brand-blue">Pro</span>
               </h1>
             )}
-          </div>
+          </Link>
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
