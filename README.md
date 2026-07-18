@@ -30,6 +30,7 @@ SaaS para empresas integradoras, projetistas e vendedores de energia solar criar
 - `@react-pdf/renderer`
 - Recharts
 - Tailwind CSS
+- Express para servir o build de produção
 
 ## Requisitos
 
@@ -71,14 +72,15 @@ A aplicação será aberta por padrão em `http://localhost:3000`.
 ## Comandos
 
 ```bash
-npm run dev             # servidor local
+npm run dev             # servidor local de desenvolvimento
 npm run typecheck       # auditoria TypeScript completa da aplicação
 npm run typecheck:core  # verificação estrita isolada do núcleo e dos testes
 npm run test            # testes automatizados do núcleo financeiro e solar
 npm run build           # TypeScript completo + testes + build de produção
 npm run build:app       # somente o build Vite, sem as validações
+npm start               # servidor Express do build de produção
 npm run check           # alias do build protegido
-npm run preview         # visualização do build
+npm run preview         # visualização do build pelo Vite
 ```
 
 O comando `npm run build` é propositalmente protegido. O Railway e outros ambientes que usam o script padrão de build só publicam a aplicação depois que o TypeScript completo, os testes automatizados e o build Vite terminam com sucesso.
@@ -93,6 +95,20 @@ O workflow `.github/workflows/quality.yml` executa automaticamente na branch `ma
 4. build de produção.
 
 Os testes atuais cobrem dimensionamento solar, média de consumo, preço e margem, payback e levantamento de cargas.
+
+## Railway
+
+A configuração de produção fica versionada em `railway.json` e prevalece sobre diferenças manuais entre serviços vinculados ao repositório:
+
+- builder Railpack;
+- build por `npm run build`;
+- inicialização por `npm start`;
+- healthcheck em `/health`;
+- reinício automático limitado em caso de falha.
+
+O servidor `server.mjs` usa a porta fornecida pelo Railway, serve o diretório `dist`, suporta as rotas da SPA e encerra corretamente ao receber `SIGTERM`.
+
+As variáveis exigidas em cada ambiente estão documentadas em `docs/ENVIRONMENT_VARIABLES.md`.
 
 ## Supabase
 
@@ -134,6 +150,8 @@ supabase/
   functions/           Edge Functions
   migrations/          evolução do banco e políticas
 tests/                 testes automatizados
+server.mjs             servidor do build de produção
+railway.json           configuração de deploy como código
 ```
 
 ## Segurança
@@ -151,6 +169,8 @@ Consulte também:
 - `docs/SECURITY_PHASE_1.md`
 - `docs/INTEGRITY_PHASE_2.md`
 - `docs/QUALITY_PHASE_3.md`
+- `docs/ENVIRONMENT_VARIABLES.md`
+- `docs/PROJECT_COMPLETION_CHECKLIST.md`
 
 ## Estado do projeto
 
