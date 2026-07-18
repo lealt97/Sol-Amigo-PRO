@@ -14,6 +14,7 @@
     "src/lib/kits/**/*.ts",
     "src/lib/pdf/pdfGenerationOperations.ts",
     "src/lib/proposals/**/*.ts",
+    "src/lib/public-proposals/**/*.ts",
     "src/lib/validations/auth.schema.ts",
     "src/lib/validations/client.schema.ts",
     "src/lib/validations/proposal.schema.ts",
