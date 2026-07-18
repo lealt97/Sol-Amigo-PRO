@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { getAuthErrorMessage, loginWithPassword } from '../../lib/auth/authFlows';
 import { loginSchema, LoginFormValues } from '../../lib/validations/auth.schema';
 import { supabase } from '../../lib/supabase/client';
+import { translateAuthError } from '../../lib/utils';
 import { AnimatedLoginLogo } from '../brand/AnimatedLoginLogo';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -24,17 +26,13 @@ export function LoginForm() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
 
-    if (error) {
-      setError(error.message);
-      return;
+    try {
+      await loginWithPassword(supabase.auth, data);
+      navigate('/dashboard');
+    } catch (authError) {
+      setError(translateAuthError(getAuthErrorMessage(authError)));
     }
-
-    navigate('/dashboard');
   };
 
   return (
