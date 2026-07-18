@@ -32,5 +32,17 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Mapear RPCs da proposta pública
+        run: |
+          grep -RInE "get_public_proposal|update_public_proposal_status|viewed_at|accepted_at|rejected_at|rejection_reason" . \
+            --exclude-dir=node_modules --exclude-dir=.git > public-proposal-rpc.txt || true
+
+      - name: Publicar mapeamento das RPCs
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-proposal-rpc
+          path: public-proposal-rpc.txt
+          retention-days: 1
+
       - name: Executar validações completas
         run: npm run check
