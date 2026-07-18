@@ -22,6 +22,8 @@ import svg9 from '../../public/pdf-assets/covers/A4 -9.svg?raw';
 import svg10 from '../../public/pdf-assets/covers/A4 -10.svg?raw';
 // @ts-ignore
 import svg11 from '../../public/pdf-assets/covers/A4 -11.svg?raw';
+// @ts-ignore
+import svg12 from '../../public/pdf-assets/covers/A4 -12.svg?raw';
 
 const pageConfig = {
   order: ['cover', 'intro', 'technical', 'financial', 'payback'],
@@ -134,6 +136,15 @@ export const A4_PRESETS: PdfTemplatePreset[] = [
     svg_file_url: coverPath('A4 -11.svg'),
     svg_content: svg11,
     default_theme: { primary: '#1AA6BE', secondary: '#D4D5D7', accent: '#DD400B', neutral: '#000000' },
+    page_config: pageConfig,
+  },
+  {
+    id: 'preset-12',
+    name: 'A4 12 — Prisma Solar',
+    thumbnail_url: coverPath('A4 -12.svg'),
+    svg_file_url: coverPath('A4 -12.svg'),
+    svg_content: svg12,
+    default_theme: { primary: '#142637', secondary: '#79ADD9', accent: '#F8B51F', neutral: '#D9D9D9' },
     page_config: pageConfig,
   },
 ];
