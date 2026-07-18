@@ -40,7 +40,7 @@ export function LoginForm() {
   return (
     <Card className="mx-auto w-full max-w-md overflow-visible">
       <CardHeader className="space-y-2 pt-7 text-center">
-        <div className="mx-auto mb-3 w-full max-w-[360px] px-2">
+        <div className="mx-auto mb-3 w-full max-w-[250px] px-2">
           <AnimatedLoginLogo />
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">Login</CardTitle>
