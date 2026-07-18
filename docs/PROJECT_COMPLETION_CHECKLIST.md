@@ -1,0 +1,174 @@
+# Checklist de Conclusão — SaaS SolAmigo
+
+Este documento acompanha a preparação do produto para lançamento comercial. Um item só deve ser marcado como concluído quando houver validação no ambiente de homologação ou produção e, quando aplicável, evidência em teste automatizado.
+
+## Status geral
+
+- [x] Núcleo funcional do MVP implementado
+- [ ] Fechamento técnico e qualidade
+- [ ] Segurança e recuperação de conta
+- [ ] Cobrança, planos e controle de acesso
+- [ ] Área administrativa
+- [ ] LGPD e documentos legais
+- [ ] Monitoramento e operação
+- [ ] Onboarding e lançamento beta
+
+## Fase 1 — Fechamento técnico
+
+### TypeScript, build e integração contínua
+
+- [x] Build de produção protegido por testes do núcleo
+- [x] Workflow de qualidade configurado no GitHub Actions
+- [ ] Fazer `npm run typecheck` completo passar sem erros
+- [ ] Promover o typecheck completo a bloqueio obrigatório do build
+- [ ] Confirmar build e deploy nos dois serviços Railway
+- [ ] Diagnosticar e corrigir o serviço Railway que apresenta falha
+- [ ] Documentar variáveis obrigatórias por ambiente
+
+### Testes automatizados
+
+- [x] Testes dos cálculos solares e financeiros
+- [ ] Testes de autenticação e recuperação de senha
+- [ ] Testes de ativação, desafio e desativação do MFA
+- [ ] Testes de cadastro, edição e exclusão de clientes
+- [ ] Testes de criação, edição, duplicação e exclusão de propostas
+- [ ] Testes de kits solares
+- [ ] Testes de geração e armazenamento de PDF
+- [ ] Testes do link público, aprovação e recusa
+- [ ] Testes de isolamento entre contas distintas
+- [ ] Adicionar testes E2E com Playwright
+
+### PDFs e editor visual
+
+- [ ] Validar todos os modelos com logo horizontal, vertical e quadrada
+- [ ] Validar nomes e endereços longos sem cortes
+- [ ] Validar imagens verticais e horizontais
+- [ ] Validar todas as paletas e cores de contraste
+- [ ] Testar geração repetida sem perda de qualidade
+- [ ] Testar PDF em navegadores e dispositivos diferentes
+- [ ] Definir limite aceitável de tamanho do arquivo final
+
+## Fase 2 — Supabase e segurança
+
+### Banco, RLS e Storage
+
+- [ ] Aplicar todas as migrations em homologação
+- [ ] Revisar RLS de todas as tabelas
+- [ ] Confirmar isolamento de clientes, propostas, kits e configurações
+- [ ] Confirmar isolamento de arquivos por usuário no Storage
+- [ ] Validar a Edge Function de PDF público
+- [ ] Testar token público inválido, expirado e revogado
+- [ ] Testar backup e restauração do banco
+- [ ] Criar procedimento documentado de recuperação de desastre
+
+### Autenticação e MFA
+
+- [x] Login por e-mail e senha
+- [x] Recuperação de senha
+- [x] MFA TOTP com aplicativo autenticador
+- [x] Desafio MFA nas rotas protegidas
+- [ ] Criar códigos de recuperação de uso único
+- [ ] Criar procedimento para perda do celular
+- [ ] Exigir confirmação de senha para operações críticas
+- [ ] Registrar eventos de ativação e remoção do MFA
+- [ ] Definir processo administrativo seguro de recuperação de conta
+
+## Fase 3 — Planos, cobrança e assinatura
+
+- [ ] Definir plano gratuito, mensal e anual
+- [ ] Definir limites de propostas, usuários e armazenamento
+- [ ] Criar tabelas de planos, assinaturas, eventos e uso
+- [ ] Integrar provedor de pagamentos
+- [ ] Implementar checkout
+- [ ] Implementar webhooks no servidor
+- [ ] Tratar pagamento aprovado, recusado e vencido
+- [ ] Implementar cancelamento e reativação
+- [ ] Implementar alteração de plano
+- [ ] Criar tela de assinatura e próxima cobrança
+- [ ] Aplicar bloqueios de recursos por plano no servidor
+- [ ] Criar período de tolerância após falha de pagamento
+
+## Fase 4 — Administração do SaaS
+
+- [ ] Criar papel administrativo validado no servidor
+- [ ] Criar painel de usuários e empresas
+- [ ] Consultar plano, assinatura e uso
+- [ ] Bloquear e reativar contas
+- [ ] Consultar falhas de PDF e eventos importantes
+- [ ] Registrar ações administrativas em log de auditoria
+- [ ] Criar procedimento de suporte e recuperação de conta
+
+## Fase 5 — LGPD e documentos legais
+
+- [ ] Termos de Uso
+- [ ] Política de Privacidade
+- [ ] Política de cancelamento e reembolso
+- [ ] Consentimento e versão dos termos no cadastro
+- [ ] Exportação dos dados da conta
+- [ ] Exclusão da conta e dados associados
+- [ ] Definir períodos de retenção
+- [ ] Criar canal de atendimento ao titular dos dados
+- [ ] Revisar cookies e ferramentas de rastreamento
+
+## Fase 6 — Operação e monitoramento
+
+- [ ] Separar desenvolvimento, homologação e produção
+- [ ] Configurar monitoramento de erros do frontend
+- [ ] Configurar logs estruturados de backend e Edge Functions
+- [ ] Criar alertas de falha na geração de PDF
+- [ ] Monitorar disponibilidade da aplicação
+- [ ] Monitorar consumo do Supabase e Storage
+- [ ] Criar painel de métricas de produto
+- [ ] Configurar backups e testar restauração periodicamente
+- [ ] Definir processo de resposta a incidentes
+
+## Fase 7 — Comunicação e onboarding
+
+### E-mails transacionais
+
+- [ ] Confirmação de cadastro
+- [ ] Recuperação e alteração de senha
+- [ ] Ativação e alteração do MFA
+- [ ] Proposta enviada, visualizada, aprovada e recusada
+- [ ] Assinatura iniciada, pagamento recusado e cancelamento
+- [ ] Configurar domínio de envio, SPF, DKIM e DMARC
+
+### Primeiro acesso
+
+- [ ] Assistente de configuração da empresa
+- [ ] Cadastro da logo e identidade visual
+- [ ] Cadastro do primeiro kit
+- [ ] Cadastro do primeiro cliente
+- [ ] Geração guiada da primeira proposta
+- [ ] Estados vazios com orientação clara
+- [ ] Central de ajuda e tutoriais curtos
+
+## Fase 8 — Lançamento comercial
+
+- [ ] Domínio definitivo
+- [ ] Página pública do produto
+- [ ] Página de preços
+- [ ] Demonstração do sistema
+- [ ] FAQ e canal de suporte
+- [ ] Métricas de aquisição e conversão
+- [ ] Beta com 5 a 10 integradores solares
+- [ ] Registrar e corrigir problemas encontrados no beta
+- [ ] Aprovação final de segurança, cobrança e documentos legais
+- [ ] Decisão formal GO / NO-GO
+
+## Critério final de conclusão
+
+O projeto estará pronto para lançamento quando um usuário novo conseguir, sem auxílio da equipe:
+
+1. cadastrar-se e confirmar a conta;
+2. configurar empresa, identidade visual e segurança;
+3. cadastrar cliente e kit;
+4. dimensionar um sistema;
+5. calcular preço, margem, economia e payback;
+6. gerar e enviar uma proposta em PDF;
+7. receber aprovação ou recusa pelo link público;
+8. contratar, administrar e cancelar uma assinatura;
+9. exportar ou excluir seus dados;
+10. recuperar o acesso à conta com segurança.
+
+Além disso, nenhum usuário pode acessar dados ou arquivos de outra empresa, e toda falha crítica deve ser monitorada e tratável pela equipe.
