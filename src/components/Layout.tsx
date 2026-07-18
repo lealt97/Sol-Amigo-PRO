@@ -38,14 +38,11 @@ export function Layout() {
           <Link
             to="/dashboard"
             aria-label="Ir para o Dashboard"
-            className={`mb-8 flex items-center gap-3 rounded-xl transition-opacity hover:opacity-90 ${!isSidebarExpanded ? "justify-center" : ""}`}
+            className={`mb-8 flex items-center rounded-xl transition-opacity hover:opacity-90 ${
+              isSidebarExpanded ? "px-3" : "justify-center"
+            }`}
           >
-            <AnimatedNavbarLogo className={`${isSidebarExpanded ? "h-12 w-12" : "h-10 w-10"} shrink-0`} />
-            {isSidebarExpanded && (
-              <h1 className="text-lg font-semibold tracking-tight text-brand-dark whitespace-nowrap">
-                SolAmigo <span className="text-brand-blue">Pro</span>
-              </h1>
-            )}
+            <AnimatedNavbarLogo className="h-10 w-10 shrink-0" />
           </Link>
           <nav className="space-y-1">
             {navItems.map((item) => {
