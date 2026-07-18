@@ -164,12 +164,16 @@ test('gerações repetidas substituem o mesmo arquivo sem criar versões órfãs
 test('remove o arquivo antigo somente depois de persistir a nova versão', async () => {
   const calls: string[] = [];
   const repository = createRepository({
-    upload: async (path) => calls.push(`upload:${path}`),
+    upload: async (path) => {
+      calls.push(`upload:${path}`);
+    },
     persistMetadata: async ({ secureUrl }) => {
       calls.push('metadata');
       return secureUrl;
     },
-    remove: async (path) => calls.push(`remove:${path}`),
+    remove: async (path) => {
+      calls.push(`remove:${path}`);
+    },
   });
 
   const result = await createOperations(repository).generateAndStore(makeProposal({
