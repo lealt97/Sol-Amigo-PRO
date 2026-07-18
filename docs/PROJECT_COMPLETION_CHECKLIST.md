@@ -19,8 +19,8 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 
 - [x] Build de produção protegido por testes do núcleo
 - [x] Workflow de qualidade configurado no GitHub Actions
-- [ ] Fazer `npm run typecheck` completo passar sem erros
-- [ ] Promover o typecheck completo a bloqueio obrigatório do build
+- [x] Fazer `npm run typecheck` completo passar sem erros
+- [x] Promover o typecheck completo a bloqueio obrigatório do build
 - [ ] Confirmar build e deploy nos dois serviços Railway
 - [ ] Diagnosticar e corrigir o serviço Railway que apresenta falha
 - [ ] Documentar variáveis obrigatórias por ambiente
