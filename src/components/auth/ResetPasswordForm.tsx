@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
+import { getAuthErrorMessage, updateAccountPassword } from '../../lib/auth/authFlows';
 import { resetPasswordSchema, ResetPasswordFormValues } from '../../lib/validations/auth.schema';
 import { supabase } from '../../lib/supabase/client';
+import { translateAuthError } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
@@ -24,26 +26,22 @@ export function ResetPasswordForm() {
     defaultValues: {
       password: pendingPassword,
       confirmPassword: pendingPassword,
-    }
+    },
   });
 
   const onSubmit = async (data: ResetPasswordFormValues) => {
     setError(null);
-    
-    const { error } = await supabase.auth.updateUser({
-      password: data.password
-    });
 
-    if (error) {
-      setError(error.message);
-      return;
+    try {
+      await updateAccountPassword(supabase.auth, data.password);
+      localStorage.removeItem('pending_new_password');
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
+    } catch (authError) {
+      setError(translateAuthError(getAuthErrorMessage(authError)));
     }
-
-    localStorage.removeItem('pending_new_password');
-    setSuccess(true);
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 2000);
   };
 
   if (success) {
