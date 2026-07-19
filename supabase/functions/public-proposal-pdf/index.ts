@@ -38,6 +38,17 @@ function extractLegacyStoragePath(pdfUrl: string | null): string | null {
   return null;
 }
 
+function isPublicTokenUnavailable(
+  expiresAt: string | null,
+  revokedAt: string | null,
+): boolean {
+  if (revokedAt) return true;
+  if (!expiresAt) return false;
+
+  const expirationTime = Date.parse(expiresAt);
+  return !Number.isFinite(expirationTime) || expirationTime <= Date.now();
+}
+
 async function readToken(request: Request): Promise<string | null> {
   if (request.method === 'GET') {
     return new URL(request.url).searchParams.get('token');
@@ -84,7 +95,9 @@ Deno.serve(async (request) => {
 
     const { data: proposal, error: proposalError } = await admin
       .from('proposals')
-      .select('pdf_storage_path, pdf_url')
+      .select(
+        'pdf_storage_path, pdf_url, public_token_expires_at, public_token_revoked_at',
+      )
       .eq('public_token', token.trim())
       .maybeSingle();
 
@@ -93,7 +106,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'Não foi possível localizar o documento.' }, 500);
     }
 
-    if (!proposal) {
+    if (
+      !proposal
+      || isPublicTokenUnavailable(
+        proposal.public_token_expires_at,
+        proposal.public_token_revoked_at,
+      )
+    ) {
       return jsonResponse({ error: 'Proposta não encontrada.' }, 404);
     }
 
