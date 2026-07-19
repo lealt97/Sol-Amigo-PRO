@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "SaaS Sol Amigo para dimensionamento e geração de propostas comerciais fotovoltaicas.",
   "type": "module",
+  "packageManager": "npm@10.9.2",
   "engines": {
     "node": ">=20"
   },
