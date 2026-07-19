@@ -1,5 +1,10 @@
 \set ON_ERROR_STOP on
 
+-- Permissões temporárias apenas no banco local e descartável de homologação.
+-- Permitem que pg_restore alterne para os proprietários internos das tabelas.
+grant supabase_auth_admin to postgres;
+grant supabase_storage_admin to postgres;
+
 -- Fixture determinística e descartável. Não contém credenciais utilizáveis.
 insert into auth.users (
   instance_id, id, aud, role, email, email_confirmed_at,
