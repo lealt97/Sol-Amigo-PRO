@@ -31,6 +31,12 @@ jobs:
           mkdir -p migration-report
           find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort | tee migration-report/repository-migrations.txt
           test -s migration-report/repository-migrations.txt
+          : > migration-report/all-migrations.sql
+          while IFS= read -r migration; do
+            printf '\n-- ===== %s =====\n' "$migration" >> migration-report/all-migrations.sql
+            cat "supabase/migrations/$migration" >> migration-report/all-migrations.sql
+            printf '\n' >> migration-report/all-migrations.sql
+          done < migration-report/repository-migrations.txt
 
       - name: Registrar ambiente Docker
         shell: bash
