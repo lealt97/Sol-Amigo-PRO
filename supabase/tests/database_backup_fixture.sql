@@ -35,6 +35,17 @@ insert into auth.mfa_factors (
   '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z'
 );
 
+insert into public.mfa_recovery_codes (
+  id, user_id, factor_id, code_hash, code_hint, created_at
+) values (
+  'b1000000-0000-4000-8000-000000000004',
+  'b1000000-0000-4000-8000-000000000001',
+  'b1000000-0000-4000-8000-000000000003',
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  'C0DE',
+  '2026-01-15T12:00:30Z'
+);
+
 update public.profiles
 set name = 'Usuário Backup Restore',
     company_name = 'SolAmigo Backup Lab',
