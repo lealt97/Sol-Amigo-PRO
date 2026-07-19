@@ -66,6 +66,8 @@ create temp table generated_recovery_codes (
   code text not null
 ) on commit drop;
 
+grant select, insert on generated_recovery_codes to authenticated, service_role;
+
 select set_config(
   'request.jwt.claims',
   '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal2"}',
