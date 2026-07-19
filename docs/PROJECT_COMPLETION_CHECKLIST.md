@@ -72,7 +72,7 @@ Evidência de tamanho final: foi definida uma meta operacional de até 5 MiB par
 - [x] Revisar RLS de todas as tabelas
 - [x] Confirmar isolamento de clientes, propostas, kits e configurações
 - [x] Confirmar isolamento de arquivos por usuário no Storage
-- [ ] Validar a Edge Function de PDF público
+- [x] Validar a Edge Function de PDF público
 - [ ] Testar token público inválido, expirado e revogado
 - [ ] Testar backup e restauração do banco
 - [ ] Criar procedimento documentado de recuperação de desastre
@@ -80,6 +80,8 @@ Evidência de tamanho final: foi definida uma meta operacional de até 5 MiB par
 Evidência de migrations em homologação: como branches hospedadas do Supabase exigem plano Pro, a validação foi executada em um ambiente Supabase local, isolado e descartável no GitHub Actions, sem copiar dados reais nem alterar produção. A reconstrução do banco a partir do zero revelou que o esquema-base anterior ao versionamento não estava registrado no repositório; foram adicionadas migrations idempotentes para formalizar esse baseline e compatibilizar instalações existentes. O fluxo `db reset --local` aplicou todas as migrations na ordem, `migration list --local` confirmou o histórico e `db lint --local` concluiu a auditoria. O workflow publica relatório por 14 dias e encerra todos os containers ao final.
 
 Evidência de RLS: as 12 tabelas do schema `public` foram verificadas com RLS ativo. A auditoria automatizada exige cobertura CRUD nas tabelas pertencentes ao usuário, vínculo das políticas privadas com `auth.uid()`, eventos de proposta append-only, catálogos globais somente leitura e ausência de views públicas não auditadas. `proposal_sequences` permanece deliberadamente sem políticas e sem grants para `anon` ou `authenticated`, sendo acessada somente por função interna. Funções `SECURITY DEFINER` passam a usar `search_path` fixo; funções de gatilho não podem ser chamadas diretamente pela API; RPCs de conta exigem autenticação; e as RPCs públicas por token permanecem disponíveis para visualização, aprovação e recusa. Nenhuma regra funcional, capa, cálculo ou tela foi alterada.
+
+Evidência da Edge Function de PDF público: a versão ativa foi comparada com `supabase/functions/public-proposal-pdf/index.ts` e validada ao vivo no Supabase. O contrato confirmou CORS e `OPTIONS`, rejeição de token ausente ou malformado, resposta 404 para token inexistente, bloqueio de método não permitido, tratamento de JSON inválido, `POST` com URL assinada privada por 900 segundos e `GET` com redirecionamento 302. O download assinado retornou `application/pdf`, mais de 4.096 bytes, cabeçalho `%PDF-` e marcador final `%%EOF`. O cliente e a proposta temporários foram excluídos ao final, o PDF original foi preservado e nenhum código funcional foi alterado.
 
 ### Autenticação e MFA
 
