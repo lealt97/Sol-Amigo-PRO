@@ -172,6 +172,7 @@ Consulte também:
 - `docs/QUALITY_PHASE_3.md`
 - `docs/ENVIRONMENT_VARIABLES.md`
 - `docs/DISASTER_RECOVERY_RUNBOOK.md`
+- `docs/MFA_LOST_PHONE_PROCEDURE.md`
 - `docs/PROJECT_COMPLETION_CHECKLIST.md`
 
 ## Estado do projeto
