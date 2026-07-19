@@ -44,8 +44,18 @@ test('backup lógico inclui autenticação, MFA, dados comerciais e metadados do
   assert.match(script, /--format=custom/);
   assert.match(script, /--data-only/);
   assert.match(script, /pg_restore/);
-  assert.match(script, /--disable-triggers/);
   assert.match(script, /--exit-on-error/);
+});
+
+test('restauração usa proprietários internos com gatilhos ativos e ordem controlada', async () => {
+  const script = await readFile(SCRIPT_PATH, 'utf8');
+
+  assert.match(script, /--username=supabase_auth_admin/);
+  assert.match(script, /--username=postgres/);
+  assert.match(script, /--username=supabase_storage_admin/);
+  assert.match(script, /delete from public\.profiles where id =/);
+  assert.match(script, /triggers=active/);
+  assert.doesNotMatch(script, /--disable-triggers/);
 });
 
 test('restauração exige igualdade de fingerprints e limpeza dos registros temporários', async () => {
