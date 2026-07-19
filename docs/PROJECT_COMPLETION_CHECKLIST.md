@@ -35,10 +35,10 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de kits solares
 - [x] Testes de geração e armazenamento de PDF
 - [x] Testes do link público, aprovação e recusa
-- [ ] Testes de isolamento entre contas distintas
+- [x] Testes de isolamento entre contas distintas
 - [ ] Adicionar testes E2E com Playwright
 
-Evidência atual: 78 testes automatizados aprovados no GitHub Actions, incluindo cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, link público, primeira visualização, PDF assinado, aprovação, recusa e contratos de segurança das RPCs, com TypeScript completo e build de produção aprovados.
+Evidência atual: 85 testes automatizados aprovados no GitHub Actions, incluindo cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público e regressões das políticas RLS e Storage. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 
@@ -56,8 +56,8 @@ Evidência atual: 78 testes automatizados aprovados no GitHub Actions, incluindo
 
 - [ ] Aplicar todas as migrations em homologação
 - [ ] Revisar RLS de todas as tabelas
-- [ ] Confirmar isolamento de clientes, propostas, kits e configurações
-- [ ] Confirmar isolamento de arquivos por usuário no Storage
+- [x] Confirmar isolamento de clientes, propostas, kits e configurações
+- [x] Confirmar isolamento de arquivos por usuário no Storage
 - [ ] Validar a Edge Function de PDF público
 - [ ] Testar token público inválido, expirado e revogado
 - [ ] Testar backup e restauração do banco
