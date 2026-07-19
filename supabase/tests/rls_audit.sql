@@ -154,47 +154,104 @@ select pg_temp.assert_true(
   'há função SECURITY DEFINER com search_path mutável'
 );
 
--- Funções de gatilho não devem ser executáveis diretamente pela API.
+-- Funções de gatilho existentes não devem ser executáveis diretamente pela API.
 with internal(signature) as (
   values
     ('public.handle_new_proposal()'),
     ('public.handle_new_user()'),
     ('public.handle_updated_at()'),
     ('public.set_updated_at()')
+), resolved as (
+  select signature, to_regprocedure(signature) as function_oid
+  from internal
 )
 select pg_temp.assert_true(
   not exists (
-    select 1 from internal
-    where has_function_privilege('anon', signature, 'EXECUTE')
-       or has_function_privilege('authenticated', signature, 'EXECUTE')
+    select 1 from resolved
+    where function_oid is not null
+      and (
+        has_function_privilege('anon', function_oid, 'EXECUTE')
+        or has_function_privilege('authenticated', function_oid, 'EXECUTE')
+      )
   ),
   'função interna pode ser chamada diretamente pela API'
 );
 
--- Exclusão de conta e verificação de propriedade exigem sessão autenticada.
-select pg_temp.assert_true(
-  not has_function_privilege('anon', 'public.delete_user_account()', 'EXECUTE')
-  and has_function_privilege('authenticated', 'public.delete_user_account()', 'EXECUTE')
-  and not has_function_privilege('anon', 'public.is_proposal_owner(uuid)', 'EXECUTE')
-  and has_function_privilege('authenticated', 'public.is_proposal_owner(uuid)', 'EXECUTE'),
-  'permissões das RPCs autenticadas estão incorretas'
-);
-
--- O fluxo público por token precisa continuar acessível sem login.
-with public_rpc(signature) as (
+-- RPCs autenticadas opcionais são auditadas quando presentes no ambiente.
+with authenticated_rpc(signature) as (
   values
-    ('public.get_public_proposal(text)'),
-    ('public.update_public_proposal_status(text,text,text,text,text)'),
-    ('public.mark_public_proposal_viewed(text)'),
-    ('public.accept_public_proposal(text)'),
-    ('public.reject_public_proposal(text,text)')
+    ('public.delete_user_account()'),
+    ('public.is_proposal_owner(uuid)')
+), resolved as (
+  select signature, to_regprocedure(signature) as function_oid
+  from authenticated_rpc
 )
 select pg_temp.assert_true(
   not exists (
-    select 1 from public_rpc
-    where not has_function_privilege('anon', signature, 'EXECUTE')
+    select 1 from resolved
+    where function_oid is not null
+      and (
+        has_function_privilege('anon', function_oid, 'EXECUTE')
+        or not has_function_privilege('authenticated', function_oid, 'EXECUTE')
+      )
   ),
-  'uma RPC pública por token deixou de ser acessível'
+  'permissões das RPCs autenticadas opcionais estão incorretas'
+);
+
+-- RPCs internas versionadas têm privilégios explícitos.
+select pg_temp.assert_true(
+  to_regprocedure('public.save_proposal_bundle(uuid,bigint,jsonb,jsonb,jsonb,text,text)') is not null
+  and not has_function_privilege(
+    'anon',
+    to_regprocedure('public.save_proposal_bundle(uuid,bigint,jsonb,jsonb,jsonb,text,text)'),
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'authenticated',
+    to_regprocedure('public.save_proposal_bundle(uuid,bigint,jsonb,jsonb,jsonb,text,text)'),
+    'EXECUTE'
+  )
+  and to_regprocedure('public.next_proposal_code()') is not null
+  and not has_function_privilege('anon', to_regprocedure('public.next_proposal_code()'), 'EXECUTE')
+  and not has_function_privilege('authenticated', to_regprocedure('public.next_proposal_code()'), 'EXECUTE'),
+  'permissões das RPCs internas versionadas estão incorretas'
+);
+
+-- O fluxo público atual por token precisa continuar acessível sem login.
+with required_public_rpc(signature) as (
+  values
+    ('public.get_public_proposal(text)'),
+    ('public.update_public_proposal_status(text,text,text,text,text)')
+), resolved as (
+  select signature, to_regprocedure(signature) as function_oid
+  from required_public_rpc
+)
+select pg_temp.assert_true(
+  not exists (
+    select 1 from resolved
+    where function_oid is null
+       or not has_function_privilege('anon', function_oid, 'EXECUTE')
+  ),
+  'uma RPC pública versionada deixou de ser acessível'
+);
+
+-- RPCs públicas legadas são preservadas quando existirem na instalação.
+with optional_public_rpc(signature) as (
+  values
+    ('public.mark_public_proposal_viewed(text)'),
+    ('public.accept_public_proposal(text)'),
+    ('public.reject_public_proposal(text,text)')
+), resolved as (
+  select signature, to_regprocedure(signature) as function_oid
+  from optional_public_rpc
+)
+select pg_temp.assert_true(
+  not exists (
+    select 1 from resolved
+    where function_oid is not null
+      and not has_function_privilege('anon', function_oid, 'EXECUTE')
+  ),
+  'uma RPC pública legada existente deixou de ser acessível'
 );
 
 select 'RLS audit passed' as result;
