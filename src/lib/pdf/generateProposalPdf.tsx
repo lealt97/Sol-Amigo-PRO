@@ -37,7 +37,7 @@ async function enrichProposalForPdf(proposal: Proposal): Promise<Proposal> {
     if (proposal.client_id) {
       const { data: client } = await supabase
         .from('clients')
-        .select('name, document, email, phone, city, state')
+        .select('name, document, email, phone, cep, city, state, address, number, neighborhood, complement')
         .eq('id', proposal.client_id)
         .maybeSingle();
 

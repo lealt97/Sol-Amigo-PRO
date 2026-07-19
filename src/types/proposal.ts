@@ -67,8 +67,13 @@ export interface Proposal {
     document: string | null;
     email: string | null;
     phone: string | null;
+    cep?: string | null;
     city?: string | null;
     state?: string | null;
+    address?: string | null;
+    number?: string | null;
+    neighborhood?: string | null;
+    complement?: string | null;
   };
   solar?: SolarSystemCalculation | null;
   loads?: ProposalLoad[];
