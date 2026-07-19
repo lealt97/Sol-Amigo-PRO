@@ -1,15 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { resolveMfaGateState } from '../../lib/auth/authFlows';
+import { getMfaRecoveryCodeStatus } from '../../lib/auth/mfaRecovery';
 import { supabase } from '../../lib/supabase/client';
 import { MfaChallengeScreen } from './MfaChallengeScreen';
+import { MfaRecoveryCodesSetupScreen } from './MfaRecoveryCodesSetupScreen';
 
-type MfaGateState = 'checking' | 'required' | 'ready' | 'error';
+type MfaGateState = 'checking' | 'required' | 'recovery-setup' | 'ready' | 'error';
 
 export function ProtectedRoute() {
   const { session, isLoading, signOut } = useAuth();
   const [mfaGateState, setMfaGateState] = useState<MfaGateState>('checking');
+
+  const evaluateMfaGate = useCallback(async () => {
+    setMfaGateState('checking');
+
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) {
+      console.error('Erro ao verificar nível MFA da sessão:', error);
+      setMfaGateState('error');
+      return;
+    }
+
+    if (resolveMfaGateState(data) === 'required') {
+      setMfaGateState('required');
+      return;
+    }
+
+    if (data.currentLevel === 'aal2') {
+      try {
+        const recoveryStatus = await getMfaRecoveryCodeStatus();
+        if (recoveryStatus.factorId && recoveryStatus.unusedCount === 0) {
+          setMfaGateState('recovery-setup');
+          return;
+        }
+      } catch (recoveryError) {
+        console.error('Erro ao verificar códigos de recuperação MFA:', recoveryError);
+        setMfaGateState('error');
+        return;
+      }
+    }
+
+    setMfaGateState('ready');
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -21,25 +55,15 @@ export function ProtectedRoute() {
       };
     }
 
-    setMfaGateState('checking');
-
     void (async () => {
-      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (!mounted) return;
-
-      if (error || !data) {
-        console.error('Erro ao verificar nível MFA da sessão:', error);
-        setMfaGateState('error');
-        return;
-      }
-
-      setMfaGateState(resolveMfaGateState(data));
+      await evaluateMfaGate();
     })();
 
     return () => {
       mounted = false;
     };
-  }, [session?.access_token]);
+  }, [evaluateMfaGate, session?.access_token]);
 
   if (isLoading || (session && mfaGateState === 'checking')) {
     return (
@@ -56,7 +80,16 @@ export function ProtectedRoute() {
   if (mfaGateState === 'required') {
     return (
       <MfaChallengeScreen
-        onSuccess={() => setMfaGateState('ready')}
+        onSuccess={evaluateMfaGate}
+        onSignOut={signOut}
+      />
+    );
+  }
+
+  if (mfaGateState === 'recovery-setup') {
+    return (
+      <MfaRecoveryCodesSetupScreen
+        onComplete={() => setMfaGateState('ready')}
         onSignOut={signOut}
       />
     );
