@@ -85,7 +85,7 @@ for table_name in \
   users identities mfa_factors profiles clients solar_kits proposals \
   solar_system_calculations proposal_loads proposal_events pdf_templates \
   pdf_user_models proposal_sequences buckets objects; do
-  grep -Eq "TABLE DATA .* ${table_name}$" "${REPORT_DIR}/archive-manifest.txt"
+  grep -Eq "TABLE DATA [^ ]+ ${table_name} " "${REPORT_DIR}/archive-manifest.txt"
 done
 
 printf '3. Simulando perda dos dados da aplicação\n'
