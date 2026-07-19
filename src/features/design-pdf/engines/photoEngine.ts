@@ -1,25 +1,23 @@
 import { TransformConfig } from '../types/pdfDesignTypes';
 import { Bounds, SVG_NS, clearElement, getUrlReference, parseBounds, setHref } from './svgDom';
+import {
+  getCoverPhotoViewport,
+  resolveCoverPhotoPreserveAspectRatio,
+} from './imageLayout';
 
 function getImageTransform(bounds: Bounds, transform?: TransformConfig) {
-  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
-  const offsetX = Number(transform?.x ?? 0);
-  const offsetY = Number(transform?.y ?? 0);
-  const rotate = Number(transform?.rotate ?? 0);
-
-  const width = bounds.width * zoom;
-  const height = bounds.height * zoom;
-  const x = bounds.x + (bounds.width - width) / 2 + offsetX;
-  const y = bounds.y + (bounds.height - height) / 2 + offsetY;
+  const viewport = getCoverPhotoViewport(bounds, transform);
   const centerX = bounds.x + bounds.width / 2;
   const centerY = bounds.y + bounds.height / 2;
 
   return {
-    x,
-    y,
-    width,
-    height,
-    transform: rotate ? `rotate(${rotate} ${centerX} ${centerY})` : '',
+    x: viewport.x,
+    y: viewport.y,
+    width: viewport.width,
+    height: viewport.height,
+    transform: viewport.rotate
+      ? `rotate(${viewport.rotate} ${centerX} ${centerY})`
+      : '',
   };
 }
 
@@ -42,7 +40,8 @@ function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transfor
   if (!layer) return false;
 
   const coverGroup = doc.getElementById('cover-photo') || layer.parentElement;
-  const bounds = parseBounds(coverGroup?.getAttribute('data-photo-bounds') || null) || { x: 0, y: 0, width: 595, height: 842 };
+  const bounds = parseBounds(coverGroup?.getAttribute('data-photo-bounds') || null)
+    || { x: 0, y: 0, width: 595, height: 842 };
   const crop = getImageTransform(bounds, transform);
 
   hidePhotoPlaceholder(doc);
@@ -53,11 +52,15 @@ function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transfor
   image.setAttribute('id', 'cover-photo-image');
   image.setAttribute('data-pdf-role', 'cover-photo-image');
   image.setAttribute('data-pdf-image-mode', 'clip-layer');
+  image.setAttribute('data-pdf-image-fit', 'cover');
   image.setAttribute('x', String(crop.x));
   image.setAttribute('y', String(crop.y));
   image.setAttribute('width', String(crop.width));
   image.setAttribute('height', String(crop.height));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  image.setAttribute(
+    'preserveAspectRatio',
+    resolveCoverPhotoPreserveAspectRatio(transform),
+  );
   image.setAttribute('display', 'block');
   image.setAttribute('opacity', '1');
   image.setAttribute('crossorigin', 'anonymous');
@@ -96,24 +99,34 @@ function applyPhotoAsPattern(doc: Document, imageUrl?: string | null, transform?
   pattern.setAttribute('height', '1');
   pattern.removeAttribute('patternTransform');
 
-  const zoom = Math.max(0.1, Number(transform?.zoom ?? 1));
-  const left = (1 - zoom) / 2 + Number(transform?.x ?? 0) / 595;
-  const top = (1 - zoom) / 2 + Number(transform?.y ?? 0) / 842;
-  const rotate = Number(transform?.rotate ?? 0);
+  const patternTransform = {
+    zoom: transform?.zoom,
+    x: Number(transform?.x ?? 0) / 595,
+    y: Number(transform?.y ?? 0) / 842,
+    rotate: transform?.rotate,
+  };
+  const crop = getCoverPhotoViewport(
+    { x: 0, y: 0, width: 1, height: 1 },
+    patternTransform,
+  );
 
   const image = doc.createElementNS(SVG_NS, 'image');
   image.setAttribute('id', 'cover-photo-image');
   image.setAttribute('data-pdf-role', 'cover-photo-image');
   image.setAttribute('data-pdf-image-mode', 'crop');
-  image.setAttribute('x', String(left));
-  image.setAttribute('y', String(top));
-  image.setAttribute('width', String(zoom));
-  image.setAttribute('height', String(zoom));
-  image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  image.setAttribute('data-pdf-image-fit', 'cover');
+  image.setAttribute('x', String(crop.x));
+  image.setAttribute('y', String(crop.y));
+  image.setAttribute('width', String(crop.width));
+  image.setAttribute('height', String(crop.height));
+  image.setAttribute(
+    'preserveAspectRatio',
+    resolveCoverPhotoPreserveAspectRatio(transform),
+  );
   image.setAttribute('display', 'block');
   image.setAttribute('opacity', '1');
   image.setAttribute('crossorigin', 'anonymous');
-  if (rotate) image.setAttribute('transform', `rotate(${rotate} 0.5 0.5)`);
+  if (crop.rotate) image.setAttribute('transform', `rotate(${crop.rotate} 0.5 0.5)`);
   setHref(image, imageUrl);
 
   pattern.appendChild(image);
