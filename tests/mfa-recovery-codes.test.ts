@@ -59,6 +59,7 @@ test('consumo é atômico, restrito ao servidor e possui compensação de falha'
   assert.match(edgeFunction, /readBearerToken/);
   assert.match(edgeFunction, /admin\.auth\.getUser\(accessToken\)/);
   assert.match(edgeFunction, /consume_mfa_recovery_code/);
+  assert.match(edgeFunction, /admin\.auth\.admin\.signOut\(accessToken, 'global'\)/);
   assert.match(edgeFunction, /admin\.auth\.admin\.mfa\.listFactors/);
   assert.match(edgeFunction, /admin\.auth\.admin\.mfa\.deleteFactor/);
   assert.match(edgeFunction, /finalize_mfa_recovery/);
