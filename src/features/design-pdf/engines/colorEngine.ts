@@ -5,6 +5,10 @@ export type CoverTheme = {
   original?: PdfTheme;
 };
 
+export type CoverPaintContext = {
+  isCover12: boolean;
+};
+
 const COLOR_ALIASES: Record<string, keyof PdfTheme> = {
   '#0A2249': 'primary',
   '#051225': 'primary',
@@ -47,9 +51,36 @@ function shouldSkipPaint(value: string | null) {
   return paint === 'none' || paint === 'transparent' || paint.startsWith('url(') || normalizeHex(paint) === '#FFFFFF';
 }
 
-function mapPaint(value: string | null, theme: CoverTheme) {
+function getPaintContext(doc: Document): CoverPaintContext {
+  return {
+    isCover12: Boolean(
+      doc.getElementById('capa_12')
+      || doc.getElementById('A4 - 12'),
+    ),
+  };
+}
+
+/**
+ * Resolves a paint color while respecting cover-specific design rules.
+ *
+ * Cover 12 intentionally keeps #D9D9D9 as a fixed structural gray. Its black
+ * elements belong to the neutral theme role. These rules are evaluated before
+ * the preset's original palette so the fixed gray can never be recolored by a
+ * neutral value inherited from an older preset definition.
+ */
+export function resolveCoverPaint(
+  value: string | null,
+  theme: CoverTheme,
+  context: CoverPaintContext = { isCover12: false },
+) {
   if (shouldSkipPaint(value)) return null;
   const normalized = normalizeHex(value);
+
+  if (context.isCover12) {
+    if (normalized === '#D9D9D9') return null;
+    if (normalized === '#000000') return theme.current.neutral;
+  }
+
   if (theme.original) {
     for (const key of Object.keys(theme.original) as Array<keyof PdfTheme>) {
       if (normalizeHex(theme.original[key]) === normalized) return theme.current[key];
@@ -59,10 +90,14 @@ function mapPaint(value: string | null, theme: CoverTheme) {
   return alias ? theme.current[alias] : null;
 }
 
-function applyPaintToElement(element: Element, theme: CoverTheme) {
-  const fill = mapPaint(element.getAttribute('fill'), theme);
+function applyPaintToElement(
+  element: Element,
+  theme: CoverTheme,
+  context: CoverPaintContext,
+) {
+  const fill = resolveCoverPaint(element.getAttribute('fill'), theme, context);
   if (fill) element.setAttribute('fill', fill);
-  const stroke = mapPaint(element.getAttribute('stroke'), theme);
+  const stroke = resolveCoverPaint(element.getAttribute('stroke'), theme, context);
   if (stroke) element.setAttribute('stroke', stroke);
 }
 
@@ -78,7 +113,10 @@ function forceGroupPaint(doc: Document, selector: string, color: string) {
 }
 
 export function applyTheme(doc: Document, theme: CoverTheme) {
-  doc.querySelectorAll('[fill], [stroke]').forEach((element) => applyPaintToElement(element, theme));
+  const context = getPaintContext(doc);
+  doc.querySelectorAll('[fill], [stroke]').forEach((element) => {
+    applyPaintToElement(element, theme, context);
+  });
   forceGroupPaint(doc, '[id*="cor_primaria"], [id*="Cor_primaria"], [id*="primary"]', theme.current.primary);
   forceGroupPaint(doc, '[id*="cor_secund"], [id*="Cor_secund"], [id*="secondary"]', theme.current.secondary);
 }
