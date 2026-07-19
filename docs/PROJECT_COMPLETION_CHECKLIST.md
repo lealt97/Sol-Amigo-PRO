@@ -36,9 +36,9 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de geração e armazenamento de PDF
 - [x] Testes do link público, aprovação e recusa
 - [x] Testes de isolamento entre contas distintas
-- [ ] Adicionar testes E2E com Playwright
+- [x] Adicionar testes E2E com Playwright
 
-Evidência atual: 85 testes automatizados aprovados no GitHub Actions, incluindo cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público e regressões das políticas RLS e Storage. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
+Evidência atual: 85 testes automatizados do núcleo e 7 testes E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, regressões das políticas RLS e Storage, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 

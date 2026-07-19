@@ -18,6 +18,8 @@
     "typecheck:core": "tsc --noEmit -p tsconfig.core.json",
     "lint": "npm run typecheck",
     "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "check": "npm run build"
   },
   "dependencies": {
@@ -44,6 +46,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
