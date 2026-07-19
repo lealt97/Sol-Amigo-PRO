@@ -13,7 +13,12 @@ interface TransformControlsProps {
 }
 
 export function TransformControls({ label, value, target = 'cover', onChange, onReset }: TransformControlsProps) {
-  const t = normalizeTransform(value);
+  const raw = normalizeTransform(value);
+  const minZoom = target === 'cover' ? 1 : 0.1;
+  const t = {
+    ...raw,
+    zoom: Math.max(minZoom, raw.zoom),
+  };
   const step = target === 'logo' ? 10 : 25;
 
   const updateRotation = (nextValue: number) => {
@@ -33,10 +38,10 @@ export function TransformControls({ label, value, target = 'cover', onChange, on
           <span className="font-mono bg-slate-900 px-1.5 py-0.5 rounded text-[11px] text-white font-semibold">{Math.round(t.zoom * 100)}%</span>
         </div>
         <div className="flex gap-2 items-center">
-          <Button type="button" variant="outline" size="icon" className="h-8 w-8 bg-white/5 border-brand-border/60 hover:border-slate-400 hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer" onClick={() => onChange('zoom', Math.max(0.1, Number((t.zoom - 0.1).toFixed(2))))}>
+          <Button type="button" variant="outline" size="icon" className="h-8 w-8 bg-white/5 border-brand-border/60 hover:border-slate-400 hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer" onClick={() => onChange('zoom', Math.max(minZoom, Number((t.zoom - 0.1).toFixed(2))))}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
-          <input type="range" min="0.1" max="4" step="0.05" value={t.zoom} onChange={(event) => onChange('zoom', Number(parseFloat(event.target.value).toFixed(2)))} className="flex-1 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-blue" />
+          <input type="range" min={minZoom} max="4" step="0.05" value={t.zoom} onChange={(event) => onChange('zoom', Number(parseFloat(event.target.value).toFixed(2)))} className="flex-1 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-blue" />
           <Button type="button" variant="outline" size="icon" className="h-8 w-8 bg-white/5 border-brand-border/60 hover:border-slate-400 hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer" onClick={() => onChange('zoom', Number((t.zoom + 0.1).toFixed(2)))}>
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>

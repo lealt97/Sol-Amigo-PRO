@@ -38,13 +38,13 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de isolamento entre contas distintas
 - [x] Adicionar testes E2E com Playwright
 
-Evidência atual: 98 testes automatizados do núcleo e 7 testes E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, regressões das políticas RLS e Storage, encaixe proporcional de logos, ajuste de nomes e endereços longos, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
+Evidência atual: 107 testes automatizados do núcleo e 7 testes E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, regressões das políticas RLS e Storage, encaixe proporcional de logos, ajuste de nomes e endereços longos, enquadramento de imagens verticais e horizontais, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 
 - [x] Validar todos os modelos com logo horizontal, vertical e quadrada
 - [x] Validar nomes e endereços longos sem cortes
-- [ ] Validar imagens verticais e horizontais
+- [x] Validar imagens verticais e horizontais
 - [ ] Validar todas as paletas e cores de contraste
 - [ ] Testar geração repetida sem perda de qualidade
 - [ ] Testar PDF em navegadores e dispositivos diferentes
@@ -53,6 +53,8 @@ Evidência atual: 98 testes automatizados do núcleo e 7 testes E2E com Playwrig
 Evidência de logos: os 12 modelos A4 foram verificados quanto à existência de slot de logo ou fallback documentado. Logos horizontais, quadradas e verticais são centralizadas com `preserveAspectRatio="xMidYMid meet"`, mantendo a proporção e permanecendo integralmente dentro da área disponível.
 
 Evidência de textos longos: nomes empresariais, nomes pessoais, cidades e endereços completos são quebrados em linhas e têm a fonte reduzida progressivamente até caber na área disponível, sem remover caracteres nem aplicar reticências. O PDF carrega rua, número, complemento, bairro, cidade, estado e CEP do cadastro do cliente e exibe o endereço completo no bloco de aceite.
+
+Evidência de imagens: os 12 modelos A4 foram verificados quanto à existência de área de foto reconhecida pelo motor. Imagens paisagem e retrato usam `preserveAspectRatio` em modo `slice`, mantendo a proporção original, preenchendo integralmente a máscara e recortando somente o excedente. O zoom mínimo de 100% e o limite dos deslocamentos impedem o aparecimento de bordas vazias, enquanto o seletor de foco permite priorizar a região desejada.
 
 ## Fase 2 — Supabase e segurança
 

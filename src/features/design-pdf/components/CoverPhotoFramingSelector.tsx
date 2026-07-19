@@ -2,6 +2,7 @@ import React from 'react';
 import { TransformConfig } from '../types/pdfDesignTypes';
 import { Button } from '../../../components/ui/Button';
 import { Label } from '../../../components/ui/Label';
+import { normalizeCoverPhotoTransform } from '../engines/imageLayout';
 
 const defaultTransform: TransformConfig = { zoom: 1, x: 0, y: 0, rotate: 0 };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -20,7 +21,7 @@ export function getDefaultTransform(): TransformConfig {
 }
 
 function transformToFocus(transform?: TransformConfig) {
-  const t = normalizeTransform(transform);
+  const t = normalizeCoverPhotoTransform(transform);
   return {
     x: clamp(50 - t.x / 5, 0, 100),
     y: clamp(50 - t.y / 6, 0, 100),
@@ -28,7 +29,7 @@ function transformToFocus(transform?: TransformConfig) {
 }
 
 function focusToTransform(focusX: number, focusY: number, current?: TransformConfig): TransformConfig {
-  const t = normalizeTransform(current);
+  const t = normalizeCoverPhotoTransform(current);
   return {
     ...t,
     x: Number(((50 - focusX) * 5).toFixed(2)),
@@ -44,7 +45,7 @@ interface CoverPhotoFramingSelectorProps {
 }
 
 export function CoverPhotoFramingSelector({ imageUrl, transform, onChange, onReset }: CoverPhotoFramingSelectorProps) {
-  const t = normalizeTransform(transform);
+  const t = normalizeCoverPhotoTransform(transform);
   const focus = transformToFocus(t);
 
   const updateFocusFromEvent = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -61,7 +62,7 @@ export function CoverPhotoFramingSelector({ imageUrl, transform, onChange, onRes
     <div className="space-y-3 mt-4 border-t border-brand-border pt-4">
       <div>
         <Label className="text-xs text-slate-200 uppercase tracking-wider font-semibold">Enquadramento da imagem original</Label>
-        <p className="text-xs text-slate-300 mt-1">Clique no ponto principal da paisagem. Esse ponto será priorizado no crop da área foto_aqui.</p>
+        <p className="text-xs text-slate-300 mt-1">Clique no ponto principal da imagem vertical ou horizontal. Esse ponto será priorizado no recorte da área de foto.</p>
       </div>
 
       <div
@@ -81,10 +82,10 @@ export function CoverPhotoFramingSelector({ imageUrl, transform, onChange, onRes
       <div className="space-y-3">
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-slate-200 font-semibold">
-            <span>Zoom do crop</span>
+            <span>Zoom do recorte</span>
             <span className="text-brand-blue">{t.zoom.toFixed(2)}x</span>
           </div>
-          <input type="range" min="1" max="3" step="0.05" value={t.zoom} onChange={(event) => onChange({ ...t, zoom: Number(event.target.value) })} className="w-full cursor-pointer accent-brand-blue bg-brand-border" />
+          <input type="range" min="1" max="4" step="0.05" value={t.zoom} onChange={(event) => onChange({ ...t, zoom: Number(event.target.value) })} className="w-full cursor-pointer accent-brand-blue bg-brand-border" />
         </div>
 
         <div className="space-y-1">
