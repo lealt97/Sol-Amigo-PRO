@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
 import { extractActiveLogo } from '../../../utils/logoHelper';
+import { fitTextWithinBox } from '../../../lib/pdf/textLayout';
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
     top: 82,
     width: 230,
     fontSize: 17,
-    lineHeight: 1.25,
+    lineHeight: 21,
     color: '#18181b',
     fontWeight: 'bold',
     textAlign: 'left',
@@ -100,28 +101,85 @@ const getValidityText = (proposal: Proposal) => {
 export function DynamicCoverOverlay({ proposal }: { proposal: Proposal }) {
   const logoUrl = extractActiveLogo(proposal.profile?.logo_url || null);
   const companyName = proposal.profile?.company_name || 'Empresa de Energia Solar';
+  const clientName = proposal.client?.name || 'Cliente';
+  const cityState = getCityState(proposal);
+
+  const companyLayout = fitTextWithinBox(companyName, {
+    width: 230,
+    height: 70,
+    maxFontSize: 17,
+    minFontSize: 7,
+    maxLines: 3,
+  });
+  const clientLayout = fitTextWithinBox(clientName, {
+    width: 230,
+    height: 32,
+    maxFontSize: 12,
+    minFontSize: 5,
+    maxLines: 2,
+  });
+  const locationLayout = fitTextWithinBox(cityState, {
+    width: 112,
+    height: 32,
+    maxFontSize: 12,
+    minFontSize: 5,
+    maxLines: 2,
+  });
 
   return (
     <View fixed style={styles.layer}>
-      {/* Area superior reservada para logo/nome quando o template possuir esse espaço. */}
+      {/* Área superior reservada para logo/nome quando o template possuir esse espaço. */}
       {(logoUrl || companyName) && (
         <>
           <View style={styles.logoPatch} />
           {logoUrl ? (
             <Image src={logoUrl} style={styles.logo} />
           ) : (
-            <Text style={styles.companyName}>{companyName}</Text>
+            <Text
+              style={[
+                styles.companyName,
+                { fontSize: companyLayout.fontSize, lineHeight: companyLayout.lineHeight },
+              ]}
+            >
+              {companyLayout.lines.join('\n')}
+            </Text>
           )}
         </>
       )}
 
       {/* Cliente */}
-      <View style={[styles.whitePatch, { left: 325, top: 463, width: 175, height: 20 }]} />
-      <Text style={[styles.textMedium, { left: 325, top: 466, width: 175 }]}>{proposal.client?.name || 'Cliente'}</Text>
+      <View style={[styles.whitePatch, { left: 325, top: 462, width: 230, height: 34 }]} />
+      <Text
+        style={[
+          styles.textMedium,
+          {
+            left: 325,
+            top: 464,
+            width: 230,
+            fontSize: clientLayout.fontSize,
+            lineHeight: clientLayout.lineHeight,
+          },
+        ]}
+      >
+        {clientLayout.lines.join('\n')}
+      </Text>
 
-      {/* Localização */}
-      <View style={[styles.whitePatch, { left: 325, top: 528, width: 175, height: 20 }]} />
-      <Text style={[styles.textMedium, { left: 325, top: 531, width: 175 }]}>{getCityState(proposal)}</Text>
+      {/* Localização: a largura termina antes do bloco de potência. */}
+      <View style={[styles.whitePatch, { left: 325, top: 526, width: 112, height: 34 }]} />
+      <Text
+        style={[
+          styles.textMedium,
+          {
+            left: 325,
+            top: 528,
+            width: 112,
+            fontSize: locationLayout.fontSize,
+            lineHeight: locationLayout.lineHeight,
+          },
+        ]}
+      >
+        {locationLayout.lines.join('\n')}
+      </Text>
 
       {/* Data e validade */}
       <View style={[styles.whitePatch, { left: 325, top: 595, width: 120, height: 28 }]} />
