@@ -38,7 +38,7 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de isolamento entre contas distintas
 - [x] Adicionar testes E2E com Playwright
 
-Evidência atual: 135 testes automatizados do núcleo e 12 execuções E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA TOTP, códigos de recuperação de uso único, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, ciclo de vida de tokens públicos, backup e restauração do banco, regressões das políticas RLS e Storage, encaixe proporcional de logos, ajuste de nomes e endereços longos, enquadramento de imagens verticais e horizontais, paletas e cores estáticas de contraste, geração repetida sem perda estrutural de qualidade, compatibilidade do PDF em Chrome, Firefox e WebKit nos perfis desktop, Android e iPhone, política de tamanho do arquivo final, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
+Evidência atual: 140 testes automatizados do núcleo e 12 execuções E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA TOTP, códigos de recuperação de uso único, procedimento para perda do celular, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, ciclo de vida de tokens públicos, backup e restauração do banco, regressões das políticas RLS e Storage, encaixe proporcional de logos, ajuste de nomes e endereços longos, enquadramento de imagens verticais e horizontais, paletas e cores estáticas de contraste, geração repetida sem perda estrutural de qualidade, compatibilidade do PDF em Chrome, Firefox e WebKit nos perfis desktop, Android e iPhone, política de tamanho do arquivo final, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 
@@ -96,12 +96,14 @@ Evidência do procedimento de recuperação de desastre: `docs/DISASTER_RECOVERY
 - [x] MFA TOTP com aplicativo autenticador
 - [x] Desafio MFA nas rotas protegidas
 - [x] Criar códigos de recuperação de uso único
-- [ ] Criar procedimento para perda do celular
+- [x] Criar procedimento para perda do celular
 - [ ] Exigir confirmação de senha para operações críticas
 - [ ] Registrar eventos de ativação e remoção do MFA
 - [ ] Definir processo administrativo seguro de recuperação de conta
 
 Evidência dos códigos de recuperação MFA: após verificar um fator TOTP, o usuário precisa gerar e confirmar o armazenamento de dez códigos de 96 bits antes de acessar as rotas protegidas. Os códigos em texto puro são exibidos somente na geração; o banco persiste apenas SHA-256 e os quatro caracteres finais para identificação. A geração exige sessão AAL2 e fator TOTP verificado, substitui conjuntos anteriores e permite copiar ou baixar um arquivo local. No login, um código válido é consumido atomicamente uma única vez pela Edge Function autenticada, remove os fatores MFA pelo Admin API, revoga os códigos restantes, encerra as sessões e exige novo login e nova configuração do autenticador. A homologação rejeitou reutilização, código inexistente e geração por sessão AAL1, confirmou regeneração e incluiu a tabela no teste completo de backup e restauração.
+
+Evidência do procedimento para perda do celular: `docs/MFA_LOST_PHONE_PROCEDURE.md` formaliza o autoatendimento com código de recuperação, reconfiguração obrigatória do MFA, resposta a aparelho roubado, orientações para suporte, informações permitidas e proibidas, critérios de encerramento e escalonamento quando não existe código disponível. O documento proíbe solicitar senhas, códigos TOTP, QR Codes, chaves secretas ou códigos de recuperação; também proíbe remoção manual de fatores e alterações diretas nas tabelas do Supabase. Testes de regressão confirmam a existência do caminho “Perdi acesso ao aplicativo autenticador”, consumo de uso único, validação por JWT, remoção dos fatores pelo Admin API, revogação global das sessões e registro do procedimento no checklist e no README. Nenhuma capa, cálculo, proposta ou regra comercial foi alterada.
 
 ## Fase 3 — Planos, cobrança e assinatura
 
