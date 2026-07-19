@@ -88,6 +88,13 @@ jobs:
             -f supabase/tests/public_token_lifecycle.sql \
             2>&1 | tee migration-report/public-token-lifecycle.txt
 
+      - name: Testar backup e restauração do banco
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/test-database-backup-restore.sh migration-report \
+            2>&1 | tee migration-report/database-backup-restore.log
+
       - name: Registrar status do ambiente
         if: always()
         shell: bash
