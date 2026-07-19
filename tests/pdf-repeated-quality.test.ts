@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deflateSync } from 'node:zlib';
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 
 import { ProposalDocument } from '../src/components/pdf/ProposalDocument';
 import {
+  PDF_SIZE_LIMITS,
+  assertPdfQuality,
   assertRepeatedPdfQuality,
   validatePdfBlob,
   type PdfQualityMetrics,
@@ -140,10 +143,61 @@ function makeMetrics(overrides: Partial<PdfQualityMetrics> = {}): PdfQualityMetr
   };
 }
 
-async function renderCompleteProposal(proposal: Proposal) {
+function crc32(data: Uint8Array) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer) {
+  const typeBytes = Buffer.from(type, 'ascii');
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 8 + data.length);
+  return chunk;
+}
+
+function makeDetailedCoverPng(width = 595, height = 842) {
+  const bytesPerRow = 1 + width * 3;
+  const pixels = Buffer.alloc(bytesPerRow * height);
+  let state = 0x5a17c9e3;
+
+  for (let y = 0; y < height; y += 1) {
+    const rowOffset = y * bytesPerRow;
+    pixels[rowOffset] = 0;
+    for (let x = 1; x < bytesPerRow; x += 1) {
+      state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+      pixels[rowOffset + x] = state >>> 24;
+    }
+  }
+
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+
+  const png = Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(pixels, { level: 6 })),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+
+  return `data:image/png;base64,${png.toString('base64')}`;
+}
+
+async function renderCompleteProposal(proposal: Proposal, coverImage: string | null = null) {
   const document = React.createElement(ProposalDocument, {
     proposal,
-    coverImage: null,
+    coverImage,
     pdfTheme: {
       primary: '#0A2249',
       secondary: '#C49133',
@@ -184,6 +238,37 @@ test('detecta perda de páginas ou streams entre gerações', () => {
   );
 });
 
+test('política de tamanho define meta de 5 MiB e limite absoluto de 15 MiB', () => {
+  assert.equal(PDF_SIZE_LIMITS.recommendedMaxBytes, 5 * 1024 * 1024);
+  assert.equal(PDF_SIZE_LIMITS.hardMaxBytes, 15 * 1024 * 1024);
+  assert.ok(PDF_SIZE_LIMITS.hardMaxBytes > PDF_SIZE_LIMITS.recommendedMaxBytes);
+});
+
+test('rejeita um PDF que ultrapassa o limite absoluto', () => {
+  assert.throws(
+    () => assertPdfQuality(
+      makeMetrics({ byteLength: PDF_SIZE_LIMITS.hardMaxBytes + 1 }),
+      { maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes },
+    ),
+    /limite máximo/,
+  );
+});
+
+test('PDF completo com capa rasterizada detalhada permanece dentro da meta', async () => {
+  const blob = await renderCompleteProposal(makeProposal(), makeDetailedCoverPng());
+  const metrics = await validatePdfBlob(blob, {
+    minByteLength: 20_000,
+    maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
+    minPages: 10,
+  });
+
+  assert.ok(metrics.imageCount >= 1);
+  assert.ok(
+    metrics.byteLength <= PDF_SIZE_LIMITS.recommendedMaxBytes,
+    `PDF de referência excedeu a meta: ${metrics.byteLength} bytes.`,
+  );
+});
+
 test('três gerações completas preservam estrutura, conteúdo técnico e tamanho', async () => {
   const proposal = makeProposal();
   const proposalBeforeRendering = JSON.stringify(proposal);
@@ -193,6 +278,7 @@ test('três gerações completas preservam estrutura, conteúdo técnico e taman
     const blob = await renderCompleteProposal(proposal);
     const metrics = await validatePdfBlob(blob, {
       minByteLength: 20_000,
+      maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
       minPages: 10,
     });
     generations.push(metrics);
