@@ -79,6 +79,15 @@ jobs:
             -f supabase/tests/rls_audit.sql \
             2>&1 | tee migration-report/rls-audit.txt
 
+      - name: Testar ciclo de vida dos tokens públicos
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/public_token_lifecycle.sql \
+            2>&1 | tee migration-report/public-token-lifecycle.txt
+
       - name: Registrar status do ambiente
         if: always()
         shell: bash

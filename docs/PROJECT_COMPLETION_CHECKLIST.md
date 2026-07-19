@@ -38,7 +38,7 @@ Este documento acompanha a preparação do produto para lançamento comercial. U
 - [x] Testes de isolamento entre contas distintas
 - [x] Adicionar testes E2E com Playwright
 
-Evidência atual: 122 testes automatizados do núcleo e 12 execuções E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, regressões das políticas RLS e Storage, encaixe proporcional de logos, ajuste de nomes e endereços longos, enquadramento de imagens verticais e horizontais, paletas e cores estáticas de contraste, geração repetida sem perda estrutural de qualidade, compatibilidade do PDF em Chrome, Firefox e WebKit nos perfis desktop, Android e iPhone, política de tamanho do arquivo final, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
+Evidência atual: 126 testes automatizados do núcleo e 12 execuções E2E com Playwright aprovados no GitHub Actions. A cobertura inclui cálculos, autenticação, recuperação de senha, MFA, clientes, propostas, kits solares, geração e armazenamento de PDF, fluxo público, ciclo de vida de tokens públicos, regressões das políticas RLS e Storage, encaixe proporcional de logos, ajuste de nomes e endereços longos, enquadramento de imagens verticais e horizontais, paletas e cores estáticas de contraste, geração repetida sem perda estrutural de qualidade, compatibilidade do PDF em Chrome, Firefox e WebKit nos perfis desktop, Android e iPhone, política de tamanho do arquivo final, navegação pública, validação de formulários, redirecionamento de rotas protegidas, recuperação de senha, aprovação e recusa pelo navegador. A validação no Supabase ativo executou 21 verificações transacionais com duas identidades distintas para clientes, propostas, kits, modelos de PDF, PDFs privados, logos e recursos de PDF, com TypeScript completo e build de produção aprovados.
 
 ### PDFs e editor visual
 
@@ -73,7 +73,7 @@ Evidência de tamanho final: foi definida uma meta operacional de até 5 MiB par
 - [x] Confirmar isolamento de clientes, propostas, kits e configurações
 - [x] Confirmar isolamento de arquivos por usuário no Storage
 - [x] Validar a Edge Function de PDF público
-- [ ] Testar token público inválido, expirado e revogado
+- [x] Testar token público inválido, expirado e revogado
 - [ ] Testar backup e restauração do banco
 - [ ] Criar procedimento documentado de recuperação de desastre
 
@@ -82,6 +82,8 @@ Evidência de migrations em homologação: como branches hospedadas do Supabase 
 Evidência de RLS: as 12 tabelas do schema `public` foram verificadas com RLS ativo. A auditoria automatizada exige cobertura CRUD nas tabelas pertencentes ao usuário, vínculo das políticas privadas com `auth.uid()`, eventos de proposta append-only, catálogos globais somente leitura e ausência de views públicas não auditadas. `proposal_sequences` permanece deliberadamente sem políticas e sem grants para `anon` ou `authenticated`, sendo acessada somente por função interna. Funções `SECURITY DEFINER` passam a usar `search_path` fixo; funções de gatilho não podem ser chamadas diretamente pela API; RPCs de conta exigem autenticação; e as RPCs públicas por token permanecem disponíveis para visualização, aprovação e recusa. Nenhuma regra funcional, capa, cálculo ou tela foi alterada.
 
 Evidência da Edge Function de PDF público: a versão ativa foi comparada com `supabase/functions/public-proposal-pdf/index.ts` e validada ao vivo no Supabase. O contrato confirmou CORS e `OPTIONS`, rejeição de token ausente ou malformado, resposta 404 para token inexistente, bloqueio de método não permitido, tratamento de JSON inválido, `POST` com URL assinada privada por 900 segundos e `GET` com redirecionamento 302. O download assinado retornou `application/pdf`, mais de 4.096 bytes, cabeçalho `%PDF-` e marcador final `%%EOF`. O cliente e a proposta temporários foram excluídos ao final, o PDF original foi preservado e nenhum código funcional foi alterado.
+
+Evidência do ciclo de vida do token público: a homologação transacional comprovou rejeição de tokens inexistentes, expirados e revogados, preservação de tokens legados sem data de expiração e funcionamento normal de tokens ativos. Novos tokens recebem a validade configurada na conta ou sete dias por padrão; o proprietário pode revogar ou renovar o link, e ambas as operações geram eventos de auditoria. As RPCs atuais, as RPCs legadas e a Edge Function de PDF aplicam a mesma regra. Tokens indisponíveis retornam a resposta genérica de proposta não encontrada, sem revelar se expiraram, foram revogados ou nunca existiram.
 
 ### Autenticação e MFA
 
