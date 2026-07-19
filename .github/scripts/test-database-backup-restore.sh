@@ -5,11 +5,14 @@ DB_URL="${DB_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 REPORT_BASE="${1:-migration-report}"
 REPORT_DIR="${REPORT_BASE}/database-backup-restore"
 BACKUP_FILE="${REPORT_DIR}/solamigo-logical-data.backup"
+CONTAINER_BACKUP_FILE="/tmp/solamigo-logical-data.backup"
 BEFORE_FILE="${REPORT_DIR}/fingerprint-before.txt"
 REMOVED_FILE="${REPORT_DIR}/fingerprint-after-removal.txt"
 AFTER_FILE="${REPORT_DIR}/fingerprint-after-restore.txt"
+DB_CONTAINER="${DB_CONTAINER:-$(docker ps --filter 'name=^/supabase_db_' --format '{{.Names}}' | head -n 1)}"
 
 mkdir -p "${REPORT_DIR}"
+test -n "${DB_CONTAINER}"
 
 psql_cmd() {
   psql "${DB_URL}" -X -v ON_ERROR_STOP=1 "$@"
@@ -23,6 +26,7 @@ snapshot() {
 
 cleanup_fixture() {
   psql_cmd -f supabase/tests/database_backup_cleanup.sql >/dev/null 2>&1 || true
+  docker exec "${DB_CONTAINER}" rm -f "${CONTAINER_BACKUP_FILE}" >/dev/null 2>&1 || true
 }
 
 trap cleanup_fixture EXIT
@@ -57,15 +61,20 @@ TABLE_ARGS=(
 )
 
 printf '2. Gerando backup lógico em formato custom\n'
-pg_dump "${DB_URL}" \
+docker exec "${DB_CONTAINER}" rm -f "${CONTAINER_BACKUP_FILE}"
+docker exec "${DB_CONTAINER}" pg_dump \
+  --username=postgres \
+  --dbname=postgres \
   --format=custom \
   --data-only \
   --no-owner \
   --no-privileges \
-  --file="${BACKUP_FILE}" \
+  --file="${CONTAINER_BACKUP_FILE}" \
   "${TABLE_ARGS[@]}"
 
-pg_restore --list "${BACKUP_FILE}" | tee "${REPORT_DIR}/archive-manifest.txt"
+docker cp "${DB_CONTAINER}:${CONTAINER_BACKUP_FILE}" "${BACKUP_FILE}"
+docker exec "${DB_CONTAINER}" pg_restore --list "${CONTAINER_BACKUP_FILE}" \
+  | tee "${REPORT_DIR}/archive-manifest.txt"
 sha256sum "${BACKUP_FILE}" | tee "${REPORT_DIR}/archive-sha256.txt"
 stat -c '%s' "${BACKUP_FILE}" | tee "${REPORT_DIR}/archive-size-bytes.txt"
 
@@ -91,14 +100,15 @@ awk -F '|' '
 ' "${REMOVED_FILE}"
 
 printf '4. Restaurando o backup lógico\n'
-pg_restore \
-  --dbname="${DB_URL}" \
+docker exec "${DB_CONTAINER}" pg_restore \
+  --username=postgres \
+  --dbname=postgres \
   --data-only \
   --disable-triggers \
   --no-owner \
   --no-privileges \
   --exit-on-error \
-  "${BACKUP_FILE}" \
+  "${CONTAINER_BACKUP_FILE}" \
   2>&1 | tee "${REPORT_DIR}/restore.log"
 
 snapshot | tee "${AFTER_FILE}"
@@ -182,6 +192,7 @@ awk -F '|' '
   END { exit bad }
 ' "${REPORT_DIR}/fingerprint-final-cleanup.txt"
 
+docker exec "${DB_CONTAINER}" rm -f "${CONTAINER_BACKUP_FILE}"
 trap - EXIT
 
 cat > "${REPORT_DIR}/summary.txt" <<EOF
@@ -191,6 +202,7 @@ backup_size_bytes=$(stat -c '%s' "${BACKUP_FILE}")
 backup_sha256=$(sha256sum "${BACKUP_FILE}" | awk '{print $1}')
 fixture_tables=$(wc -l < "${BEFORE_FILE}" | tr -d ' ')
 storage_scope=database_metadata_only
+postgres_tools_source=supabase_database_container
 EOF
 
 cat "${REPORT_DIR}/summary.txt"
