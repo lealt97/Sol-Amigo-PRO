@@ -42,3 +42,4 @@ CREATE POLICY "Users can update their own models" ON public.pdf_user_models
 
 CREATE POLICY "Users can delete their own models" ON public.pdf_user_models
   FOR DELETE USING (auth.uid() = user_id);
+
