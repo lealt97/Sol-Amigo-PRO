@@ -65,7 +65,7 @@ test.describe('Autenticação e rotas públicas', () => {
   });
 
   test('envia solicitação de recuperação sem revelar se a conta existe', async ({ page }) => {
-    await page.route('**/auth/v1/recover', async (route) => {
+    await page.route('**/auth/v1/recover**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -79,6 +79,7 @@ test.describe('Autenticação e rotas públicas', () => {
 
     await expect(page.getByText(
       'Se uma conta existir para este e-mail, enviamos instruções de redefinição de senha.',
+      { exact: true },
     )).toBeVisible();
   });
 
@@ -93,7 +94,7 @@ test.describe('Autenticação e rotas públicas', () => {
     await page.goto('/proposta/curto');
 
     await expect(page.getByRole('heading', { name: 'Ops!' })).toBeVisible();
-    await expect(page.getByText('Proposta não encontrada')).toBeVisible();
+    await expect(page.getByText('Proposta não encontrada', { exact: true })).toBeVisible();
   });
 
   test('carrega e aprova uma proposta pelo link público', async ({ page }) => {
@@ -120,14 +121,14 @@ test.describe('Autenticação e rotas públicas', () => {
     await page.goto(`/proposta/${PUBLIC_TOKEN}`);
 
     await expect(page.getByRole('heading', { name: 'SolAmigo Energia Solar' })).toBeVisible();
-    await expect(page.getByText('Cliente Playwright')).toBeVisible();
-    await expect(page.getByText('6.60 kWp')).toBeVisible();
-    await expect(page.getByText('Kit selecionado: Kit Solar E2E')).toBeVisible();
+    await expect(page.getByText('Cliente Playwright', { exact: true })).toBeVisible();
+    await expect(page.getByText('6.60 kWp', { exact: true })).toBeVisible();
+    await expect(page.getByText('Kit selecionado: Kit Solar E2E', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Aceitar Proposta' }).click();
 
-    await expect(page.getByText('Proposta aceita com sucesso!')).toBeVisible();
-    await expect(page.getByText('Aprovada')).toBeVisible();
+    await expect(page.getByText('Proposta aceita com sucesso!', { exact: true })).toBeVisible();
+    await expect(page.getByText('Aprovada', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Aceitar Proposta' })).toHaveCount(0);
   });
 
@@ -163,7 +164,7 @@ test.describe('Autenticação e rotas públicas', () => {
     await page.getByRole('button', { name: 'Confirmar Recusa' }).click();
 
     await expect.poll(() => receivedReason).toBe('Projeto adiado pelo cliente');
-    await expect(page.getByText('Proposta recusada.')).toBeVisible();
-    await expect(page.getByText('Recusada')).toBeVisible();
+    await expect(page.getByText('Proposta recusada.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Recusada', { exact: true })).toBeVisible();
   });
 });
