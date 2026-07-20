@@ -177,7 +177,14 @@ function PlanCard({ plan, destination }: { plan: Plan; destination: string; key?
 export function Plans() {
   const { session } = useAuth();
   const freeDestination = session ? '/dashboard' : '/register';
-  const paidDestination = session ? '/configuracoes' : '/register?intent=upgrade';
+
+  const getDestination = (plan: Plan) => {
+    if (plan.id === 'free') return freeDestination;
+    const interval = plan.id === PRO_ANNUAL.id ? 'year' : 'month';
+    return session
+      ? `/checkout?interval=${interval}`
+      : `/register?intent=upgrade&interval=${interval}`;
+  };
 
   return (
     <div
@@ -258,7 +265,7 @@ export function Plans() {
                 <PlanCard
                   key={plan.id}
                   plan={plan}
-                  destination={plan.id === 'free' ? freeDestination : paidDestination}
+                  destination={getDestination(plan)}
                 />
               ))}
             </div>
@@ -266,7 +273,7 @@ export function Plans() {
             <div className="mx-auto mt-10 flex max-w-2xl items-start gap-3 rounded-2xl border border-[#2C527A] bg-[#142E46]/90 px-5 py-4 text-sm leading-6 text-[#CBD5E1] shadow-sm backdrop-blur-sm">
               <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#64B0F3]" aria-hidden="true" />
               <p>
-                A contratação ainda será conectada ao checkout seguro. Você poderá alterar ou cancelar seu plano pela área de assinatura quando essa etapa for liberada.
+                O checkout é iniciado somente após o login e usa uma sessão idempotente no servidor. O plano muda apenas depois da confirmação assinada do provedor de pagamento.
               </p>
             </div>
           </div>
