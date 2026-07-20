@@ -47,6 +47,18 @@ delete from public.mfa_security_events
 where user_id = 'b1000000-0000-4000-8000-000000000001'
    or id = 'b1000000-0000-4000-8000-000000000005';
 
+delete from public.billing_events
+where account_id = 'b1000000-0000-4000-8000-000000000001'
+   or id = 'b1100000-0000-4000-8000-000000000002';
+
+delete from public.account_usage
+where account_id = 'b1000000-0000-4000-8000-000000000001'
+   or id = 'b1100000-0000-4000-8000-000000000003';
+
+delete from public.subscriptions
+where account_id = 'b1000000-0000-4000-8000-000000000001'
+   or id = 'b1100000-0000-4000-8000-000000000001';
+
 delete from public.profiles
 where id = 'b1000000-0000-4000-8000-000000000001';
 
@@ -72,6 +84,15 @@ begin
   ) or exists (
     select 1 from public.mfa_security_events
     where id = 'b1000000-0000-4000-8000-000000000005'
+  ) or exists (
+    select 1 from public.subscriptions
+    where id = 'b1100000-0000-4000-8000-000000000001'
+  ) or exists (
+    select 1 from public.billing_events
+    where id = 'b1100000-0000-4000-8000-000000000002'
+  ) or exists (
+    select 1 from public.account_usage
+    where id = 'b1100000-0000-4000-8000-000000000003'
   ) or exists (
     select 1 from public.proposals
     where id = 'b4000000-0000-4000-8000-000000000001'
