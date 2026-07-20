@@ -15,36 +15,40 @@ concurrency:
 
 jobs:
   apply-profile-avatar:
-    name: Gerar arquivos da foto de perfil
+    name: Publicar feature de foto de perfil
     if: github.event_name == 'pull_request' && github.head_ref == 'feat/profile-avatar-navbar'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Baixar branch da PR
         uses: actions/checkout@v4
         with:
           ref: feat/profile-avatar-navbar
+          fetch-depth: 0
 
-      - name: Aplicar alterações preparadas
+      - name: Aplicar e publicar arquivos funcionais
         run: |
+          if test -f supabase/migrations/20260720003000_profile_avatar.sql; then
+            echo "Implementação já publicada."
+            exit 0
+          fi
           python3 .github/scripts/apply-profile-avatar-core.py
           python3 .github/scripts/apply-profile-avatar-settings.py
           python3 .github/scripts/apply-profile-avatar-tests.py
-
-      - name: Publicar arquivos gerados
-        uses: actions/upload-artifact@v4
-        with:
-          name: profile-avatar-generated
-          path: |
-            src/pages/Configuracoes.tsx
-            src/components/Layout.tsx
-            src/services/profileService.ts
-            src/types/profile.ts
-            supabase/migrations/20260720003000_profile_avatar.sql
-            supabase/tests/profile_avatar.sql
+          git checkout -- .github/workflows/migrations-homologation.yml
+          git config user.name "SolAmigo Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            src/pages/Configuracoes.tsx \
+            src/components/Layout.tsx \
+            src/services/profileService.ts \
+            src/types/profile.ts \
+            supabase/migrations/20260720003000_profile_avatar.sql \
+            supabase/tests/profile_avatar.sql \
             tests/profile-avatar.test.ts
-            .github/workflows/migrations-homologation.yml
-          if-no-files-found: error
-          retention-days: 1
+          git commit -m "feat: adicionar foto de perfil na navbar"
+          git push origin HEAD:feat/profile-avatar-navbar
 
   quality:
     name: TypeScript completo, testes e build
