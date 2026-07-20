@@ -8,6 +8,7 @@ import { Layout } from "./components/Layout";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Toaster } from "sonner";
 import { ProtectedRoute, PublicRoute } from "./components/auth/RouteGuards";
+import { AdminRoute } from "./components/auth/AdminRoute";
 import { PlatformThemeBootstrap } from "./components/theme/PlatformThemeBootstrap";
 import "./styles/plans-texture.css";
 
@@ -29,6 +30,10 @@ import { Configuracoes } from "./pages/Configuracoes";
 import { SolarKitCatalog } from "./pages/kits/SolarKitCatalog";
 import { Plans } from "./pages/Plans";
 import { BillingCheckout } from "./pages/BillingCheckout";
+import { Onboarding } from "./pages/Onboarding";
+import { AccountData } from "./pages/AccountData";
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { LegalDocumentPage } from "./pages/legal/LegalDocumentPage";
 
 function Home() {
   return <Navigate to="/dashboard" replace />;
@@ -41,9 +46,12 @@ export default function App() {
       <Toaster position="top-right" richColors />
       <Router>
         <Routes>
-          {/* Public marketing route, available with or without an active session. */}
+          {/* Rotas públicas acessíveis com ou sem sessão. */}
           <Route path="/planos" element={<Plans />} />
           <Route path="/precos" element={<Navigate to="/planos" replace />} />
+          <Route path="/termos" element={<LegalDocumentPage type="terms" />} />
+          <Route path="/privacidade" element={<LegalDocumentPage type="privacy" />} />
+          <Route path="/cancelamento-reembolso" element={<LegalDocumentPage type="refund" />} />
 
           {/* Public Routes (Only accessible if NOT logged in) */}
           <Route element={<PublicRoute />}>
@@ -60,6 +68,7 @@ export default function App() {
             <Route path="/" element={<Layout />}>
               <Route index element={<Home />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="primeiros-passos" element={<Onboarding />} />
               <Route path="clientes" element={<ClientList />} />
               <Route path="clientes/novo" element={<ClientForm />} />
               <Route path="clientes/:id" element={<ClientDetails />} />
@@ -72,12 +81,15 @@ export default function App() {
               <Route path="design-pdf" element={<DesignPdf />} />
               <Route path="checkout" element={<BillingCheckout />} />
               <Route path="configuracoes" element={<Configuracoes />} />
+              <Route path="privacidade-dados" element={<AccountData />} />
+              <Route element={<AdminRoute />}>
+                <Route path="admin" element={<AdminDashboard />} />
+              </Route>
             </Route>
           </Route>
-          
+
           {/* Public route without layout for external proposal viewing */}
           <Route path="/proposta/:publicToken" element={<PublicProposal />} />
-          
         </Routes>
       </Router>
     </AuthProvider>
