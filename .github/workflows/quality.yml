@@ -14,46 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # PROFILE_AVATAR_APPLY_START
   apply-profile-avatar:
-    name: Aplicar feature de foto de perfil
+    name: Gerar arquivos da foto de perfil
     if: github.event_name == 'pull_request' && github.head_ref == 'feat/profile-avatar-navbar'
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Baixar branch da PR
         uses: actions/checkout@v4
         with:
           ref: feat/profile-avatar-navbar
-          fetch-depth: 0
 
       - name: Aplicar alterações preparadas
         run: |
           python3 .github/scripts/apply-profile-avatar-core.py
           python3 .github/scripts/apply-profile-avatar-settings.py
           python3 .github/scripts/apply-profile-avatar-tests.py
-          rm .github/scripts/apply-profile-avatar-core.py
-          rm .github/scripts/apply-profile-avatar-settings.py
-          rm .github/scripts/apply-profile-avatar-tests.py
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('.github/workflows/quality.yml')
-          content = path.read_text(encoding='utf-8')
-          start = content.index('  # PROFILE_AVATAR_APPLY_START')
-          end_marker = '  # PROFILE_AVATAR_APPLY_END\n'
-          end = content.index(end_marker, start) + len(end_marker)
-          path.write_text(content[:start] + content[end:], encoding='utf-8')
-          PY
 
-      - name: Commitar implementação
-        run: |
-          git config user.name "SolAmigo Automation"
-          git config user.email "actions@users.noreply.github.com"
-          git add -A
-          git commit -m "feat: adicionar foto de perfil na navbar"
-          git push origin HEAD:feat/profile-avatar-navbar
-  # PROFILE_AVATAR_APPLY_END
+      - name: Publicar arquivos gerados
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-avatar-generated
+          path: |
+            src/pages/Configuracoes.tsx
+            src/components/Layout.tsx
+            src/services/profileService.ts
+            src/types/profile.ts
+            supabase/migrations/20260720003000_profile_avatar.sql
+            supabase/tests/profile_avatar.sql
+            tests/profile-avatar.test.ts
+            .github/workflows/migrations-homologation.yml
+          if-no-files-found: error
+          retention-days: 1
 
   quality:
     name: TypeScript completo, testes e build
