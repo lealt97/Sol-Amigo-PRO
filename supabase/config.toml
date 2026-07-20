@@ -6,3 +6,12 @@ verify_jwt = true
 
 [functions.billing-provider-readiness]
 verify_jwt = true
+
+[functions.billing-checkout]
+verify_jwt = true
+
+[functions.billing-webhook-stripe]
+verify_jwt = false
+
+[functions.billing-webhook-cakto]
+verify_jwt = false
