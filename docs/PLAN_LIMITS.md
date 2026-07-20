@@ -96,7 +96,7 @@ Os valores versionados estão em `src/lib/billing/planCatalog.ts` e são exposto
 
 No banco, `billing_plans.proposals_per_month` representa a cota do intervalo mensal e `annual_proposals_per_month` representa a cota anual. A função interna `resolve_plan_proposal_limit(plan_code, billing_interval)` resolve o valor correto no servidor.
 
-A autorização de propostas lê o plano e o intervalo efetivos da assinatura, consulta o período e o uso persistidos, reserva a cota de forma transacional e só então executa a operação. Validações de interface são apenas informativas.
+A autorização deve reservar a cota de forma transacional: lê o plano e o intervalo efetivos da assinatura, consulta o período e o uso persistidos, incrementa a reserva e só então executa a operação. Validações de interface são apenas informativas.
 
 ## Revisão após o beta
 
