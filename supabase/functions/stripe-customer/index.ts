@@ -8,7 +8,7 @@ import {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-request-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json',
@@ -92,7 +92,6 @@ Deno.serve(async (request) => {
 
     const config = loadStripeServerConfig();
     const stripe = createStripeClient(config);
-    const requestId = request.headers.get('x-request-id') || undefined;
 
     const customer = await stripe.customers.create(
       {
@@ -104,7 +103,7 @@ Deno.serve(async (request) => {
         },
       },
       {
-        idempotencyKey: buildStripeIdempotencyKey('customer:create', user.id, requestId),
+        idempotencyKey: buildStripeIdempotencyKey('customer:create', user.id),
       },
     );
 
