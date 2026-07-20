@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: migrations-homologation-${{ github.ref }}
@@ -202,3 +203,23 @@ jobs:
         if: always()
         shell: bash
         run: npx --yes supabase@2.39.2 stop --no-backup || true
+
+      - name: Publicar status das migrations
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ job.status }}
+        shell: bash
+        run: |
+          mkdir -p migration-report
+          if [ "$OUTCOME" = "success" ]; then
+            printf 'Migrations, RLS, billing, cotas, monitoramento e backup local aprovados.\n' > migration-report/migrations-status.txt
+          else
+            printf 'Falha na homologação local das migrations; consulte o workflow e os artefatos.\n' > migration-report/migrations-status.txt
+          fi
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Migrations" \
+            --outcome "$OUTCOME" \
+            --log migration-report/migrations-status.txt
