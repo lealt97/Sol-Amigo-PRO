@@ -18,29 +18,44 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def normalize_summary(value: str) -> str:
+    value = re.sub(r'^\s*#\s*', '', value, flags=re.MULTILINE)
+    value = re.sub(r'\x1b\[[0-9;]*m', '', value)
+    value = re.sub(r'\s+', ' ', value).strip()
+    return value[:135]
+
+
 def summarize_log(path: str, succeeded: bool) -> str:
     if succeeded:
         return 'Etapa concluída com sucesso.'
 
     text = Path(path).read_text(encoding='utf-8', errors='replace') if Path(path).exists() else ''
-    candidates = []
     patterns = (
         r'error TS\d+:[^\n]+',
-        r'AssertionError[^\n]*',
+        r'AssertionError(?: \[ERR_ASSERTION\])?:\s*[^\n]+',
+        r'The input did not match the regular expression[^\n]*',
+        r'Expected values to be strictly equal:[^\n]*',
+        r'Could not resolve[^\n]+',
+        r'RollupError[^\n]*',
+        r'\[vite:[^\]]+\][^\n]+',
         r'not ok[^\n]*',
         r'Error:[^\n]+',
-        r'failed[^\n]*',
         r'ERR_[A-Z0-9_]+[^\n]*',
+        r'failed[^\n]*',
     )
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
-            candidates.append(match.group(0))
-            break
+            summary = normalize_summary(match.group(0))
+            if summary and summary.lower() not in {'assertionerror', "assertionerror'"}:
+                return summary
 
-    summary = candidates[0] if candidates else 'A etapa falhou; consulte o workflow Diagnóstico de build.'
-    summary = re.sub(r'\s+', ' ', summary).strip()
-    return summary[:135]
+    lines = [normalize_summary(line) for line in text.splitlines()]
+    meaningful = [
+        line for line in lines
+        if line and not line.startswith(('>', 'TAP version', 'npm warn', 'npm notice'))
+    ]
+    return meaningful[-1][:135] if meaningful else 'A etapa falhou; consulte o workflow Diagnóstico de build.'
 
 
 def main() -> None:
