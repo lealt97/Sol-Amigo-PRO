@@ -70,7 +70,8 @@ select pg_temp.assert_true(
       and p.tablename in (
         'profiles', 'clients', 'proposals', 'proposal_loads',
         'solar_system_calculations', 'solar_kits',
-        'pdf_templates', 'pdf_user_models', 'proposal_events'
+        'pdf_templates', 'pdf_user_models', 'proposal_events',
+        'subscriptions', 'billing_events', 'account_usage'
       )
       and concat_ws(' ', p.qual, p.with_check) not ilike '%auth.uid()%'
   ),
@@ -98,7 +99,7 @@ select pg_temp.assert_true(
   'políticas de profiles não correspondem ao fluxo de conta'
 );
 
--- Eventos são append-only para preservar a trilha de auditoria.
+-- Eventos são append-only para preservar as trilhas de auditoria.
 select pg_temp.assert_true(
   exists (
     select 1 from pg_policies
@@ -111,8 +112,14 @@ select pg_temp.assert_true(
   and not exists (
     select 1 from pg_policies
     where schemaname = 'public' and tablename = 'proposal_events' and cmd in ('UPDATE','DELETE')
+  )
+  and not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename in ('mfa_security_events', 'billing_events')
+      and cmd in ('INSERT','UPDATE','DELETE')
   ),
-  'proposal_events deixou de ser append-only'
+  'uma tabela de eventos deixou de ser append-only para a API'
 );
 
 -- Catálogos globais são somente leitura pela API.
@@ -120,7 +127,7 @@ select pg_temp.assert_true(
   not exists (
     select 1 from pg_policies
     where schemaname = 'public'
-      and tablename in ('pdf_cover_templates', 'pdf_template_presets')
+      and tablename in ('pdf_cover_templates', 'pdf_template_presets', 'billing_plans')
       and cmd <> 'SELECT'
   ),
   'catálogo global possui política de escrita'
@@ -135,6 +142,14 @@ select pg_temp.assert_true(
   and not has_table_privilege('anon', 'public.proposal_sequences', 'SELECT,INSERT,UPDATE,DELETE')
   and not has_table_privilege('authenticated', 'public.proposal_sequences', 'SELECT,INSERT,UPDATE,DELETE'),
   'proposal_sequences possui acesso direto pela API'
+);
+
+-- Tabelas privadas de cobrança permitem somente leitura do próprio registro.
+select pg_temp.assert_true(
+  not has_table_privilege('authenticated', 'public.subscriptions', 'INSERT,UPDATE,DELETE')
+  and not has_table_privilege('authenticated', 'public.billing_events', 'INSERT,UPDATE,DELETE')
+  and not has_table_privilege('authenticated', 'public.account_usage', 'INSERT,UPDATE,DELETE'),
+  'uma tabela privada de cobrança possui escrita direta pela API'
 );
 
 -- Toda função SECURITY DEFINER deve fixar search_path.
@@ -160,7 +175,11 @@ with internal(signature) as (
     ('public.handle_new_proposal()'),
     ('public.handle_new_user()'),
     ('public.handle_updated_at()'),
-    ('public.set_updated_at()')
+    ('public.set_updated_at()'),
+    ('public.set_billing_updated_at()'),
+    ('public.handle_new_billing_account()'),
+    ('public.initialize_billing_account(uuid)'),
+    ('public.audit_mfa_factor_state_change()')
 ), resolved as (
   select signature, to_regprocedure(signature) as function_oid
   from internal
