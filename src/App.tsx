@@ -26,6 +26,7 @@ import { DesignPdf } from "./pages/design-pdf/DesignPdf";
 import { PublicProposal } from "./pages/public/PublicProposal";
 import { Configuracoes } from "./pages/Configuracoes";
 import { SolarKitCatalog } from "./pages/kits/SolarKitCatalog";
+import { Plans } from "./pages/Plans";
 
 function Home() {
   return <Navigate to="/dashboard" replace />;
@@ -38,6 +39,10 @@ export default function App() {
       <Toaster position="top-right" richColors />
       <Router>
         <Routes>
+          {/* Public marketing route, available with or without an active session. */}
+          <Route path="/planos" element={<Plans />} />
+          <Route path="/precos" element={<Navigate to="/planos" replace />} />
+
           {/* Public Routes (Only accessible if NOT logged in) */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
