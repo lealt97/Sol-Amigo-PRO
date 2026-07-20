@@ -4,7 +4,7 @@
 
 Este documento define os limites quantitativos do plano Gratuito e das opções Pro durante o beta. Os valores são uma hipótese operacional e comercial; deverão ser revisados com dados reais de ativação, conversão, custo de infraestrutura e volume de propostas.
 
-A fundação persistente de uso já registra plano e intervalo. A aplicação transacional dos bloqueios no servidor permanece em item posterior da Fase 3.
+A fundação persistente registra plano, intervalo e uso. A criação de propostas já aplica a cota mensal de forma transacional no servidor; as cotas de usuários e armazenamento permanecem para etapas posteriores.
 
 ## Resumo
 
@@ -28,7 +28,9 @@ O Pro mensal e o Pro anual pertencem ao mesmo produto `pro` e liberam o mesmo co
 - excluir uma proposta não devolve a unidade do mês, evitando contorno do limite por criação e exclusão repetida;
 - falhas transacionais que não persistem a proposta não consomem unidade.
 
-A tabela de uso registra o plano e o intervalo aplicados ao período. A autorização futura deverá reservar a unidade de forma atômica, em vez de calcular a cota apenas contando propostas ainda existentes.
+O trigger `reserve_proposal_quota_before_insert` bloqueia toda inserção em `public.proposals` antes da gravação. A função interna bloqueia a linha da assinatura e do período de uso, resolve a cota pelo plano e intervalo efetivos, incrementa `account_usage.proposals_created` e só então permite o `INSERT`. Como tudo ocorre na mesma transação, uma falha posterior desfaz também a reserva.
+
+A interface consulta `get_my_proposal_quota()` apenas para informar uso, saldo e aviso de 80%. A decisão final continua no banco e não depende do navegador.
 
 ## Usuários por conta
 
@@ -54,6 +56,8 @@ O armazenamento soma os bytes efetivamente ocupados por objetos pertencentes à 
 
 Metadados do PostgreSQL não entram nessa cota. O servidor deve usar o tamanho real registrado no Storage e nunca confiar em tamanho informado pelo navegador.
 
+Os buckets já aplicam limites absolutos de MIME e tamanho para reduzir abuso e arquivos incompatíveis. A contabilização consolidada por conta, porém, ainda precisa ser conectada a `account_usage.storage_bytes` antes de ativar a cota comercial de armazenamento.
+
 ## Avisos e bloqueio
 
 - a interface deve avisar quando o uso atingir 80% de qualquer limite;
@@ -77,7 +81,9 @@ Quando uma conta acima dos limites do Gratuito perde o acesso Pro:
 3. novas propostas, convites e uploads ficam bloqueados enquanto o uso estiver acima da cota aplicável;
 4. o proprietário pode reduzir uso, remover membros ou reativar o Pro;
 5. propostas existentes permanecem acessíveis e exportáveis;
-6. a política de tolerância por falha de pagamento será definida em item posterior do checklist e poderá adiar o início desses bloqueios.
+6. uma assinatura `past_due` mantém a cota Pro somente até `grace_period_ends_at`; depois disso, a autorização usa a cota Gratuita.
+
+Eventos verificados de Cakto ou Stripe atualizam a assinatura e o direito efetivo na mesma transação. Cancelamento, inadimplência sem tolerância ou assinatura não ativa removem a cota Pro sem apagar os dados existentes.
 
 ## Fonte de verdade técnica
 
@@ -90,7 +96,7 @@ Os valores versionados estão em `src/lib/billing/planCatalog.ts` e são exposto
 
 No banco, `billing_plans.proposals_per_month` representa a cota do intervalo mensal e `annual_proposals_per_month` representa a cota anual. A função interna `resolve_plan_proposal_limit(plan_code, billing_interval)` resolve o valor correto no servidor.
 
-A aplicação no servidor deverá ler o plano e o intervalo efetivos da assinatura, consultar o período e o uso persistidos, reservar a cota de forma transacional e só então executar a operação. Validações de interface serão apenas informativas.
+A autorização de propostas lê o plano e o intervalo efetivos da assinatura, consulta o período e o uso persistidos, reserva a cota de forma transacional e só então executa a operação. Validações de interface são apenas informativas.
 
 ## Revisão após o beta
 
