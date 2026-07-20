@@ -18,7 +18,7 @@ test('workflow executa homologação de backup e restauração em Supabase local
   assert.match(workflow, /retention-days: 14/);
 });
 
-test('backup lógico inclui autenticação, MFA, recuperação, dados comerciais e metadados do Storage', async () => {
+test('backup lógico inclui autenticação, MFA, auditoria, dados comerciais e metadados do Storage', async () => {
   const script = await readFile(SCRIPT_PATH, 'utf8');
 
   for (const table of [
@@ -26,6 +26,7 @@ test('backup lógico inclui autenticação, MFA, recuperação, dados comerciais
     'auth.identities',
     'auth.mfa_factors',
     'public.mfa_recovery_codes',
+    'public.mfa_security_events',
     'public.profiles',
     'public.clients',
     'public.solar_kits',
@@ -60,7 +61,7 @@ test('restauração usa proprietários internos com gatilhos ativos e ordem cont
   assert.doesNotMatch(script, /--disable-triggers/);
 });
 
-test('restauração compara fixture, códigos MFA e metadados completos do Storage', async () => {
+test('restauração compara fixture, códigos, eventos MFA e metadados completos do Storage', async () => {
   const [script, fixture, snapshot, storageSnapshot, cleanup] = await Promise.all([
     readFile(SCRIPT_PATH, 'utf8'),
     readFile(FIXTURE_PATH, 'utf8'),
@@ -75,21 +76,25 @@ test('restauração compara fixture, códigos MFA e metadados completos do Stora
   assert.match(script, /fingerprint-final-cleanup\.txt/);
   assert.match(script, /storage_scope=complete_database_metadata/);
   assert.match(script, /join public\.mfa_recovery_codes/);
+  assert.match(script, /join public\.mfa_security_events/);
 
   assert.match(fixture, /backup-restore@solamigo\.invalid/);
   assert.doesNotMatch(fixture, /encrypted_password/);
   assert.match(fixture, /Fator descartável de backup/);
   assert.match(fixture, /insert into public\.mfa_recovery_codes/);
+  assert.match(fixture, /insert into public\.mfa_security_events/);
   assert.match(fixture, /backup-restore-fixture/);
 
   assert.match(snapshot, /md5\(coalesce\(string_agg\(to_jsonb\(t\)::text/);
   assert.match(snapshot, /public\.mfa_recovery_codes/);
+  assert.match(snapshot, /public\.mfa_security_events/);
   assert.match(snapshot, /order by table_name/);
   assert.match(storageSnapshot, /storage\.buckets/);
   assert.match(storageSnapshot, /storage\.objects/);
 
   assert.match(cleanup, /delete from public\.proposal_events/);
   assert.match(cleanup, /delete from public\.mfa_recovery_codes/);
+  assert.match(cleanup, /delete from public\.mfa_security_events/);
   assert.match(cleanup, /delete from auth\.users/);
   assert.match(cleanup, /raise exception 'database backup fixture cleanup failed'/);
 });

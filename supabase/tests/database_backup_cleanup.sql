@@ -43,6 +43,10 @@ delete from public.mfa_recovery_codes
 where user_id = 'b1000000-0000-4000-8000-000000000001'
    or id = 'b1000000-0000-4000-8000-000000000004';
 
+delete from public.mfa_security_events
+where user_id = 'b1000000-0000-4000-8000-000000000001'
+   or id = 'b1000000-0000-4000-8000-000000000005';
+
 delete from public.profiles
 where id = 'b1000000-0000-4000-8000-000000000001';
 
@@ -65,6 +69,9 @@ begin
   ) or exists (
     select 1 from public.mfa_recovery_codes
     where id = 'b1000000-0000-4000-8000-000000000004'
+  ) or exists (
+    select 1 from public.mfa_security_events
+    where id = 'b1000000-0000-4000-8000-000000000005'
   ) or exists (
     select 1 from public.proposals
     where id = 'b4000000-0000-4000-8000-000000000001'

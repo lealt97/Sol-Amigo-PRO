@@ -97,6 +97,15 @@ jobs:
             -f supabase/tests/mfa_recovery_codes.sql \
             2>&1 | tee migration-report/mfa-recovery-codes.txt
 
+      - name: Testar eventos de ativação e remoção do MFA
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/mfa_security_events.sql \
+            2>&1 | tee migration-report/mfa-security-events.txt
+
       - name: Testar confirmação de senha em operações críticas
         shell: bash
         run: |

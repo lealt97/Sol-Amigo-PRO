@@ -46,6 +46,18 @@ insert into public.mfa_recovery_codes (
   '2026-01-15T12:00:30Z'
 );
 
+insert into public.mfa_security_events (
+  id, user_id, event_type, factor_id, actor_role, metadata, created_at
+) values (
+  'b1000000-0000-4000-8000-000000000005',
+  'b1000000-0000-4000-8000-000000000001',
+  'mfa_removed',
+  'b1000000-0000-4000-8000-000000000003',
+  'database_backup_fixture',
+  '{"factor_type":"totp","source":"database_backup_restore_test","verified_factor_count":0}'::jsonb,
+  '2026-01-15T12:00:45Z'
+);
+
 update public.profiles
 set name = 'Usuário Backup Restore',
     company_name = 'SolAmigo Backup Lab',
