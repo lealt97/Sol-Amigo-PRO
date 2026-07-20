@@ -19,7 +19,7 @@ test.describe('Página pública de planos', () => {
     await expect(page.getByText(/usuários? com login/i)).toHaveCount(0);
   });
 
-  test('aplica fundo azul e mostra a textura original em repetição nativa de 8px', async ({ page }) => {
+  test('aplica fundo azul e mostra a textura original repetida em 11px', async ({ page }) => {
     await page.goto('/planos');
 
     const texture = page.getByTestId('plans-texture');
@@ -29,7 +29,7 @@ test.describe('Página pública de planos', () => {
     await expect(page.getByTestId('plans-brand-name')).toHaveCSS('color', 'rgb(250, 203, 92)');
     await expect(texture).toHaveCSS('opacity', '1');
     await expect(texture).toHaveCSS('background-repeat', 'repeat');
-    await expect(texture).toHaveCSS('background-size', '8px 8px');
+    await expect(texture).toHaveCSS('background-size', '11px 11px');
     await expect(texture).toHaveCSS('background-image', /data:image\/png;base64/);
   });
 
