@@ -1,8 +1,28 @@
 import { ArrowRight, Check, Info, Sparkles, Star, Sun } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  FREE_PLAN,
+  PRO_ANNUAL,
+  PRO_ANNUAL_SAVINGS_CENTS,
+  PRO_MONTHLY,
+} from '../lib/billing/planCatalog';
 
 const PLAN_TEXTURE_DATA_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAAAZUlEQVRIie2RKw5AIQwEez0OgESQoBF8EgS32gu+bB2+6mXFZtIxFWNjDHBrrYeRznLO4OacOOc4o52VUsDx2Hs7o53de8H13lFrdUY74zeutYaUkjPamcIrvMIrvMIrvML/MvwHSWHL+QOXYmcAAAAASUVORK5CYII=';
+
+const MEBIBYTE = 1024 * 1024;
+const GIBIBYTE = 1024 * MEBIBYTE;
+
+const formatPrice = (priceCents: number) => `R$ ${(priceCents / 100).toLocaleString('pt-BR', {
+  maximumFractionDigits: 0,
+})}`;
+
+const formatStorage = (storageBytes: number) => {
+  if (storageBytes >= GIBIBYTE) return `${storageBytes / GIBIBYTE} GB`;
+  return `${storageBytes / MEBIBYTE} MB`;
+};
+
+const annualExtraProposals = PRO_ANNUAL.limits.proposalsPerMonth - PRO_MONTHLY.limits.proposalsPerMonth;
 
 type Plan = {
   id: 'free' | 'pro-monthly' | 'pro-annual';
@@ -21,57 +41,57 @@ type Plan = {
 const plans: Plan[] = [
   {
     id: 'free',
-    name: 'Gratuito',
-    price: 'R$ 0',
+    name: FREE_PLAN.name,
+    price: formatPrice(FREE_PLAN.priceCents),
     cadence: '/mês',
     eyebrow: 'Para começar',
     description: 'Conheça a plataforma e crie suas primeiras propostas comerciais.',
     features: [
-      '5 propostas por mês',
+      `${FREE_PLAN.limits.proposalsPerMonth} propostas por mês`,
       'Modelos básicos de capa',
       'Paletas de cores predefinidas',
       'Dimensionamento fotovoltaico',
       'Cálculo de economia e payback',
       'Geração de PDF e link público',
-      '250 MB de armazenamento',
+      `${formatStorage(FREE_PLAN.limits.storageBytes)} de armazenamento`,
     ],
     cta: 'Começar gratuitamente',
     note: 'Identificação discreta SolAmigo nos documentos.',
   },
   {
-    id: 'pro-monthly',
+    id: PRO_MONTHLY.id,
     name: 'Pro Mensal',
-    price: 'R$ 100',
+    price: formatPrice(PRO_MONTHLY.priceCents),
     cadence: '/mês',
     eyebrow: 'Para uso profissional',
     description: 'Mais liberdade visual e capacidade para sua rotina comercial.',
     features: [
-      '30 propostas por mês',
+      `${PRO_MONTHLY.limits.proposalsPerMonth} propostas por mês`,
       'Todos os modelos de capa',
       'Personalização completa das cores',
       'Editor avançado da proposta',
       'PDF sem marca SolAmigo',
       'Histórico completo',
-      '10 GB de armazenamento',
+      `${formatStorage(PRO_MONTHLY.limits.storageBytes)} de armazenamento`,
       'Suporte prioritário',
     ],
     cta: 'Assinar Pro Mensal',
     note: 'Cancele quando precisar.',
   },
   {
-    id: 'pro-annual',
+    id: PRO_ANNUAL.id,
     name: 'Pro Anual',
-    price: 'R$ 1.000',
+    price: formatPrice(PRO_ANNUAL.priceCents),
     cadence: '/ano',
     eyebrow: 'Mais vantagens',
     description: 'Economize no ano e receba uma franquia mensal maior.',
     features: [
-      '40 propostas por mês',
+      `${PRO_ANNUAL.limits.proposalsPerMonth} propostas por mês`,
       'Todos os recursos do Pro Mensal',
-      '10 propostas extras todos os meses',
-      'Economia de R$ 200 por ano',
+      `${annualExtraProposals} propostas extras todos os meses`,
+      `Economia de ${formatPrice(PRO_ANNUAL_SAVINGS_CENTS)} por ano`,
       'Acesso antecipado a novos modelos',
-      '10 GB de armazenamento',
+      `${formatStorage(PRO_ANNUAL.limits.storageBytes)} de armazenamento`,
       'Suporte prioritário',
     ],
     cta: 'Assinar Pro Anual',
@@ -229,7 +249,7 @@ export function Plans() {
               </p>
               <div className="mt-7 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-[#2C527A] bg-[#142E46]/90 px-4 py-3 text-sm text-[#D7E4EF] shadow-sm backdrop-blur-sm">
                 <span className="font-bold text-[#FACB5C]">Pro Anual:</span>
-                economize R$ 200 e receba 10 propostas extras por mês
+                economize {formatPrice(PRO_ANNUAL_SAVINGS_CENTS)} e receba {annualExtraProposals} propostas extras por mês
               </div>
             </div>
 

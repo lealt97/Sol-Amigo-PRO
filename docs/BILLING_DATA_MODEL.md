@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento descreve a fundação persistente da Fase 3. A migration `20260720030000_billing_foundation.sql` cria quatro tabelas e inicializa automaticamente toda conta no plano Gratuito.
+Este documento descreve a fundação persistente da Fase 3. A migration `20260720030000_billing_foundation.sql` cria quatro tabelas e inicializa automaticamente toda conta no plano Gratuito. A migration `20260720210000_align_plan_interval_limits.sql` alinha as cotas por intervalo com a página comercial.
 
 A etapa não integra um provedor de pagamentos e não implementa checkout ou webhooks. Esses fluxos usarão este modelo como fonte de verdade no servidor.
 
@@ -15,16 +15,19 @@ Guarda:
 - código estável do produto (`free` ou `pro`);
 - nome de exibição e moeda;
 - preços mensal e anual em centavos inteiros;
-- limites de propostas, usuários e armazenamento;
+- cota de propostas do intervalo mensal em `proposals_per_month`;
+- cota de propostas do intervalo anual em `annual_proposals_per_month`;
+- limites de usuários e armazenamento;
 - flags de publicação e ativação;
 - metadados não sensíveis.
 
 Os valores iniciais são:
 
 - Gratuito: R$ 0,00, 5 propostas/mês, 1 usuário e 250 MiB;
-- Pro: R$ 100,00/mês ou R$ 1.000,00/ano, 100 propostas/mês, 5 usuários e 10 GiB.
+- Pro mensal: R$ 100,00/mês, 30 propostas/mês, 5 usuários e 10 GiB;
+- Pro anual: R$ 1.000,00/ano, 40 propostas/mês, 5 usuários e 10 GiB.
 
-Usuários anônimos e autenticados podem consultar somente planos públicos e ativos. Nenhum deles pode alterar o catálogo.
+A função interna `resolve_plan_proposal_limit(plan_code, billing_interval)` retorna a cota correta e só pode ser executada pelo servidor. Usuários anônimos e autenticados podem consultar somente planos públicos e ativos; nenhum deles pode alterar o catálogo.
 
 ## `subscriptions`
 
@@ -60,20 +63,21 @@ Armazena contadores e snapshots por período mensal:
 - bytes ocupados no Storage;
 - assentos utilizados;
 - plano aplicado ao período;
+- intervalo de cobrança aplicado ao período;
 - fuso e datas de início/fim;
 - versão para atualizações concorrentes futuras.
 
-Existe uma única linha por conta e início de período. A futura autorização no servidor deverá reservar a cota transacionalmente antes da operação e incrementar a versão.
+Existe uma única linha por conta e início de período. Registrar `billing_interval` evita que uma conta Pro mensal e uma conta Pro anual recebam a mesma cota por engano. A futura autorização no servidor deverá resolver o limite por produto e intervalo, reservar a cota transacionalmente antes da operação e incrementar a versão.
 
 ## Inicialização automática
 
 O gatilho `initialize_billing_account_on_signup` atua depois da criação em `auth.users` e chama funções internas com `search_path` fixo. Ele cria de modo idempotente:
 
 1. assinatura `free`;
-2. período mensal atual em `America/Sao_Paulo`;
+2. período mensal atual em `America/Sao_Paulo`, com intervalo `free`;
 3. evento `subscription.initialized`.
 
-A migration também executa o mesmo processo para usuários já existentes. As funções não podem ser chamadas por `anon`, `authenticated` ou `service_role` através da API.
+A migration também executa o mesmo processo para usuários já existentes. As funções não podem ser chamadas por `anon`, `authenticated` ou `service_role` através da API, exceto a função específica de resolução de cota, liberada somente ao `service_role`.
 
 ## RLS e privilégios
 
@@ -81,7 +85,7 @@ A migration também executa o mesmo processo para usuários já existentes. As f
 - catálogo: leitura pública somente dos registros ativos e publicados;
 - assinatura, eventos e uso: leitura somente quando `auth.uid() = account_id`;
 - frontend não recebe escrita em nenhuma tabela de cobrança;
-- o servidor recebe apenas os privilégios necessários: atualizar assinatura e uso, inserir eventos;
+- o servidor recebe apenas os privilégios necessários: atualizar assinatura e uso, inserir eventos e resolver limites;
 - exclusão da conta continua removendo os dados relacionados por `ON DELETE CASCADE`.
 
 ## Backup e restauração
@@ -96,5 +100,5 @@ O teste compara fingerprints antes e depois e valida os vínculos entre usuário
 2. criar checkout exclusivamente no servidor;
 3. validar assinatura de webhooks e deduplicar por `provider_event_id`;
 4. atualizar `subscriptions` e inserir `billing_events` na mesma transação;
-5. aplicar limites através de RPC ou Edge Function, nunca apenas no frontend;
+5. aplicar limites através de RPC ou Edge Function usando produto e intervalo, nunca apenas no frontend;
 6. implementar tolerância para pagamentos vencidos.

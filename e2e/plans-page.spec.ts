@@ -19,7 +19,7 @@ test.describe('Página pública de planos', () => {
     await expect(page.getByText(/usuários? com login/i)).toHaveCount(0);
   });
 
-  test('aplica fundo azul e mostra a textura original em 6px, centralizada e com opacidade 0.5', async ({ page }) => {
+  test('aplica fundo azul e mostra a textura original em 6px, centralizada e com opacidade 0.9', async ({ page }) => {
     await page.goto('/planos');
 
     const texture = page.getByTestId('plans-texture');
@@ -27,7 +27,7 @@ test.describe('Página pública de planos', () => {
     await expect(page.getByTestId('plans-page')).toHaveCSS('background-color', 'rgb(14, 35, 55)');
     await expect(page.getByTestId('plans-title')).toHaveCSS('color', 'rgb(180, 191, 138)');
     await expect(page.getByTestId('plans-brand-name')).toHaveCSS('color', 'rgb(250, 203, 92)');
-    await expect(texture).toHaveCSS('opacity', '0.5');
+    await expect(texture).toHaveCSS('opacity', '0.9');
     await expect(texture).toHaveCSS('background-repeat', 'repeat');
     await expect(texture).toHaveCSS('background-size', '6px 6px');
     await expect(texture).toHaveCSS('background-position', '50% 50%');

@@ -10,7 +10,8 @@ import {
   hasQuotaForIncrement,
   MEBIBYTE,
   PLAN_USAGE_WARNING_PERCENT,
-  PRO_PLAN_LIMITS,
+  PRO_ANNUAL_PLAN_LIMITS,
+  PRO_MONTHLY_PLAN_LIMITS,
   shouldWarnAboutUsage,
 } from '../src/lib/billing/planLimits';
 
@@ -22,16 +23,27 @@ test('plano gratuito possui limites pequenos e utilizáveis para avaliação', (
     users: 1,
     storageBytes: 250 * MEBIBYTE,
   });
-  assert.equal(getPlanLimits('free'), FREE_PLAN_LIMITS);
+  assert.equal(getPlanLimits('free', 'free'), FREE_PLAN_LIMITS);
 });
 
-test('Pro mensal e anual compartilham a mesma cota futura do produto pro', () => {
-  assert.deepEqual(PRO_PLAN_LIMITS, {
-    proposalsPerMonth: 100,
+test('Pro mensal e anual compartilham recursos, mas possuem cotas comerciais próprias', () => {
+  assert.deepEqual(PRO_MONTHLY_PLAN_LIMITS, {
+    proposalsPerMonth: 30,
     users: 5,
     storageBytes: 10 * GIBIBYTE,
   });
-  assert.equal(getPlanLimits('pro'), PRO_PLAN_LIMITS);
+  assert.deepEqual(PRO_ANNUAL_PLAN_LIMITS, {
+    proposalsPerMonth: 40,
+    users: 5,
+    storageBytes: 10 * GIBIBYTE,
+  });
+  assert.equal(getPlanLimits('pro', 'month'), PRO_MONTHLY_PLAN_LIMITS);
+  assert.equal(getPlanLimits('pro', 'year'), PRO_ANNUAL_PLAN_LIMITS);
+});
+
+test('combinações inválidas de plano e intervalo são rejeitadas', () => {
+  assert.throws(() => getPlanLimits('free', 'month'), RangeError);
+  assert.throws(() => getPlanLimits('pro', 'free'), RangeError);
 });
 
 test('cálculo de saldo nunca retorna valor negativo', () => {
@@ -64,11 +76,12 @@ test('aviso começa em 80% e percentual é limitado a 100%', () => {
   assert.equal(getUsagePercent(8, 5), 100);
 });
 
-test('documentação define contagem, downgrade e preservação de dados', async () => {
+test('documentação define contagem, intervalos, downgrade e preservação de dados', async () => {
   const limits = await readFile(LIMITS_DOC_PATH, 'utf8');
 
   assert.match(limits, /5 propostas\/mês, 1 usuário, 250 MiB/);
-  assert.match(limits, /100 propostas\/mês, 5 usuários, 10 GiB/);
+  assert.match(limits, /30 propostas\/mês, 5 usuários, 10 GiB/);
+  assert.match(limits, /40 propostas\/mês, 5 usuários, 10 GiB/);
   assert.match(limits, /America\/Sao_Paulo/);
   assert.match(limits, /excluir uma proposta não devolve a unidade do mês/);
   assert.match(limits, /convites pendentes ainda válidos/);

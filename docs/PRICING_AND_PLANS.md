@@ -4,7 +4,7 @@
 
 Este documento define a estrutura comercial inicial para o lançamento beta do SaaS. A estratégia usa somente dois níveis de produto — Gratuito e Pro — para reduzir complexidade de cobrança, suporte e comunicação durante a validação do mercado.
 
-Os limites quantitativos de propostas, usuários e armazenamento serão definidos separadamente no próximo item do checklist. O catálogo comercial deste documento não deve ser usado como substituto das regras de autorização no servidor.
+Preços, intervalos e limites quantitativos ficam versionados no mesmo catálogo comercial. Nenhum desses valores substitui as regras de autorização no servidor.
 
 ## Moeda e mercado
 
@@ -20,15 +20,17 @@ Os limites quantitativos de propostas, usuários e armazenamento serão definido
 - preço: **R$ 0,00**;
 - periodicidade: sem cobrança recorrente;
 - cartão: não exigido para criar ou manter a conta;
+- cota: **5 propostas por mês**;
 - objetivo: permitir que um integrador conheça o fluxo principal e gere valor antes da compra;
 - conversão: o usuário pode migrar para o Pro a qualquer momento.
 
-O plano Gratuito permanece como plano permanente de entrada, e não como teste que expira automaticamente. Seus limites serão suficientes para avaliação real do produto, mas inferiores aos do Pro.
+O plano Gratuito permanece como plano permanente de entrada, e não como teste que expira automaticamente. Seus limites são suficientes para avaliação real do produto, mas inferiores aos do Pro.
 
 ### Pro mensal
 
 - preço: **R$ 100,00 por mês**;
 - cobrança: recorrente mensal;
+- cota: **30 propostas por mês**;
 - compromisso: sem fidelidade mínima além do período já pago;
 - objetivo: atender profissionais e pequenas integradoras que preferem menor desembolso inicial.
 
@@ -36,11 +38,12 @@ O plano Gratuito permanece como plano permanente de entrada, e não como teste q
 
 - preço: **R$ 1.000,00 por ano**;
 - cobrança: valor integral antecipado para doze meses;
+- cota: **40 propostas por mês**;
 - equivalente mensal informativo: **R$ 83,33**;
 - economia comparada a doze mensalidades: **R$ 200,00**;
 - desconto efetivo: aproximadamente **16,7%**, equivalente a dois meses do plano mensal.
 
-O anual é uma forma de cobrança do mesmo produto Pro. Ele não cria um conjunto diferente de funcionalidades nem um papel de autorização separado.
+O anual é uma forma de cobrança do mesmo produto Pro e libera o mesmo conjunto de funcionalidades. Como benefício comercial do compromisso anual, concede uma franquia mensal 10 propostas superior à opção mensal. A autorização continua usando o produto `pro` em conjunto com o intervalo `month` ou `year`.
 
 ## Posicionamento
 
@@ -51,15 +54,16 @@ A estrutura simples evita lançar diversos níveis antes de conhecer o comportam
 ## Regras comerciais iniciais
 
 1. O identificador do produto é `free` ou `pro`; mensal e anual são intervalos de cobrança do mesmo plano Pro.
-2. Valores são armazenados em centavos inteiros, nunca em ponto flutuante.
-3. O plano Gratuito não exige método de pagamento.
-4. O plano anual é pré-pago e concede doze meses de acesso Pro.
-5. Cupons e preços promocionais não alteram o código do plano e não devem ser codificados como planos permanentes.
-6. IDs de preço do provedor de pagamentos ficam em configuração protegida por ambiente, e não neste catálogo público.
-7. A interface pode exibir o equivalente mensal do anual, mas o checkout deve informar claramente que a cobrança é de R$ 1.000,00 à vista para o período anual.
-8. Alterações futuras de preço não mudam silenciosamente uma assinatura já contratada; a política de renovação e comunicação será definida antes do lançamento comercial.
-9. Nenhum bloqueio de recurso pode depender somente do frontend. O servidor deverá consultar assinatura, período e uso.
-10. O plano Gratuito não deve ser apresentado como “grátis para sempre” até a Política Comercial e os Termos de Uso aprovarem essa promessa.
+2. Produto e intervalo formam a chave necessária para resolver a cota: `free/free`, `pro/month` ou `pro/year`.
+3. Valores são armazenados em centavos inteiros, nunca em ponto flutuante.
+4. O plano Gratuito não exige método de pagamento.
+5. O plano anual é pré-pago e concede doze meses de acesso Pro.
+6. Cupons e preços promocionais não alteram o código do plano e não devem ser codificados como planos permanentes.
+7. IDs de preço do provedor de pagamentos ficam em configuração protegida por ambiente, e não neste catálogo público.
+8. A interface pode exibir o equivalente mensal do anual, mas o checkout deve informar claramente que a cobrança é de R$ 1.000,00 à vista para o período anual.
+9. Alterações futuras de preço ou cota não mudam silenciosamente uma assinatura já contratada; a política de renovação e comunicação será definida antes do lançamento comercial.
+10. Nenhum bloqueio de recurso pode depender somente do frontend. O servidor deverá consultar assinatura, intervalo, período e uso.
+11. O plano Gratuito não deve ser apresentado como “grátis para sempre” até a Política Comercial e os Termos de Uso aprovarem essa promessa.
 
 ## Hipótese de lançamento e revisão
 
@@ -75,10 +79,10 @@ Uma revisão não exige criar novos planos. A primeira opção deve ser ajustar 
 
 ## Referência técnica
 
-A fonte de verdade versionada dos valores está em `src/lib/billing/planCatalog.ts`:
+A fonte de verdade versionada está em `src/lib/billing/planCatalog.ts`:
 
-- Gratuito: `0` centavos;
-- Pro mensal: `10_000` centavos;
-- Pro anual: `100_000` centavos.
+- Gratuito: `0` centavos e 5 propostas/mês;
+- Pro mensal: `10_000` centavos e 30 propostas/mês;
+- Pro anual: `100_000` centavos e 40 propostas/mês.
 
-A integração de cobrança deve importar ou reproduzir esse catálogo no servidor e comparar o preço recebido do provedor com o produto e intervalo esperados. Nunca deve confiar em preço enviado pelo navegador.
+A página pública importa esse catálogo, e o banco replica os mesmos limites por intervalo. A integração de cobrança deve comparar o preço recebido do provedor com o produto e intervalo esperados. Nunca deve confiar em preço ou cota enviados pelo navegador.

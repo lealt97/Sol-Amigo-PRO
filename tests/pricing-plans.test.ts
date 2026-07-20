@@ -28,15 +28,18 @@ test('plano gratuito custa zero e não exige método de pagamento', () => {
   assert.equal(FREE_PLAN.code, 'free');
   assert.equal(FREE_PLAN.priceCents, 0);
   assert.equal(FREE_PLAN.requiresPaymentMethod, false);
+  assert.equal(FREE_PLAN.limits.proposalsPerMonth, 5);
 });
 
-test('Pro mensal e anual são o mesmo produto com intervalos diferentes', () => {
+test('Pro mensal e anual são o mesmo produto com intervalos e cotas diferentes', () => {
   assert.equal(PRO_MONTHLY.planCode, 'pro');
   assert.equal(PRO_ANNUAL.planCode, 'pro');
   assert.equal(PRO_MONTHLY.billingInterval, 'month');
   assert.equal(PRO_ANNUAL.billingInterval, 'year');
   assert.equal(PRO_MONTHLY.priceCents, 10_000);
   assert.equal(PRO_ANNUAL.priceCents, 100_000);
+  assert.equal(PRO_MONTHLY.limits.proposalsPerMonth, 30);
+  assert.equal(PRO_ANNUAL.limits.proposalsPerMonth, 40);
   assert.equal(PRO_ANNUAL.prepaid, true);
 });
 
@@ -47,15 +50,17 @@ test('anual equivale a dois meses grátis e informa economia corretamente', () =
   assert.equal(PRO_ANNUAL.priceCents, PRO_MONTHLY.priceCents * 10);
 });
 
-test('documentação separa definição comercial, limites e autorização no servidor', async () => {
+test('documentação mantém preços, cotas e autorização alinhados', async () => {
   const pricing = await readFile(PRICING_DOC_PATH, 'utf8');
 
   assert.match(pricing, /R\$ 0,00/);
   assert.match(pricing, /R\$ 100,00 por mês/);
   assert.match(pricing, /R\$ 1\.000,00 por ano/);
+  assert.match(pricing, /5 propostas por mês/);
+  assert.match(pricing, /30 propostas por mês/);
+  assert.match(pricing, /40 propostas por mês/);
   assert.match(pricing, /R\$ 200,00/);
   assert.match(pricing, /16,7%/);
-  assert.match(pricing, /limites quantitativos[\s\S]*próximo item do checklist/i);
   assert.match(pricing, /Nenhum bloqueio de recurso pode depender somente do frontend/);
-  assert.match(pricing, /Nunca deve confiar em preço enviado pelo navegador/);
+  assert.match(pricing, /Nunca deve confiar em preço ou cota enviados pelo navegador/);
 });

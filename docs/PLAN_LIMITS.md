@@ -2,19 +2,19 @@
 
 ## Objetivo
 
-Este documento define os limites quantitativos do plano Gratuito e do plano Pro durante o beta. Os valores são uma hipótese operacional e comercial; deverão ser revisados com dados reais de ativação, conversão, custo de infraestrutura e volume de propostas.
+Este documento define os limites quantitativos do plano Gratuito e das opções Pro durante o beta. Os valores são uma hipótese operacional e comercial; deverão ser revisados com dados reais de ativação, conversão, custo de infraestrutura e volume de propostas.
 
-A definição não implementa ainda os bloqueios no servidor. Persistência de uso, tabelas de assinatura e aplicação transacional dos limites pertencem aos próximos itens da Fase 3.
+A fundação persistente de uso já registra plano e intervalo. A aplicação transacional dos bloqueios no servidor permanece em item posterior da Fase 3.
 
 ## Resumo
 
-| Recurso | Gratuito | Pro mensal ou anual |
-|---|---:|---:|
-| Propostas criadas por mês | 5 | 100 |
-| Usuários por conta | 1 | 5 |
-| Armazenamento total | 250 MiB | 10 GiB |
+| Recurso | Gratuito | Pro mensal | Pro anual |
+|---|---:|---:|---:|
+| Propostas criadas por mês | 5 | 30 | 40 |
+| Usuários por conta | 1 | 5 | 5 |
+| Armazenamento total | 250 MiB | 10 GiB | 10 GiB |
 
-O Pro mensal e o Pro anual possuem exatamente os mesmos limites. O intervalo de cobrança não altera funcionalidades nem cotas.
+O Pro mensal e o Pro anual pertencem ao mesmo produto `pro` e liberam o mesmo conjunto de funcionalidades. O intervalo anual concede uma franquia comercial de 10 propostas adicionais por mês.
 
 ## Propostas mensais
 
@@ -28,7 +28,7 @@ O Pro mensal e o Pro anual possuem exatamente os mesmos limites. O intervalo de 
 - excluir uma proposta não devolve a unidade do mês, evitando contorno do limite por criação e exclusão repetida;
 - falhas transacionais que não persistem a proposta não consomem unidade.
 
-A futura tabela de uso deverá registrar eventos de criação de forma append-only, em vez de calcular a cota apenas contando propostas ainda existentes.
+A tabela de uso registra o plano e o intervalo aplicados ao período. A autorização futura deverá reservar a unidade de forma atômica, em vez de calcular a cota apenas contando propostas ainda existentes.
 
 ## Usuários por conta
 
@@ -81,13 +81,16 @@ Quando uma conta acima dos limites do Gratuito perde o acesso Pro:
 
 ## Fonte de verdade técnica
 
-Os valores versionados estão em `src/lib/billing/planLimits.ts`:
+Os valores versionados estão em `src/lib/billing/planCatalog.ts` e são expostos pelas funções de `src/lib/billing/planLimits.ts`:
 
 - Gratuito: 5 propostas/mês, 1 usuário, 250 MiB;
-- Pro: 100 propostas/mês, 5 usuários, 10 GiB;
+- Pro mensal: 30 propostas/mês, 5 usuários, 10 GiB;
+- Pro anual: 40 propostas/mês, 5 usuários, 10 GiB;
 - aviso: 80% de utilização.
 
-A aplicação no servidor deverá ler o plano efetivo da assinatura, consultar o período e o uso persistidos, reservar a cota de forma transacional e só então executar a operação. Validações de interface serão apenas informativas.
+No banco, `billing_plans.proposals_per_month` representa a cota do intervalo mensal e `annual_proposals_per_month` representa a cota anual. A função interna `resolve_plan_proposal_limit(plan_code, billing_interval)` resolve o valor correto no servidor.
+
+A aplicação no servidor deverá ler o plano e o intervalo efetivos da assinatura, consultar o período e o uso persistidos, reservar a cota de forma transacional e só então executar a operação. Validações de interface serão apenas informativas.
 
 ## Revisão após o beta
 

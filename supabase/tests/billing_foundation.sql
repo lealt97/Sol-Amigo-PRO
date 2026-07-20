@@ -34,6 +34,7 @@ select pg_temp.assert_true(
       and monthly_price_cents = 0
       and annual_price_cents = 0
       and proposals_per_month = 5
+      and annual_proposals_per_month = 5
       and users_limit = 1
       and storage_bytes_limit = 262144000
   )
@@ -43,11 +44,20 @@ select pg_temp.assert_true(
       and currency = 'BRL'
       and monthly_price_cents = 10000
       and annual_price_cents = 100000
-      and proposals_per_month = 100
+      and proposals_per_month = 30
+      and annual_proposals_per_month = 40
       and users_limit = 5
       and storage_bytes_limit = 10737418240
   ),
   'preços ou limites do catálogo estão incorretos'
+);
+
+select pg_temp.assert_true(
+  public.resolve_plan_proposal_limit('free', 'free') = 5
+  and public.resolve_plan_proposal_limit('pro', 'month') = 30
+  and public.resolve_plan_proposal_limit('pro', 'year') = 40
+  and public.resolve_plan_proposal_limit('pro', 'free') is null,
+  'a resolução de cota por plano e intervalo está incorreta'
 );
 
 insert into auth.users (
@@ -111,6 +121,7 @@ select pg_temp.assert_true(
      'b1000000-0000-4000-8000-000000000002'
    )
      and plan_code = 'free'
+     and billing_interval = 'free'
      and proposals_created = 0
      and storage_bytes = 0
      and users_count = 1
@@ -178,6 +189,11 @@ select pg_temp.assert_true(
   and not has_function_privilege(
     'authenticated',
     to_regprocedure('public.handle_new_billing_account()'),
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    to_regprocedure('public.resolve_plan_proposal_limit(text,text)'),
     'EXECUTE'
   ),
   'uma função interna de cobrança pode ser chamada pela API'
