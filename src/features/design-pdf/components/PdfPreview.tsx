@@ -14,6 +14,7 @@ interface PdfPreviewProps {
 export function PdfPreview({ model, isCardPreview }: PdfPreviewProps) {
   const { user } = useAuth();
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
 
@@ -29,6 +30,30 @@ export function PdfPreview({ model, isCardPreview }: PdfPreviewProps) {
     }
     loadProfileLogo();
   }, [user]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function resolveCoverImage() {
+      if (!model.cover_image_url) {
+        setCoverImageUrl(null);
+        return;
+      }
+
+      try {
+        const resolved = await pdfDesignService.resolveAssetUrl(model.cover_image_url, 900);
+        if (active) setCoverImageUrl(resolved);
+      } catch (error) {
+        console.error('Error resolving private cover image in preview:', error);
+        if (active) setCoverImageUrl(null);
+      }
+    }
+
+    resolveCoverImage();
+    return () => {
+      active = false;
+    };
+  }, [model.cover_image_url]);
 
   useEffect(() => {
     let active = true;
@@ -69,12 +94,12 @@ export function PdfPreview({ model, isCardPreview }: PdfPreviewProps) {
         date: new Date().toLocaleDateString('pt-BR'),
       },
       logoUrl: extractActiveLogo(model.logo_url) || profileLogo,
-      coverImageUrl: model.cover_image_url,
+      coverImageUrl,
       logoTransform: model.logo_transform,
       coverImageTransform: model.cover_image_transform,
       modelId: model.id,
     });
-  }, [svgSource, preset, model, profileLogo]);
+  }, [svgSource, preset, model, profileLogo, coverImageUrl]);
 
   if (!preset) return <div className="text-slate-500">Preset não encontrado.</div>;
   if (!finalSvgContent) return <div className="text-slate-500">Carregando preview...</div>;
