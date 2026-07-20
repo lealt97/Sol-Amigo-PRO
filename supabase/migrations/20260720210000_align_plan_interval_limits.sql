@@ -46,13 +46,20 @@ alter table public.account_usage
   add column if not exists billing_interval text;
 
 update public.account_usage usage
-set billing_interval = subscription.billing_interval
+set billing_interval = case
+  when usage.plan_code = 'free' then 'free'
+  when subscription.billing_interval in ('month', 'year') then subscription.billing_interval
+  else 'month'
+end
 from public.subscriptions subscription
 where subscription.account_id = usage.account_id
   and usage.billing_interval is null;
 
 update public.account_usage
-set billing_interval = 'free'
+set billing_interval = case
+  when plan_code = 'free' then 'free'
+  else 'month'
+end
 where billing_interval is null;
 
 alter table public.account_usage
