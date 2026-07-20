@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.mfa-recovery]
 verify_jwt = true
+
+[functions.stripe-customer]
+verify_jwt = true
