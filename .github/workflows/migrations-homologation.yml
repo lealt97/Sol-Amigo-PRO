@@ -167,6 +167,15 @@ jobs:
             -f supabase/tests/application_monitoring.sql \
             2>&1 | tee migration-report/application-monitoring.txt
 
+      - name: Testar LGPD, administração e onboarding P2
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/p2_lgpd_admin_onboarding.sql \
+            2>&1 | tee migration-report/p2-lgpd-admin-onboarding.txt
+
       - name: Testar provedores de pagamento
         shell: bash
         run: |
@@ -213,7 +222,7 @@ jobs:
         run: |
           mkdir -p migration-report
           if [ "$OUTCOME" = "success" ]; then
-            printf 'Migrations, RLS, billing, cotas, monitoramento e backup local aprovados.\n' > migration-report/migrations-status.txt
+            printf 'Migrations, RLS, billing, cotas, P2, monitoramento e backup local aprovados.\n' > migration-report/migrations-status.txt
           else
             printf 'Falha na homologação local das migrations; consulte o workflow e os artefatos.\n' > migration-report/migrations-status.txt
           fi
