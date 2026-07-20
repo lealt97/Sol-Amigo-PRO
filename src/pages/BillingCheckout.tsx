@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { billingService, BillingInterval } from '../services/billingService';
+import { monitoringService } from '../services/monitoringService';
 import { PRO_ANNUAL, PRO_MONTHLY } from '../lib/billing/planCatalog';
 
 const formatCurrencyFromCents = (value: number) => new Intl.NumberFormat('pt-BR', {
@@ -34,6 +35,13 @@ export function BillingCheckout() {
       window.location.assign(checkout.checkoutUrl);
     } catch (error) {
       console.error('Erro ao iniciar checkout:', error);
+      void monitoringService.capture('checkout.failed', {
+        error,
+        fingerprint: `checkout.failed:${interval}`,
+        metadata: {
+          billing_interval: interval,
+        },
+      });
       toast.error(error instanceof Error ? error.message : 'Não foi possível iniciar o checkout.');
     } finally {
       setIsStarting(false);
