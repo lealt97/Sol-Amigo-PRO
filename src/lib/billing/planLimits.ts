@@ -1,31 +1,27 @@
-import type { CommercialPlanCode } from './planCatalog';
+import {
+  FREE_PLAN,
+  PRO_ANNUAL,
+  PRO_MONTHLY,
+  type BillingInterval,
+  type CommercialPlanCode,
+  type PlanLimits as CatalogPlanLimits,
+} from './planCatalog';
 
 export const MEBIBYTE = 1024 * 1024;
 export const GIBIBYTE = 1024 * MEBIBYTE;
 export const PLAN_USAGE_WARNING_PERCENT = 80;
 
-export interface PlanLimits {
-  proposalsPerMonth: number;
-  users: number;
-  storageBytes: number;
-}
+export type PlanLimits = CatalogPlanLimits;
 
-export const FREE_PLAN_LIMITS: PlanLimits = {
-  proposalsPerMonth: 5,
-  users: 1,
-  storageBytes: 250 * MEBIBYTE,
-};
+export const FREE_PLAN_LIMITS: PlanLimits = FREE_PLAN.limits;
+export const PRO_MONTHLY_PLAN_LIMITS: PlanLimits = PRO_MONTHLY.limits;
+export const PRO_ANNUAL_PLAN_LIMITS: PlanLimits = PRO_ANNUAL.limits;
 
-export const PRO_PLAN_LIMITS: PlanLimits = {
-  proposalsPerMonth: 100,
-  users: 5,
-  storageBytes: 10 * GIBIBYTE,
-};
-
-export const PLAN_LIMITS: Readonly<Record<CommercialPlanCode, PlanLimits>> = {
+export const PLAN_LIMITS = {
   free: FREE_PLAN_LIMITS,
-  pro: PRO_PLAN_LIMITS,
-};
+  'pro-monthly': PRO_MONTHLY_PLAN_LIMITS,
+  'pro-annual': PRO_ANNUAL_PLAN_LIMITS,
+} as const;
 
 function assertNonNegativeFinite(value: number, label: string): void {
   if (!Number.isFinite(value) || value < 0) {
@@ -33,8 +29,21 @@ function assertNonNegativeFinite(value: number, label: string): void {
   }
 }
 
-export function getPlanLimits(planCode: CommercialPlanCode): PlanLimits {
-  return PLAN_LIMITS[planCode];
+export function getPlanLimits(
+  planCode: CommercialPlanCode,
+  billingInterval: BillingInterval,
+): PlanLimits {
+  if (planCode === 'free') {
+    if (billingInterval !== 'free') {
+      throw new RangeError('O plano Gratuito exige o intervalo free.');
+    }
+    return FREE_PLAN_LIMITS;
+  }
+
+  if (billingInterval === 'month') return PRO_MONTHLY_PLAN_LIMITS;
+  if (billingInterval === 'year') return PRO_ANNUAL_PLAN_LIMITS;
+
+  throw new RangeError('O plano Pro exige intervalo month ou year.');
 }
 
 export function getRemainingQuota(used: number, limit: number): number {
