@@ -37,6 +37,20 @@ test('comparação foca benefícios e não comercializa quantidade de usuários'
   assert.match(page, /PDF sem marca SolAmigo/);
 });
 
+test('identidade visual usa fundo do login, textura de 8px e cores SolAmigo', async () => {
+  const page = await readFile(PAGE_PATH, 'utf8');
+
+  assert.match(page, /PLAN_TEXTURE_DATA_URI = 'data:image\/png;base64,/);
+  assert.match(page, /backgroundRepeat: 'repeat'/);
+  assert.match(page, /backgroundSize: '8px 8px'/);
+  assert.match(page, /data-testid="plans-page"[\s\S]*bg-\[#0E2337\]/);
+  assert.match(page, /data-testid="plans-brand-name"[\s\S]*text-\[#FACB5C\]/);
+  assert.match(page, /data-testid="plans-title"[\s\S]*text-\[#B4BF8A\]/);
+  assert.match(page, /bg-\[#142E46\]\/95/);
+  assert.match(page, /bg-\[#0076DD\]/);
+  assert.doesNotMatch(page, /bg-white/);
+});
+
 test('rotas de planos e preços ficam públicas sem interferir nas rotas protegidas', async () => {
   const app = await readFile(APP_PATH, 'utf8');
 
