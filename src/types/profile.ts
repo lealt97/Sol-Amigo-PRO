@@ -5,6 +5,7 @@ export interface Profile {
   name: string;
   company_name: string;
   phone: string | null;
+  avatar_url: string | null;
   logo_url: string | null;
   role: string | null;
   mfa_enabled: boolean;

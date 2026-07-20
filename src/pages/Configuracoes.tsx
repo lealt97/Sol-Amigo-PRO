@@ -26,6 +26,7 @@ import {
   Palette,
   RotateCcw,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase/client';
 import { extractActiveLogo, extractAllLogos, serializeLogos } from '../utils/logoHelper';
@@ -55,6 +56,8 @@ export function Configuracoes() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('empresa');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
   const [loadError, setLoadError] = useState<any>(null);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -102,6 +105,10 @@ export function Configuracoes() {
 
   const themeSeed = activeTheme.seed;
   const themePalette = activeTheme.palette;
+
+  const notifyProfileUpdated = (nextProfile: Profile) => {
+    window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: nextProfile }));
+  };
 
   const setProfileAndPreview = (nextProfile: Profile) => {
     setProfile(nextProfile);
@@ -158,11 +165,63 @@ export function Configuracoes() {
       const data = await profileService.updateProfile(user.id, updateData);
       setProfile(data);
       applyPlatformTheme(data.platform_theme || null);
+      notifyProfileUpdated(data);
       toast.success('Configurações salvas com sucesso!');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar configurações');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !profile || !event.target.files?.length) return;
+
+    const file = event.target.files[0];
+    const previousAvatarUrl = profile.avatar_url;
+    let uploadedPath: string | null = null;
+    setUploadingAvatar(true);
+
+    try {
+      const uploaded = await profileService.uploadProfileAvatar(file, user.id);
+      uploadedPath = uploaded.path;
+      const data = await profileService.updateProfile(user.id, { avatar_url: uploaded.url });
+      setProfile(data);
+      notifyProfileUpdated(data);
+
+      if (previousAvatarUrl) {
+        void profileService.deleteProfileAvatar(previousAvatarUrl, user.id).catch((error) => {
+          console.warn('Não foi possível remover a foto de perfil anterior:', error);
+        });
+      }
+
+      toast.success('Foto de perfil atualizada!');
+    } catch (err: any) {
+      if (uploadedPath) {
+        void profileService.deleteProfileAvatar(uploadedPath, user.id).catch(() => undefined);
+      }
+      toast.error(err.message || 'Erro ao enviar a foto de perfil');
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user || !profile?.avatar_url) return;
+
+    const previousAvatarUrl = profile.avatar_url;
+    setRemovingAvatar(true);
+    try {
+      const data = await profileService.updateProfile(user.id, { avatar_url: null });
+      setProfile(data);
+      notifyProfileUpdated(data);
+      await profileService.deleteProfileAvatar(previousAvatarUrl, user.id);
+      toast.success('Foto de perfil removida.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao remover a foto de perfil');
+    } finally {
+      setRemovingAvatar(false);
     }
   };
 
@@ -533,9 +592,65 @@ export function Configuracoes() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Dados do Usuário / Vendedor</CardTitle>
-                <CardDescription>Suas informações de contato e assinatura padrão que serão inseridas nas propostas.</CardDescription>
+                <CardDescription>Gerencie sua foto de perfil, informações de contato e assinatura padrão.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-brand-border bg-gradient-to-tr from-brand-blue to-brand-blue-hover">
+                      {profile.avatar_url ? (
+                        <img src={profile.avatar_url} alt="Sua foto de perfil" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-3xl font-bold uppercase text-white">
+                          {(profile.seller_name || profile.name || user?.email || 'U').charAt(0)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-brand-dark">
+                        <Camera className="h-4 w-4 text-brand-blue" />
+                        Foto de perfil
+                      </h4>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                        PNG, JPG ou WebP de até 2 MB. A foto será exibida no avatar do menu lateral do SaaS.
+                      </p>
+                      <input
+                        id="profile-avatar-upload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={handleAvatarUpload}
+                        disabled={uploadingAvatar || removingAvatar}
+                      />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2"
+                          disabled={uploadingAvatar || removingAvatar}
+                          onClick={() => document.getElementById('profile-avatar-upload')?.click()}
+                        >
+                          {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          {uploadingAvatar ? 'Enviando...' : profile.avatar_url ? 'Trocar foto' : 'Adicionar foto'}
+                        </Button>
+                        {profile.avatar_url && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-2 text-red-500 hover:text-red-600"
+                            disabled={uploadingAvatar || removingAvatar}
+                            onClick={() => void handleRemoveAvatar()}
+                          >
+                            {removingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            {removingAvatar ? 'Removendo...' : 'Remover foto'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Seu Nome (como Vendedor)</label>
@@ -664,10 +779,7 @@ export function Configuracoes() {
 
                   <div className="rounded-2xl border border-brand-border bg-brand-gray p-5 shadow-inner">
                     <div className="mb-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.24em] text-brand-blue">Prévia ao vivo</p>
-                        <h3 className="mt-1 text-xl font-bold text-brand-dark">SolAmigo Pro</h3>
-                      </div>
+                      <p className="text-xs uppercase tracking-[0.24em] text-brand-blue">Prévia ao vivo</p>
                       <span className="rounded-full border border-brand-border bg-brand-surface px-3 py-1 text-xs text-slate-500">{themeSeed.mode === 'dark' ? 'Tema escuro' : 'Tema claro'}</span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-3">

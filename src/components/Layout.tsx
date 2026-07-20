@@ -1,15 +1,54 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Users, FileText, PlusCircle, PenTool, Settings, LogOut, Menu, Package } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatedNavbarLogo } from "./brand/AnimatedNavbarLogo";
 import { Button } from "./ui/Button";
+import { profileService } from "../services/profileService";
+import { Profile } from "../types/profile";
 
 export function Layout() {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [navbarProfile, setNavbarProfile] = useState<Pick<Profile, 'id' | 'name' | 'company_name' | 'seller_name' | 'avatar_url'> | null>(null);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setNavbarProfile(null);
+      return;
+    }
+
+    let mounted = true;
+    void profileService.getProfile(user.id)
+      .then((profile) => {
+        if (mounted) setNavbarProfile(profile);
+      })
+      .catch((error) => {
+        console.warn('Não foi possível carregar o perfil da navbar:', error);
+      });
+
+    const handleProfileUpdated = (event: Event) => {
+      const nextProfile = (event as CustomEvent<Profile>).detail;
+      if (nextProfile?.id === user.id) setNavbarProfile(nextProfile);
+    };
+
+    window.addEventListener('solamigo:profile-updated', handleProfileUpdated);
+    return () => {
+      mounted = false;
+      window.removeEventListener('solamigo:profile-updated', handleProfileUpdated);
+    };
+  }, [user?.id]);
+
+  const displayName = navbarProfile?.seller_name || navbarProfile?.name || user?.user_metadata?.name || 'Usuário';
+  const displayCompany = navbarProfile?.company_name || user?.user_metadata?.company_name || 'SolAmigo Pro';
+  const avatarUrl = navbarProfile?.avatar_url || user?.user_metadata?.avatar_url || null;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUrl]);
   
   const handleLogout = async () => {
     await signOut();
@@ -70,13 +109,22 @@ export function Layout() {
         </div>
         <div className={`mt-auto p-4 border-t border-brand-border space-y-4 ${!isSidebarExpanded ? "px-2" : ""}`}>
           <div className={`bg-gray-50 rounded-lg flex items-center ${isSidebarExpanded ? "p-3 gap-3" : "p-2 flex-col gap-2 justify-center"}`}>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-blue to-brand-blue-hover flex items-center justify-center text-xs font-bold text-white uppercase shrink-0">
-              {user?.user_metadata?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-            </div>
+            {avatarUrl && !avatarLoadFailed ? (
+              <img
+                src={avatarUrl}
+                alt={`Foto de perfil de ${displayName}`}
+                className="w-8 h-8 rounded-full object-cover shrink-0 border border-brand-border"
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-blue to-brand-blue-hover flex items-center justify-center text-xs font-bold text-white uppercase shrink-0">
+                {displayName.charAt(0) || user?.email?.charAt(0) || 'U'}
+              </div>
+            )}
             {isSidebarExpanded && (
               <div className="overflow-hidden flex-1">
-                <p className="text-xs font-medium text-brand-dark truncate">{user?.user_metadata?.name || 'Usuário'}</p>
-                <p className="text-[10px] text-slate-500 truncate">{user?.user_metadata?.company_name || 'SolAmigo Pro'}</p>
+                <p className="text-xs font-medium text-brand-dark truncate">{displayName}</p>
+                <p className="text-[10px] text-slate-500 truncate">{displayCompany}</p>
               </div>
             )}
             <button 

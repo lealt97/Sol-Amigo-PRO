@@ -7,6 +7,26 @@ import {
 } from '../utils/logoHelper';
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9_.-]/g, '-');
+const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const PROFILE_AVATAR_TYPES = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+]);
+
+function resolveProfileAvatarPath(value: string, userId: string) {
+  const publicMarker = '/storage/v1/object/public/logos/';
+  const rawPath = value.includes(publicMarker)
+    ? value.split(publicMarker)[1]?.split('?')[0] || ''
+    : value;
+  const path = decodeURIComponent(rawPath);
+
+  if (!path.startsWith(`${userId}/avatars/`)) {
+    throw new Error('A foto informada não pertence a esta conta.');
+  }
+
+  return path;
+}
 
 async function assertLogoUploadAvailable(userId: string) {
   const { data, error } = await supabase
@@ -70,6 +90,40 @@ export const profileService = {
 
     if (error) throw error;
     return data as Profile;
+  },
+
+  async uploadProfileAvatar(file: File, userId: string) {
+    const extension = PROFILE_AVATAR_TYPES.get(file.type);
+    if (!extension) {
+      throw new Error('Envie uma foto em PNG, JPG ou WebP.');
+    }
+
+    if (file.size > PROFILE_AVATAR_MAX_BYTES) {
+      throw new Error('A foto de perfil deve ter no máximo 2 MB.');
+    }
+
+    const filePath = `${userId}/avatars/profile-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('logos')
+      .upload(filePath, file, {
+        contentType: file.type,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('logos')
+      .getPublicUrl(filePath);
+
+    return { url: data.publicUrl, path: filePath };
+  },
+
+  async deleteProfileAvatar(avatarUrlOrPath: string, userId: string) {
+    const filePath = resolveProfileAvatarPath(avatarUrlOrPath, userId);
+    const { error } = await supabase.storage.from('logos').remove([filePath]);
+    if (error) throw error;
   },
 
   async uploadLogo(file: File, userId: string) {

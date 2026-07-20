@@ -106,6 +106,15 @@ jobs:
             -f supabase/tests/mfa_security_events.sql \
             2>&1 | tee migration-report/mfa-security-events.txt
 
+      - name: Testar foto de perfil
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/profile_avatar.sql \
+            2>&1 | tee migration-report/profile-avatar.txt
+
       - name: Testar confirmação de senha em operações críticas
         shell: bash
         run: |
