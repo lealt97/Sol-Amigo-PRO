@@ -1,0 +1,58 @@
+name: Aplicar capa A4 12 original
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  apply-original-svg:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Restaurar exatamente o SVG enviado
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/capa12-fix/part-* | base64 --decode > /tmp/capa12.svg.xz
+          xz --decompress --stdout /tmp/capa12.svg.xz > 'public/pdf-assets/covers/A4 -12.svg'
+          echo '0127c7927e4752ac8e4d2bc5c5ebfd1fcb058e19008997555aecdc343aa08b72  public/pdf-assets/covers/A4 -12.svg' | sha256sum --check --strict
+
+      - name: Remover mecanismos temporários anteriores
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          for (const key of ['restore:capa12', 'postinstall', 'predev', 'prebuild:app']) {
+            delete pkg.scripts[key];
+          }
+          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+          rm -rf .github/capa12-fix .github/capa12-restore
+          rm -f scripts/restore-capa12-original.mjs
+          rm -f .github/workflows/restore-capa12-original.yml
+
+      - name: Publicar correção na branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Corrigir capa A4 12 com o arquivo original'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
