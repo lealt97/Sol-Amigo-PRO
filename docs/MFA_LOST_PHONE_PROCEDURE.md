@@ -16,7 +16,7 @@ Aplica-se a contas com MFA TOTP ativo no SolAmigo Pro e cobre:
 - códigos TOTP indisponíveis ou permanentemente inacessíveis;
 - suspeita de que o aparelho perdido possa estar desbloqueado.
 
-Este documento não substitui o processo administrativo seguro de recuperação de conta. Enquanto esse processo não estiver implementado, contas sem acesso ao autenticador e sem código de recuperação não devem ter o MFA removido manualmente.
+Quando o usuário também não possui código de recuperação, o chamado deve seguir `docs/ADMIN_ACCOUNT_RECOVERY_PROCESS.md`. A definição desse processo não autoriza sua execução enquanto os pré-requisitos de papel administrativo, duplo controle, canal seguro, notificações e auditoria não estiverem disponíveis.
 
 ## Princípios de segurança
 
@@ -79,14 +79,16 @@ A desativação normal em **Configurações > Segurança** exige o código TOTP 
 
 ## Fluxo C — usuário não possui código de recuperação
 
-Enquanto o processo administrativo seguro de recuperação de conta não estiver implementado:
+O suporte deve:
 
-1. o suporte deve explicar que não pode remover o MFA manualmente;
-2. o chamado deve ser classificado como **Recuperação de conta sem segundo fator**;
-3. nenhuma senha, segredo TOTP ou documento pessoal deve ser solicitado em canal comum;
-4. o atendente deve registrar somente dados mínimos: e-mail da conta, data aproximada do último acesso e descrição do problema;
-5. a conta deve permanecer protegida até existir um processo administrativo aprovado, auditável e com verificação forte de identidade;
-6. o chamado deve ser escalado ao responsável de segurança sem alteração no Supabase.
+1. explicar que não pode remover o MFA manualmente;
+2. classificar o chamado como **Recuperação de conta sem segundo fator**;
+3. registrar somente dados mínimos: e-mail da conta, data aproximada do último acesso e descrição do problema;
+4. não solicitar senha, segredo TOTP, documento pessoal ou qualquer credencial em canal comum;
+5. encaminhar o caso ao processo definido em `docs/ADMIN_ACCOUNT_RECOVERY_PROCESS.md`;
+6. confirmar se os pré-requisitos de execução administrativa estão ativos;
+7. manter o caso no estado **bloqueado — pré-requisito indisponível** quando papel administrativo, duplo controle, canal seguro, notificações ou auditoria não existirem;
+8. não alterar o Supabase enquanto a identidade não tiver sido verificada e duas aprovações independentes não tiverem sido registradas.
 
 Não é permitido usar recuperação de senha como substituto do segundo fator. Alterar a senha não remove o MFA.
 
@@ -110,7 +112,8 @@ Além do Fluxo A, orientar o usuário a:
 - data e horário aproximados da perda;
 - indicação de aparelho perdido, roubado, trocado ou danificado;
 - confirmação de que o usuário possui ou não um código de recuperação;
-- resultado final: autoatendimento concluído ou escalado.
+- identificador do caso administrativo, quando criado;
+- resultado final: autoatendimento concluído, escalado, bloqueado, recusado ou recuperado.
 
 ### Informações proibidas
 
@@ -120,7 +123,8 @@ Além do Fluxo A, orientar o usuário a:
 - chave secreta ou QR Code do autenticador;
 - `access_token`, `refresh_token` ou cabeçalho `Authorization`;
 - `SUPABASE_SERVICE_ROLE_KEY`;
-- cópia de banco, conteúdo de `auth.users` ou `auth.mfa_factors`.
+- cópia de banco, conteúdo de `auth.users` ou `auth.mfa_factors`;
+- documento pessoal por e-mail, WhatsApp, chat comum ou ticket sem canal seguro aprovado.
 
 ### Resposta padrão quando há código de recuperação
 
@@ -128,7 +132,7 @@ Além do Fluxo A, orientar o usuário a:
 
 ### Resposta padrão quando não há código de recuperação
 
-> Para proteger sua conta, o suporte não remove o MFA por e-mail, telefone ou chat. Registraremos o incidente e o encaminharemos ao processo administrativo seguro de recuperação de conta. Não envie sua senha, código TOTP, QR Code ou qualquer segredo de autenticação.
+> Para proteger sua conta, o suporte não remove o MFA por e-mail, telefone ou chat. Registraremos o incidente e o encaminharemos ao processo administrativo seguro de recuperação de conta. A execução exige verificação forte de identidade, duplo controle, notificações e auditoria. Não envie sua senha, código TOTP, QR Code ou qualquer segredo de autenticação.
 
 ## Critérios de encerramento
 
@@ -141,7 +145,18 @@ Um incidente com código de recuperação somente pode ser encerrado quando:
 - um novo conjunto de códigos foi gerado e salvo;
 - nenhuma credencial ou segredo foi registrado no chamado.
 
-Um incidente sem código de recuperação permanece escalado até o processo administrativo seguro estar disponível e concluir a validação prevista.
+Um incidente sem código de recuperação somente pode ser encerrado quando:
+
+- o processo administrativo foi executado com pré-requisitos ativos;
+- a identidade foi confirmada por sinais independentes;
+- o período de espera e as notificações foram concluídos;
+- verificador, aprovador e executor são pessoas diferentes;
+- todas as sessões e códigos antigos foram revogados;
+- os fatores antigos foram removidos pela Admin API;
+- o usuário configurou novo TOTP e novos códigos;
+- a auditoria append-only foi concluída.
+
+Caso contrário, o chamado permanece bloqueado, recusado ou escalado, sem alteração da conta.
 
 ## Validação técnica obrigatória
 
@@ -158,11 +173,13 @@ O fluxo deve permanecer coberto por testes que confirmem:
 - revogação global das sessões;
 - revogação dos códigos restantes;
 - restauração compensatória do código quando a remoção falha antes de concluir;
-- redirecionamento para novo login e nova configuração do MFA.
+- redirecionamento para novo login e nova configuração do MFA;
+- documentação do processo administrativo e bloqueio explícito sem pré-requisitos.
 
 ## Revisão periódica
 
 - revisar este procedimento após qualquer alteração no MFA, Supabase Auth ou Edge Function;
 - executar o cenário de perda do celular no ambiente de homologação antes de cada lançamento;
 - confirmar que a equipe de suporte conhece as informações proibidas;
-- atualizar o procedimento quando o processo administrativo seguro de recuperação de conta for implementado.
+- revisar em conjunto com `docs/ADMIN_ACCOUNT_RECOVERY_PROCESS.md`;
+- atualizar o procedimento após qualquer incidente ou mudança na ferramenta administrativa.
