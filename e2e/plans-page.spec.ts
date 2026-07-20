@@ -19,14 +19,18 @@ test.describe('Página pública de planos', () => {
     await expect(page.getByText(/usuários? com login/i)).toHaveCount(0);
   });
 
-  test('aplica fundo azul, textura repetida e cores da identidade SolAmigo', async ({ page }) => {
+  test('aplica fundo azul e mostra a textura original em repetição nativa de 8px', async ({ page }) => {
     await page.goto('/planos');
+
+    const texture = page.getByTestId('plans-texture');
 
     await expect(page.getByTestId('plans-page')).toHaveCSS('background-color', 'rgb(14, 35, 55)');
     await expect(page.getByTestId('plans-title')).toHaveCSS('color', 'rgb(180, 191, 138)');
     await expect(page.getByTestId('plans-brand-name')).toHaveCSS('color', 'rgb(250, 203, 92)');
-    await expect(page.getByTestId('plans-texture')).toHaveCSS('background-repeat', 'repeat');
-    await expect(page.getByTestId('plans-texture')).toHaveCSS('background-size', '8px 8px');
+    await expect(texture).toHaveCSS('opacity', '1');
+    await expect(texture).toHaveCSS('background-repeat', 'repeat');
+    await expect(texture).toHaveCSS('background-size', '8px 8px');
+    await expect(texture).toHaveCSS('background-image', /data:image\/png;base64/);
   });
 
   test('mantém preços como alias público e leva o plano gratuito ao cadastro', async ({ page }) => {

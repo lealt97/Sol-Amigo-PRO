@@ -9,6 +9,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { Toaster } from "sonner";
 import { ProtectedRoute, PublicRoute } from "./components/auth/RouteGuards";
 import { PlatformThemeBootstrap } from "./components/theme/PlatformThemeBootstrap";
+import "./styles/plans-texture.css";
 
 // Pages
 import { Login } from "./pages/Login";
