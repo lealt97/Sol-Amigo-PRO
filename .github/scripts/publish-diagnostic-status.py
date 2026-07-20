@@ -66,7 +66,7 @@ def main() -> None:
 
     succeeded = args.outcome == 'success'
     summary = summarize_log(args.log, succeeded)
-    context = args.context if succeeded else f'{args.context} — {summary[:60]}'
+    context = args.context if succeeded else summary
     context = context[:100]
 
     payload = json.dumps({
