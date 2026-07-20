@@ -133,6 +133,15 @@ jobs:
             -f supabase/tests/billing_foundation.sql \
             2>&1 | tee migration-report/billing-foundation.txt
 
+      - name: Testar provedores de pagamento
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/billing_providers.sql \
+            2>&1 | tee migration-report/billing-providers.txt
+
       - name: Testar backup e restauração do banco
         shell: bash
         run: |
