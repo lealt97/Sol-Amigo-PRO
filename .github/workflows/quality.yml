@@ -32,8 +32,14 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Executar validações completas
-        run: npm run check
+      - name: Verificar TypeScript completo
+        run: npm run typecheck
+
+      - name: Executar testes automatizados
+        run: npm run test
+
+      - name: Gerar build de produção
+        run: npm run build:app
 
   e2e:
     name: Playwright E2E — navegadores e dispositivos
