@@ -4,7 +4,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { billingService, BillingInterval } from '../services/billingService';
-import { formatCurrencyFromCents, PRO_ANNUAL, PRO_MONTHLY } from '../lib/billing/planCatalog';
+import { PRO_ANNUAL, PRO_MONTHLY } from '../lib/billing/planCatalog';
+
+const formatCurrencyFromCents = (value: number) => new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+}).format(value / 100);
 
 export function BillingCheckout() {
   const navigate = useNavigate();
