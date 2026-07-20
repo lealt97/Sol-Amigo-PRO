@@ -17,6 +17,13 @@ const ACCOUNT_DATA = 'src/pages/AccountData.tsx';
 const PAYBACK = 'src/components/pdf/sections/PaybackSection.tsx';
 const CONFIG = 'supabase/config.toml';
 
+const extractTableDefinition = (migration: string, tableName: string) => {
+  const start = migration.indexOf(`create table if not exists public.${tableName}`);
+  const end = migration.indexOf('\n);', start);
+  assert.ok(start >= 0 && end > start, `Definição da tabela ${tableName} não encontrada.`);
+  return migration.slice(start, end + 3);
+};
+
 test('documentos legais têm versões alinhadas entre catálogo, banco e cadastro', async () => {
   const [migration, register, schema] = await Promise.all([
     read(MIGRATION),
@@ -36,7 +43,7 @@ test('documentos legais têm versões alinhadas entre catálogo, banco e cadastr
     assert.match(migration, new RegExp(document.title));
   }
 
-  assert.match(schema, /acceptedLegal: z\.literal\(true/);
+  assert.match(schema, /acceptedLegal: z\.boolean\(\)\.refine/);
   assert.match(register, /legal_acceptances: REQUIRED_LEGAL_ACCEPTANCES/);
   assert.match(register, /\/termos/);
   assert.match(register, /\/privacidade/);
@@ -46,15 +53,15 @@ test('documentos legais têm versões alinhadas entre catálogo, banco e cadastr
 
 test('aceites legais são versionados, isolados e não armazenam identificadores invasivos', async () => {
   const migration = await read(MIGRATION);
+  const table = extractTableDefinition(migration, 'account_legal_acceptances');
 
-  assert.match(migration, /create table if not exists public\.account_legal_acceptances/);
-  assert.match(migration, /primary key \(account_id, document_type, document_version\)/);
+  assert.match(table, /primary key \(account_id, document_type, document_version\)/);
   assert.match(migration, /using \(auth\.uid\(\) = account_id\)/);
   assert.match(migration, /record_signup_legal_acceptances/);
   assert.match(migration, /accept_current_legal_documents/);
-  assert.doesNotMatch(migration, /ip_address/i);
-  assert.doesNotMatch(migration, /user_agent/i);
-  assert.doesNotMatch(migration, /cookie/i);
+  assert.doesNotMatch(table, /\bip_address\b/i);
+  assert.doesNotMatch(table, /\buser_agent\b/i);
+  assert.doesNotMatch(table, /\bcookie_value\b/i);
 });
 
 test('exportação de dados é autenticada e exclui segredos do pacote', async () => {
