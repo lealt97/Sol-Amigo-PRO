@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { registerSchema, RegisterFormValues } from '../../lib/validations/auth.schema';
+import { REQUIRED_LEGAL_ACCEPTANCES } from '../../lib/legal/legalCatalog';
 import { supabase } from '../../lib/supabase/client';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -34,6 +35,7 @@ export function RegisterForm() {
           name: data.name,
           company_name: data.company_name,
           phone: data.phone,
+          legal_acceptances: REQUIRED_LEGAL_ACCEPTANCES,
         },
       },
     });
@@ -44,8 +46,6 @@ export function RegisterForm() {
     }
 
     setSuccess(true);
-    // User needs to check email to confirm, then can login
-    // Depending on Supabase settings, auto-login might happen if email confirmation is disabled
   };
 
   if (success) {
@@ -54,7 +54,7 @@ export function RegisterForm() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-green-500">Cadastro realizado!</CardTitle>
           <CardDescription>
-            Verifique seu e-mail para confirmar a conta (se necessário), ou faça login.
+            Verifique seu e-mail para confirmar a conta, depois faça login para iniciar a configuração guiada.
           </CardDescription>
         </CardHeader>
         <CardFooter>
@@ -110,6 +110,27 @@ export function RegisterForm() {
               <Input id="confirmPassword" type="password" placeholder="******" {...register('confirmPassword')} />
               {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>}
             </div>
+          </div>
+
+          <div className="rounded-xl border border-brand-border bg-brand-gray/70 p-4">
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-brand-border text-brand-blue focus:ring-brand-blue"
+                {...register('acceptedLegal')}
+              />
+              <span className="leading-6">
+                Li e aceito os{' '}
+                <Link to="/termos" target="_blank" className="font-semibold text-brand-blue hover:underline">Termos de Uso</Link>, a{' '}
+                <Link to="/privacidade" target="_blank" className="font-semibold text-brand-blue hover:underline">Política de Privacidade</Link>{' '}
+                e a{' '}
+                <Link to="/cancelamento-reembolso" target="_blank" className="font-semibold text-brand-blue hover:underline">Política de Cancelamento e Reembolso</Link>.
+              </span>
+            </label>
+            {errors.acceptedLegal && <p className="mt-2 text-sm text-red-600">{errors.acceptedLegal.message}</p>}
+            <p className="mt-2 text-xs leading-5 text-amber-700">
+              Os documentos atuais são minutas para o beta controlado e permanecem sujeitos à revisão jurídica antes do lançamento comercial aberto.
+            </p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
