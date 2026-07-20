@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const MIGRATION_PATH = 'supabase/migrations/20260720030000_billing_foundation.sql';
+const LIMIT_ALIGNMENT_MIGRATION_PATH = 'supabase/migrations/20260720210000_align_plan_interval_limits.sql';
 const SQL_TEST_PATH = 'supabase/tests/billing_foundation.sql';
 const WORKFLOW_PATH = '.github/workflows/migrations-homologation.yml';
 const BACKUP_SCRIPT_PATH = '.github/scripts/test-database-backup-restore.sh';
@@ -12,18 +13,39 @@ test('migration cria as quatro tabelas de cobrança com RLS', async () => {
   const migration = await readFile(MIGRATION_PATH, 'utf8');
 
   for (const table of ['billing_plans', 'subscriptions', 'billing_events', 'account_usage']) {
-    assert.match(migration, new RegExp(`create table if not exists public\\.${table}`));
-    assert.match(migration, new RegExp(`alter table public\\.${table} enable row level security`));
+    assert.match(migration, new RegExp(`create table if not exists public\.${table}`));
+    assert.match(migration, new RegExp(`alter table public\.${table} enable row level security`));
   }
 });
 
-test('catálogo persistido coincide com preços e limites comerciais', async () => {
-  const migration = await readFile(MIGRATION_PATH, 'utf8');
+test('catálogo persistido coincide com preços e limites comerciais por intervalo', async () => {
+  const [foundation, alignment] = await Promise.all([
+    readFile(MIGRATION_PATH, 'utf8'),
+    readFile(LIMIT_ALIGNMENT_MIGRATION_PATH, 'utf8'),
+  ]);
 
-  assert.match(migration, /\('free', 'Gratuito', 'BRL', 0, 0, 5, 1, 262144000/);
-  assert.match(migration, /\('pro', 'Pro', 'BRL', 10000, 100000, 100, 5, 10737418240/);
-  assert.match(migration, /monthly_price_cents bigint/);
-  assert.match(migration, /annual_price_cents bigint/);
+  assert.match(foundation, /\('free', 'Gratuito', 'BRL', 0, 0, 5, 1, 262144000/);
+  assert.match(foundation, /\('pro', 'Pro', 'BRL', 10000, 100000/);
+  assert.match(foundation, /monthly_price_cents bigint/);
+  assert.match(foundation, /annual_price_cents bigint/);
+
+  assert.match(alignment, /where code = 'free'/);
+  assert.match(alignment, /proposals_per_month = 5/);
+  assert.match(alignment, /annual_proposals_per_month = 5/);
+  assert.match(alignment, /where code = 'pro'/);
+  assert.match(alignment, /proposals_per_month = 30/);
+  assert.match(alignment, /annual_proposals_per_month = 40/);
+  assert.match(alignment, /resolve_plan_proposal_limit/);
+});
+
+test('uso mensal preserva o intervalo da assinatura para aplicar a cota correta', async () => {
+  const alignment = await readFile(LIMIT_ALIGNMENT_MIGRATION_PATH, 'utf8');
+
+  assert.match(alignment, /alter table public\.account_usage[\s\S]*add column if not exists billing_interval text/);
+  assert.match(alignment, /account_usage_billing_interval_valid/);
+  assert.match(alignment, /account_usage_plan_interval_consistent/);
+  assert.match(alignment, /grant execute on function public\.resolve_plan_proposal_limit\(text, text\)[\s\S]*to service_role/);
+  assert.doesNotMatch(alignment, /grant execute[^;]*to (?:anon|authenticated)/i);
 });
 
 test('contas novas e existentes recebem assinatura gratuita idempotente', async () => {
@@ -65,12 +87,14 @@ test('homologação executa teste SQL e backup cobre os novos dados', async () =
   ]);
 
   assert.match(sqlTest, /Billing foundation test passed/);
+  assert.match(sqlTest, /resolve_plan_proposal_limit\('pro', 'month'\) = 30/);
+  assert.match(sqlTest, /resolve_plan_proposal_limit\('pro', 'year'\) = 40/);
   assert.match(sqlTest, /o usuário não vê exatamente a própria assinatura/);
   assert.match(workflow, /Testar fundação de cobrança e uso/);
   assert.match(workflow, /supabase\/tests\/billing_foundation\.sql/);
 
   for (const table of ['subscriptions', 'billing_events', 'account_usage']) {
-    assert.match(backup, new RegExp(`--table=public\\.${table}`));
+    assert.match(backup, new RegExp(`--table=public\.${table}`));
   }
 
   assert.match(backup, /remover registros automáticos criados pelos gatilhos de auth/);
