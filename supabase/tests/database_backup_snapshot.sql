@@ -22,6 +22,18 @@ with fingerprints as (
          md5(coalesce(string_agg(to_jsonb(t)::text, '|' order by id::text), ''))
   from public.mfa_security_events t where id = 'b1000000-0000-4000-8000-000000000005'
   union all
+  select 'public.subscriptions', count(*)::bigint,
+         md5(coalesce(string_agg(to_jsonb(t)::text, '|' order by id::text), ''))
+  from public.subscriptions t where id = 'b1100000-0000-4000-8000-000000000001'
+  union all
+  select 'public.billing_events', count(*)::bigint,
+         md5(coalesce(string_agg(to_jsonb(t)::text, '|' order by id::text), ''))
+  from public.billing_events t where id = 'b1100000-0000-4000-8000-000000000002'
+  union all
+  select 'public.account_usage', count(*)::bigint,
+         md5(coalesce(string_agg(to_jsonb(t)::text, '|' order by id::text), ''))
+  from public.account_usage t where id = 'b1100000-0000-4000-8000-000000000003'
+  union all
   select 'public.profiles', count(*)::bigint,
          md5(coalesce(string_agg(to_jsonb(t)::text, '|' order by id::text), ''))
   from public.profiles t where id = 'b1000000-0000-4000-8000-000000000001'

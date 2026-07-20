@@ -15,6 +15,49 @@ insert into auth.users (
   '2026-01-15T12:00:00Z', '2026-01-15T12:00:00Z', false, false
 );
 
+-- Substitui os registros automáticos do gatilho por valores determinísticos.
+delete from public.billing_events
+where account_id = 'b1000000-0000-4000-8000-000000000001';
+
+delete from public.account_usage
+where account_id = 'b1000000-0000-4000-8000-000000000001';
+
+delete from public.subscriptions
+where account_id = 'b1000000-0000-4000-8000-000000000001';
+
+insert into public.subscriptions (
+  id, account_id, plan_code, billing_interval, status,
+  cancel_at_period_end, metadata, created_at, updated_at
+) values (
+  'b1100000-0000-4000-8000-000000000001',
+  'b1000000-0000-4000-8000-000000000001',
+  'free', 'free', 'free', false,
+  '{"source":"database_backup_restore_test"}'::jsonb,
+  '2026-01-15T12:00:10Z', '2026-01-15T12:00:10Z'
+);
+
+insert into public.billing_events (
+  id, account_id, subscription_id, event_type, source, metadata, created_at
+) values (
+  'b1100000-0000-4000-8000-000000000002',
+  'b1000000-0000-4000-8000-000000000001',
+  'b1100000-0000-4000-8000-000000000001',
+  'subscription.initialized', 'system',
+  '{"plan_code":"free","source":"database_backup_restore_test"}'::jsonb,
+  '2026-01-15T12:00:20Z'
+);
+
+insert into public.account_usage (
+  id, account_id, plan_code, period_start, period_end, timezone,
+  proposals_created, storage_bytes, users_count, version, created_at, updated_at
+) values (
+  'b1100000-0000-4000-8000-000000000003',
+  'b1000000-0000-4000-8000-000000000001',
+  'free', '2026-01-01', '2026-02-01', 'America/Sao_Paulo',
+  1, 126974, 1, 3,
+  '2026-01-15T12:00:25Z', '2026-01-15T12:00:25Z'
+);
+
 insert into auth.identities (
   id, provider_id, user_id, identity_data, provider,
   last_sign_in_at, created_at, updated_at
