@@ -14,6 +14,11 @@ const PROFILE_AVATAR_TYPES = new Map([
   ['image/webp', 'webp'],
 ]);
 
+function notifyProfileUpdated(profile: Profile) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: profile }));
+}
+
 function resolveProfileAvatarPath(value: string, userId: string) {
   const publicMarker = '/storage/v1/object/public/logos/';
   const rawPath = value.includes(publicMarker)
@@ -89,7 +94,10 @@ export const profileService = {
       .single();
 
     if (error) throw error;
-    return data as Profile;
+
+    const updatedProfile = data as Profile;
+    notifyProfileUpdated(updatedProfile);
+    return updatedProfile;
   },
 
   async uploadProfileAvatar(file: File, userId: string) {
