@@ -93,8 +93,13 @@ select pg_temp.assert_true(
 );
 
 select pg_temp.assert_true(
-  (public.get_my_onboarding_status() ->> 'total_steps')::integer = 5,
-  'o onboarding não possui as cinco etapas previstas'
+  (public.get_my_onboarding_status() ->> 'total_steps')::integer = 4,
+  'o onboarding não foi reduzido às quatro etapas cadastrais'
+);
+
+select pg_temp.assert_true(
+  not (public.get_my_onboarding_status() ? 'proposal_complete'),
+  'o onboarding ainda expõe a etapa do gerador removido'
 );
 
 insert into public.beta_feedback (

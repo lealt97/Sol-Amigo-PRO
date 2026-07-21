@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { Proposal } from '../../../types/proposal';
-import { classificarPayback } from '../../../lib/calculations/payback';
 
 const styles = StyleSheet.create({
   sectionTitle: {
@@ -12,12 +11,31 @@ const styles = StyleSheet.create({
     borderBottom: '2px solid #3b82f6',
     paddingBottom: 5,
   },
+  notice: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#f59e0b',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 18,
+  },
+  noticeTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#92400e',
+    marginBottom: 4,
+  },
+  noticeText: {
+    fontSize: 9,
+    lineHeight: 1.4,
+    color: '#78350f',
+  },
   grid: {
     display: 'flex',
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 18,
   },
   card: {
     width: '48%',
@@ -34,113 +52,71 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   cardValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#18181b',
   },
-  cardValueGreen: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#10b981',
-  },
-  cardValueBlue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#3b82f6',
-  },
-  viabilityBox: {
-    padding: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    marginBottom: 18,
-  },
-  viabilityLabel: {
-    fontSize: 10,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  viabilityValue: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  viabilityDescription: {
-    fontSize: 10,
-    lineHeight: 1.35,
-  },
   summaryText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#3f3f46',
     lineHeight: 1.5,
     marginTop: 12,
-  }
+  },
 });
 
-const formatMoney = (val: number | null | undefined) => {
-  if (val === null || val === undefined) return 'N/A';
-  return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatStoredNumber = (value: number | null | undefined, suffix: string) => {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return 'Não disponível';
+  return `${Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${suffix}`;
+};
+
+const formatStoredMoney = (value: number | null | undefined) => {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return 'Não disponível';
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 export const ExecutiveSummary = ({ proposal }: { proposal: Proposal }) => {
   const solar = proposal.solar;
 
-  if (!solar) {
-    return (
-      <View>
-        <Text style={styles.sectionTitle}>Resumo Executivo</Text>
-        <Text style={styles.summaryText}>Dados solares não disponíveis.</Text>
-      </View>
-    );
-  }
-
-  const investimento = proposal.final_price || 0;
-  const economiaAnual = solar.annual_savings || 0;
-  const paybackDecimal = investimento > 0 && economiaAnual > 0 ? investimento / economiaAnual : null;
-  const viability = classificarPayback(paybackDecimal);
-
   return (
     <View>
-      <Text style={styles.sectionTitle}>Resumo Executivo</Text>
+      <Text style={styles.sectionTitle}>Resumo do Registro Histórico</Text>
+
+      <View style={styles.notice}>
+        <Text style={styles.noticeTitle}>Valores preservados sem recálculo</Text>
+        <Text style={styles.noticeText}>
+          O gerador e os mecanismos de cálculo foram removidos. Os campos abaixo, quando presentes, são somente valores anteriormente armazenados e não foram verificados ou recalculados por esta versão do sistema.
+        </Text>
+      </View>
 
       <View style={styles.grid}>
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Potência Instalada</Text>
-          <Text style={styles.cardValue}>{solar.installed_power_kwp?.toFixed(2)} kWp</Text>
+          <Text style={styles.cardLabel}>Cliente</Text>
+          <Text style={styles.cardValue}>{proposal.client?.name || 'Não disponível'}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Geração Média Mensal</Text>
-          <Text style={styles.cardValueBlue}>{solar.estimated_monthly_generation_kwh?.toFixed(0)} kWh</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Economia Mensal Estimada</Text>
-          <Text style={styles.cardValueGreen}>{formatMoney(solar.monthly_savings)}</Text>
+          <Text style={styles.cardLabel}>Código</Text>
+          <Text style={styles.cardValue}>{proposal.code || 'Não disponível'}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Economia Anual Estimada</Text>
-          <Text style={styles.cardValueGreen}>{formatMoney(solar.annual_savings)}</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Investimento Total</Text>
-          <Text style={styles.cardValue}>{formatMoney(proposal.final_price)}</Text>
+          <Text style={styles.cardLabel}>Potência armazenada</Text>
+          <Text style={styles.cardValue}>{formatStoredNumber(solar?.installed_power_kwp, 'kWp')}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Retorno do Investimento</Text>
-          <Text style={styles.cardValue}>{solar.payback_formatted || 'N/A'}</Text>
+          <Text style={styles.cardLabel}>Geração mensal armazenada</Text>
+          <Text style={styles.cardValue}>{formatStoredNumber(solar?.estimated_monthly_generation_kwh, 'kWh')}</Text>
         </View>
-      </View>
-
-      <View style={[styles.viabilityBox, { backgroundColor: viability.backgroundColor, borderColor: viability.borderColor }]}> 
-        <Text style={[styles.viabilityLabel, { color: viability.color }]}>Status de viabilidade</Text>
-        <Text style={[styles.viabilityValue, { color: viability.color }]}>{viability.label}</Text>
-        <Text style={[styles.viabilityDescription, { color: viability.color }]}>{viability.description}</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Valor final armazenado</Text>
+          <Text style={styles.cardValue}>{formatStoredMoney(proposal.final_price)}</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Status</Text>
+          <Text style={styles.cardValue}>{proposal.status || 'Não disponível'}</Text>
+        </View>
       </View>
 
       <Text style={styles.summaryText}>
-        Este sistema foi dimensionado para atender uma meta de geração de {solar.generation_target_percent?.toFixed(0)}%, com base no consumo mensal considerado de {solar.monthly_consumption_kwh?.toFixed(0)} kWh.
-        A proposta utiliza tarifa estimada de {formatMoney(solar.energy_tariff)} por kWh para calcular economia e retorno financeiro.
+        Este documento não deve ser usado como validação técnica, econômica ou financeira. Revise os valores históricos com metodologia e responsáveis técnicos adequados antes de qualquer uso comercial.
       </Text>
     </View>
   );

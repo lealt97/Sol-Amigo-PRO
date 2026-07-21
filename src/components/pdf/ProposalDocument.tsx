@@ -11,7 +11,6 @@ import { SolarSolutionSection } from './sections/SolarSolutionSection';
 import { EquipmentSection } from './sections/EquipmentSection';
 import { GenerationSection } from './sections/GenerationSection';
 import { FinancialSection } from './sections/FinancialSection';
-import { PaybackSection } from './sections/PaybackSection';
 import { TermsSection } from './sections/TermsSection';
 import { WarrantyAndNextStepsSection } from './sections/WarrantyAndNextStepsSection';
 import { AcceptanceSection } from './sections/AcceptanceSection';
@@ -120,10 +119,6 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({ proposal, co
 
         <PageSection pdfTheme={pdfTheme}>
           <FinancialSection proposal={proposal} />
-        </PageSection>
-
-        <PageSection pdfTheme={pdfTheme}>
-          <PaybackSection proposal={proposal} />
         </PageSection>
 
         <PageSection pdfTheme={pdfTheme}>

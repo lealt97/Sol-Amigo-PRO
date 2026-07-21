@@ -4,10 +4,11 @@ import test from 'node:test';
 
 const MIGRATION_PATH = 'supabase/migrations/20260720224500_p1_proposal_quota_enforcement.sql';
 const PROPOSAL_SERVICE_PATH = 'src/services/proposalService.ts';
+const APP_PATH = 'src/App.tsx';
 
 const read = (path: string) => readFile(path, 'utf8');
 
-test('toda criação de proposta reserva cota em trigger do servidor', async () => {
+test('a proteção de cota histórica permanece no servidor', async () => {
   const migration = await read(MIGRATION_PATH);
 
   assert.match(migration, /create or replace function public\.reserve_proposal_quota\(\)/);
@@ -28,25 +29,29 @@ test('limite efetivo usa plano, intervalo e tolerância de pagamento no servidor
   assert.match(migration, /Limite mensal de propostas atingido/);
 });
 
-test('edição não consome nova cota e exclusão não devolve uso', async () => {
+test('exclusão não devolve uso contabilizado', async () => {
   const migration = await read(MIGRATION_PATH);
 
-  assert.match(migration, /before insert on public\.proposals/);
-  assert.doesNotMatch(migration, /before update on public\.proposals/);
   assert.doesNotMatch(migration, /before delete on public\.proposals/);
   assert.doesNotMatch(migration, /proposals_created\s*=\s*usage\.proposals_created\s*-\s*1/);
 });
 
-test('frontend cria e duplica pelo RPC transacional existente', async () => {
-  const service = await read(PROPOSAL_SERVICE_PATH);
+test('frontend não cria, edita ou duplica propostas após remoção do Wizard', async () => {
+  const [service, app] = await Promise.all([
+    read(PROPOSAL_SERVICE_PATH),
+    read(APP_PATH),
+  ]);
 
-  assert.match(service, /supabase\.rpc\('save_proposal_bundle'/);
-  assert.match(service, /createProposal: proposalOperations\.createProposal/);
-  assert.match(service, /duplicateProposal: proposalOperations\.duplicateProposal/);
-  assert.doesNotMatch(service, /from\('proposals'\)[\s\S]{0,120}\.insert\(/);
+  assert.doesNotMatch(service, /save_proposal_bundle/);
+  assert.doesNotMatch(service, /createProposal/);
+  assert.doesNotMatch(service, /updateProposal/);
+  assert.doesNotMatch(service, /duplicateProposal/);
+  assert.doesNotMatch(service, /\.insert\(/);
+  assert.match(app, /path="propostas\/nova" element={<Navigate to="\/propostas" replace \/>}/);
+  assert.match(app, /path="propostas\/:id\/editar" element={<Navigate to="\/propostas" replace \/>}/);
 });
 
-test('usuário autenticado pode consultar somente a própria cota', async () => {
+test('usuário autenticado pode consultar somente a própria cota histórica', async () => {
   const migration = await read(MIGRATION_PATH);
 
   assert.match(migration, /create or replace function public\.get_my_proposal_quota\(\)/);

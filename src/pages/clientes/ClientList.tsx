@@ -7,7 +7,7 @@ import { Client } from '../../types/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
-import { Search, Plus, FileText, Edit, Trash2, Eye } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 
 export function ClientList() {
@@ -134,40 +134,13 @@ export function ClientList() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                          title="Visualizar"
-                          onClick={() => navigate(`/clientes/${client.id}`)}
-                        >
+                        <Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/clientes/${client.id}`)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                          title="Editar"
-                          onClick={() => navigate(`/clientes/${client.id}/editar`)}
-                        >
+                        <Button variant="ghost" size="icon" title="Editar" onClick={() => navigate(`/clientes/${client.id}/editar`)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-                          title="Nova Proposta"
-                          onClick={() => navigate(`/propostas/nova?clienteId=${client.id}`)}
-                        >
-                          <FileText className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                          title="Excluir"
-                          onClick={() => triggerDelete(client.id, client.name)}
-                        >
+                        <Button variant="ghost" size="icon" className="text-red-500" title="Excluir" onClick={() => triggerDelete(client.id, client.name)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

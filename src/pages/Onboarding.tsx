@@ -13,9 +13,8 @@ const EMPTY_STATUS: OnboardingStatus = {
   logo_complete: false,
   kit_complete: false,
   client_complete: false,
-  proposal_complete: false,
   completed_steps: 0,
-  total_steps: 5,
+  total_steps: 4,
   complete: false,
 };
 
@@ -48,37 +47,30 @@ export function Onboarding() {
     {
       key: 'company_complete' as const,
       title: 'Complete os dados da empresa',
-      description: 'Cadastre nome, contato e endereço que aparecerão nas propostas.',
+      description: 'Cadastre nome, contato e endereço da sua operação.',
       to: '/configuracoes?tab=empresa',
       action: 'Configurar empresa',
     },
     {
       key: 'logo_complete' as const,
       title: 'Cadastre a identidade visual',
-      description: 'Envie a logo principal e revise como ela aparece nos documentos.',
+      description: 'Envie a logo principal e revise a apresentação da sua conta.',
       to: '/configuracoes?tab=logo',
       action: 'Adicionar logo',
     },
     {
       key: 'kit_complete' as const,
       title: 'Cadastre o primeiro kit solar',
-      description: 'Registre módulos, inversor, potência e custo de referência.',
+      description: 'Registre os equipamentos e dados de referência sem executar cálculos de proposta.',
       to: '/kits-solares',
       action: 'Cadastrar kit',
     },
     {
       key: 'client_complete' as const,
       title: 'Cadastre o primeiro cliente',
-      description: 'Inclua os dados necessários para dimensionar e emitir a proposta.',
+      description: 'Organize os dados cadastrais e comerciais do cliente.',
       to: '/clientes/novo',
       action: 'Cadastrar cliente',
-    },
-    {
-      key: 'proposal_complete' as const,
-      title: 'Gere a primeira proposta',
-      description: 'Passe pelo fluxo completo, confira o payback simples e gere o PDF.',
-      to: '/propostas/nova',
-      action: 'Criar proposta',
     },
   ], []);
 
@@ -126,9 +118,9 @@ export function Onboarding() {
                 <Sparkles className="h-5 w-5" />
                 <span className="text-xs font-bold uppercase tracking-[0.18em]">Primeiros passos</span>
               </div>
-              <h1 className="mt-2 text-2xl font-bold text-brand-dark">Prepare sua primeira proposta profissional</h1>
+              <h1 className="mt-2 text-2xl font-bold text-brand-dark">Configure sua conta SolAmigo</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                O progresso é calculado pelos dados realmente cadastrados. Você pode sair e continuar depois sem perder nenhuma etapa.
+                O gerador de propostas e os cálculos foram removidos. Este progresso considera apenas empresa, identidade visual, kits e clientes.
               </p>
             </div>
             <Button type="button" variant="outline" onClick={() => void loadStatus()} disabled={isLoading} className="gap-2">
@@ -151,7 +143,7 @@ export function Onboarding() {
       {status.complete && (
         <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-5 text-emerald-800">
           <p className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-5 w-5" /> Configuração inicial concluída</p>
-          <p className="mt-1 text-sm">Sua conta já percorreu todo o fluxo necessário para gerar a primeira proposta.</p>
+          <p className="mt-1 text-sm">Os cadastros básicos da conta foram concluídos.</p>
         </div>
       )}
 
@@ -196,8 +188,6 @@ export function Onboarding() {
               <label className="text-sm font-medium text-brand-dark">Categoria</label>
               <select value={feedbackCategory} onChange={(event) => setFeedbackCategory(event.target.value as BetaFeedbackCategory)} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm">
                 <option value="onboarding">Primeiros passos</option>
-                <option value="proposal">Proposta</option>
-                <option value="pdf">PDF</option>
                 <option value="billing">Planos e cobrança</option>
                 <option value="usability">Usabilidade</option>
                 <option value="bug">Erro</option>
@@ -211,7 +201,7 @@ export function Onboarding() {
           </div>
           <div>
             <label className="text-sm font-medium text-brand-dark">Mensagem</label>
-            <textarea value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} rows={5} maxLength={5000} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm" placeholder="Conte o que aconteceu, o que você esperava e em qual etapa estava." />
+            <textarea value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} rows={5} maxLength={5000} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm" placeholder="Conte o que aconteceu, o que você esperava e em qual área estava." />
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={isSendingFeedback}>{isSendingFeedback ? 'Enviando...' : 'Enviar feedback'}</Button>

@@ -5,7 +5,6 @@ export interface OnboardingStatus {
   logo_complete: boolean;
   kit_complete: boolean;
   client_complete: boolean;
-  proposal_complete: boolean;
   completed_steps: number;
   total_steps: number;
   complete: boolean;
@@ -20,9 +19,8 @@ export const onboardingService = {
       logo_complete: data?.logo_complete === true,
       kit_complete: data?.kit_complete === true,
       client_complete: data?.client_complete === true,
-      proposal_complete: data?.proposal_complete === true,
       completed_steps: Number(data?.completed_steps || 0),
-      total_steps: Number(data?.total_steps || 5),
+      total_steps: Number(data?.total_steps || 4),
       complete: data?.complete === true,
     };
   },

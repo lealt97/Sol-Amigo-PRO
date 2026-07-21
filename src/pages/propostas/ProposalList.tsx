@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Eye, Search, Trash2 } from 'lucide-react';
 import { proposalService } from '../../services/proposalService';
 import { Proposal } from '../../types/proposal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
-import { Search, Plus, Copy, Edit, Trash2, Eye } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
-import { useAuth } from '../../contexts/AuthContext';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
-import { ContinueProposalButton } from '../../components/proposals/ContinueProposalButton';
-import { isProposalPending, PENDING_PROPOSAL_STATUSES } from '../../lib/proposals/status';
+import { PENDING_PROPOSAL_STATUSES } from '../../lib/proposals/status';
 
 export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -21,14 +19,10 @@ export function ProposalList() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  
-  // Custom Delete Modal State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [proposalToDelete, setProposalToDelete] = useState<{ id: string; title: string | null } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const loadProposals = async () => {
     try {
@@ -36,261 +30,110 @@ export function ProposalList() {
       const data = await proposalService.getProposals();
       setProposals(data);
       setFilteredProposals(data);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao carregar propostas');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar propostas');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadProposals();
+    void loadProposals();
   }, []);
 
   useEffect(() => {
     const term = searchTerm.toLowerCase();
-    const filtered = proposals.filter((p) => {
-      const matchSearch = p.title?.toLowerCase().includes(term) || 
-                          p.code?.toLowerCase().includes(term) ||
-                          p.client?.name.toLowerCase().includes(term);
+    setFilteredProposals(proposals.filter((proposal) => {
+      const matchSearch = proposal.title?.toLowerCase().includes(term)
+        || proposal.code?.toLowerCase().includes(term)
+        || proposal.client?.name.toLowerCase().includes(term);
       const matchStatus = statusFilter
         ? statusFilter === 'pending_like'
-          ? PENDING_PROPOSAL_STATUSES.includes(p.status as (typeof PENDING_PROPOSAL_STATUSES)[number])
-          : p.status === statusFilter
+          ? PENDING_PROPOSAL_STATUSES.includes(proposal.status as (typeof PENDING_PROPOSAL_STATUSES)[number])
+          : proposal.status === statusFilter
         : true;
-      return matchSearch && matchStatus;
-    });
-    setFilteredProposals(filtered);
+      return Boolean(matchSearch && matchStatus);
+    }));
   }, [searchTerm, statusFilter, proposals]);
-
-  const triggerDelete = (id: string, title: string | null) => {
-    setProposalToDelete({ id, title });
-    setDeleteModalOpen(true);
-  };
 
   const confirmDelete = async () => {
     if (!proposalToDelete) return;
     try {
       setIsDeleting(true);
       await proposalService.deleteProposal(proposalToDelete.id);
-      toast.success('Proposta excluída com sucesso!');
-      await loadProposals();
+      toast.success('Proposta excluída com sucesso.');
       setDeleteModalOpen(false);
       setProposalToDelete(null);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao excluir proposta');
+      await loadProposals();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir proposta');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleDuplicate = async (proposal: Proposal) => {
-    if (!user) return;
-
-    if (isProposalPending(proposal)) {
-      toast.info('Conclua a proposta pendente antes de duplicá-la.');
-      return;
-    }
-
-    try {
-      const { id, created_at, updated_at, code, client, ...rest } = proposal;
-      const duplicated = await proposalService.createProposal(
-        { ...rest, title: `${proposal.title || 'Proposta'} (Cópia)` },
-        user.id
-      );
-      navigate(`/propostas/${duplicated.id}/editar`);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao duplicar proposta');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      draft: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
-      pending: 'bg-brand-yellow/10 text-amber-600 border-brand-yellow/20',
-      sent: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-      viewed: 'bg-brand-blue/10 text-brand-blue border-brand-blue/20',
-      accepted: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
-      approved: 'bg-brand-green/20 text-emerald-700 border-brand-green/30',
-      rejected: 'bg-red-50 text-red-600 border-red-100',
-      expired: 'bg-slate-700/10 text-slate-700 border-slate-700/20',
-    };
-    const labels: Record<string, string> = {
-      draft: 'Pendente',
-      pending: 'Pendente',
-      sent: 'Enviada',
-      viewed: 'Visualizada',
-      accepted: 'Aprovada',
-      approved: 'Aprovada',
-      rejected: 'Recusada',
-      expired: 'Expirada',
-    };
-    return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.pending}`}>
-        {labels[status] || 'Pendente'}
-      </span>
-    );
-  };
+  const statusLabel = (status: string) => ({
+    draft: 'Pendente', pending: 'Pendente', sent: 'Enviada', viewed: 'Visualizada',
+    accepted: 'Aprovada', approved: 'Aprovada', rejected: 'Recusada', expired: 'Expirada',
+  }[status] || status);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
+        <p className="text-sm text-slate-500">Consulte e exclua propostas já existentes.</p>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
-          <p className="text-sm text-slate-500">Gerencie seus projetos e propostas comerciais.</p>
+          <p className="font-semibold">Gerador de propostas removido</p>
+          <p className="mt-1 text-sm">O Wizard, a edição, a duplicação e os cálculos foram removidos. Os registros existentes foram preservados apenas para consulta e exclusão.</p>
         </div>
-        <Link to="/propostas/nova">
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nova Proposta
-          </Button>
-        </Link>
       </div>
 
       <Card className="flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-brand-border bg-gray-50 flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col gap-4 border-b border-brand-border bg-gray-50 p-4 md:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <Input
-              placeholder="Buscar por cliente, título ou código..."
-              className="pl-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Input placeholder="Buscar por cliente, título ou código..." className="pl-9" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
           </div>
-          <div className="w-full md:w-48">
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Todos os status</option>
-              <option value="pending_like">Pendente</option>
-              <option value="sent">Enviada</option>
-              <option value="viewed">Visualizada</option>
-              <option value="approved">Aprovada</option>
-              <option value="rejected">Recusada</option>
-            </Select>
-          </div>
+          <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full md:w-48">
+            <option value="">Todos os status</option>
+            <option value="pending_like">Pendente</option>
+            <option value="sent">Enviada</option>
+            <option value="viewed">Visualizada</option>
+            <option value="approved">Aprovada</option>
+            <option value="rejected">Recusada</option>
+          </Select>
         </div>
 
-        {error && (
-          <div className="p-4 text-red-600 bg-red-50 border-b border-brand-border">
-            {error}
-          </div>
-        )}
+        {error && <div className="border-b border-brand-border bg-red-50 p-4 text-red-600">{error}</div>}
 
-        <div className="overflow-x-auto scroll-after-3-table">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-brand-gray text-slate-500 text-[10px] uppercase tracking-widest sticky top-0 z-10">
-              <tr>
-                <th className="px-4 py-3 font-medium">Proposta</th>
-                <th className="px-4 py-3 font-medium">Cliente</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium text-right">Ações</th>
-              </tr>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-brand-gray text-[10px] uppercase tracking-widest text-slate-500">
+              <tr><th className="px-4 py-3">Proposta</th><th className="px-4 py-3">Cliente</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Data</th><th className="px-4 py-3 text-right">Ações</th></tr>
             </thead>
-            <tbody className="text-sm bg-brand-surface">
+            <tbody className="bg-brand-surface text-sm">
               {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8">
-                    <div className="flex flex-col items-center justify-center space-y-4">
-                      <div className="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin"></div>
-                      <p className="text-slate-500">Carregando propostas...</p>
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Carregando propostas...</td></tr>
+              ) : filteredProposals.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhuma proposta encontrada.</td></tr>
+              ) : filteredProposals.map((proposal) => (
+                <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50">
+                  <td className="px-4 py-3"><p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p><p className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</p></td>
+                  <td className="px-4 py-3 text-brand-dark">{proposal.client?.name || '-'}</td>
+                  <td className="px-4 py-3"><span className="rounded-full border border-brand-border px-2.5 py-0.5 text-xs">{statusLabel(proposal.status)}</span></td>
+                  <td className="px-4 py-3 text-slate-500">{formatDate(proposal.created_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/propostas/${proposal.id}`)}><Eye className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" title="Excluir" className="text-red-500" onClick={() => { setProposalToDelete({ id: proposal.id, title: proposal.title }); setDeleteModalOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </td>
                 </tr>
-              ) : filteredProposals.length > 0 ? (
-                filteredProposals.map((proposal) => {
-                  const pending = isProposalPending(proposal);
-
-                  return (
-                    <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</div>
-                        <div className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-brand-dark">{proposal.client?.name || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(proposal.status)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">
-                        {formatDate(proposal.created_at)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {pending ? (
-                            <>
-                              <ContinueProposalButton
-                                to={`/propostas/${proposal.id}/editar`}
-                                className="h-9 min-w-[170px]"
-                              />
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                                title="Excluir"
-                                aria-label="Excluir proposta pendente"
-                                onClick={() => triggerDelete(proposal.id, proposal.title)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-slate-500 hover:text-white hover:bg-gray-100"
-                                title="Visualizar"
-                                onClick={() => navigate(`/propostas/${proposal.id}`)}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                                title="Editar proposta"
-                                aria-label="Editar proposta"
-                                onClick={() => navigate(`/propostas/${proposal.id}/editar`)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-slate-500 hover:text-brand-light hover:bg-brand-blue/10"
-                                title="Duplicar"
-                                onClick={() => handleDuplicate(proposal)}
-                              >
-                                <Copy className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                                title="Excluir"
-                                onClick={() => triggerDelete(proposal.id, proposal.title)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-sm">
-                    Nenhuma proposta encontrada.
-                  </td>
-                </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
@@ -301,7 +144,7 @@ export function ProposalList() {
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={confirmDelete}
         title="Excluir Proposta"
-        description={`Tem certeza que deseja excluir a proposta "${proposalToDelete?.title || 'Sem título'}"? Esta ação é permanente e não poderá ser desfeita.`}
+        description={`Tem certeza que deseja excluir a proposta "${proposalToDelete?.title || 'Sem título'}"? Esta ação é permanente.`}
         isLoading={isDeleting}
       />
     </div>

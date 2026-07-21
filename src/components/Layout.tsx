@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Database, FileText, LayoutDashboard, LogOut, Menu, Package, PenTool, PlusCircle, Settings, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { Database, FileText, LayoutDashboard, LogOut, Menu, Package, PenTool, Settings, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatedNavbarLogo } from "./brand/AnimatedNavbarLogo";
-import { Button } from "./ui/Button";
 import { profileService } from "../services/profileService";
 import { adminService } from "../services/adminService";
 import { Profile } from "../types/profile";
@@ -82,7 +81,6 @@ export function Layout() {
     { path: '/primeiros-passos', label: 'Primeiros Passos', icon: Sparkles },
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/propostas', label: 'Propostas', icon: FileText },
-    { path: '/propostas/nova', label: 'Nova Proposta', icon: PlusCircle },
     { path: '/kits-solares', label: 'Kits Solares', icon: Package },
     { path: '/design-pdf', label: 'Design PDF', icon: PenTool },
     { path: '/configuracoes', label: 'Configurações da Conta', icon: Settings },
@@ -163,7 +161,7 @@ export function Layout() {
         </div>
       </aside>
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-brand-border flex items-center justify-between px-8 bg-brand-surface shrink-0">
+        <header className="h-16 border-b border-brand-border flex items-center px-8 bg-brand-surface shrink-0">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
@@ -175,13 +173,6 @@ export function Layout() {
             <h2 className="text-sm font-medium text-brand-dark">{getPageTitle()}</h2>
             <div className="h-4 w-[1px] bg-gray-100 hidden sm:block"></div>
             <span className="text-xs text-slate-500 hidden sm:block">SaaS SolAmigo FV</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/propostas/nova">
-              <Button size="sm" className="font-bold text-xs h-9 px-4">
-                + Nova Proposta
-              </Button>
-            </Link>
           </div>
         </header>
         <div className="p-8 flex-1 overflow-auto flex flex-col">
