@@ -6,8 +6,8 @@ const MIGRATION_PATH = 'supabase/migrations/20260720223000_p1_private_assets_upl
 const STORAGE_REFERENCE_PATH = 'src/lib/storage/privateAsset.ts';
 const STORAGE_SERVICE_PATH = 'src/services/storageAssetService.ts';
 const PDF_GENERATOR_PATH = 'src/lib/pdf/generateProposalPdf.tsx';
-const INSTALLATION_STEP_PATH = 'src/pages/propostas/steps/StepInstallation.tsx';
 const PDF_PREVIEW_PATH = 'src/features/design-pdf/components/PdfPreview.tsx';
+const APP_PATH = 'src/App.tsx';
 
 const read = (path: string) => readFile(path, 'utf8');
 
@@ -55,11 +55,13 @@ test('geração de PDF falha fechada sem restaurar URL pública', async () => {
   assert.match(pdfGenerator, /resolveStorageAssetUrl\(privateRoofImage, 900\)/);
 });
 
-test('foto do telhado é validada e salva como referência privada', async () => {
-  const step = await read(INSTALLATION_STEP_PATH);
+test('upload de telhado não está mais exposto pelo Wizard removido', async () => {
+  const [service, app] = await Promise.all([
+    read(STORAGE_SERVICE_PATH),
+    read(APP_PATH),
+  ]);
 
-  assert.match(step, /storageAssetService\.uploadRoofImage\(file, user\.id\)/);
-  assert.match(step, /resolveAssetUrl\(roofImageUrl, 900\)/);
-  assert.match(step, /accept="image\/png,image\/jpeg,image\/webp"/);
-  assert.doesNotMatch(step, /getPublicUrl/);
+  assert.match(service, /uploadRoofImage/);
+  assert.doesNotMatch(app, /ProposalWizard/);
+  assert.match(app, /path="propostas\/nova" element={<Navigate to="\/propostas" replace \/>}/);
 });
