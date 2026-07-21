@@ -69,9 +69,9 @@ export default function App() {
               <Route path="clientes/:id" element={<ClientDetails />} />
               <Route path="clientes/:id/editar" element={<ClientForm />} />
               <Route path="propostas" element={<ProposalList />} />
-              <Route path="propostas/nova" element={<Navigate to="/propostas" replace />} />
+              <Route path="propostas/nova" element={null} />
               <Route path="propostas/:id" element={<ProposalDetailsRoute />} />
-              <Route path="propostas/:id/editar" element={<Navigate to="/propostas" replace />} />
+              <Route path="propostas/:id/editar" element={null} />
               <Route path="kits-solares" element={<SolarKitCatalog />} />
               <Route path="design-pdf" element={<DesignPdf />} />
               <Route path="checkout" element={<BillingCheckout />} />

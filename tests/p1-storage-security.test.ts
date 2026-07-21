@@ -63,5 +63,5 @@ test('upload de telhado não está mais exposto pelo Wizard removido', async () 
 
   assert.match(service, /uploadRoofImage/);
   assert.doesNotMatch(app, /ProposalWizard/);
-  assert.match(app, /path="propostas\/nova" element={<Navigate to="\/propostas" replace \/>}/);
+  assert.match(app, /path="propostas\/nova" element=\{null\}/);
 });

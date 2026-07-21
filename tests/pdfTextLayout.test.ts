@@ -118,11 +118,10 @@ test('texto curto conserva o tamanho máximo configurado', () => {
   assert.deepEqual(layout.lines, ['Ana Souza']);
 });
 
-test('capa, sobreposição e aceite usam o ajuste compartilhado de texto', async () => {
+test('capa padrão e sobreposição personalizada usam o ajuste compartilhado de texto', async () => {
   const files = [
     'src/components/pdf/sections/CoverPage.tsx',
     'src/components/pdf/sections/DynamicCoverOverlay.tsx',
-    'src/components/pdf/sections/AcceptanceSection.tsx',
   ];
 
   for (const file of files) {

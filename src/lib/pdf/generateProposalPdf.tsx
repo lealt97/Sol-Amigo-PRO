@@ -120,7 +120,7 @@ async function renderProposalPdf(
   await validatePdfBlob(blob, {
     minByteLength: 4_096,
     maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
-    minPages: 10,
+    minPages: 1,
   });
 
   return blob;

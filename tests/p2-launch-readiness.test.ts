@@ -148,8 +148,8 @@ test('Wizard e serviços de cálculo foram retirados das rotas e mutações', as
   ]);
 
   assert.doesNotMatch(app, /ProposalWizard/);
-  assert.match(app, /path="propostas\/nova" element={<Navigate to="\/propostas" replace \/>}/);
-  assert.match(app, /path="propostas\/:id\/editar" element={<Navigate to="\/propostas" replace \/>}/);
+  assert.match(app, /path="propostas\/nova" element=\{null\}/);
+  assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
   assert.doesNotMatch(service, /lib\/calculations/);
   assert.doesNotMatch(service, /createProposal/);
   assert.doesNotMatch(service, /updateProposal/);

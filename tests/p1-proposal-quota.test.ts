@@ -47,8 +47,8 @@ test('frontend não cria, edita ou duplica propostas após remoção do Wizard',
   assert.doesNotMatch(service, /updateProposal/);
   assert.doesNotMatch(service, /duplicateProposal/);
   assert.doesNotMatch(service, /\.insert\(/);
-  assert.match(app, /path="propostas\/nova" element={<Navigate to="\/propostas" replace \/>}/);
-  assert.match(app, /path="propostas\/:id\/editar" element={<Navigate to="\/propostas" replace \/>}/);
+  assert.match(app, /path="propostas\/nova" element=\{null\}/);
+  assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
 });
 
 test('usuário autenticado pode consultar somente a própria cota histórica', async () => {
