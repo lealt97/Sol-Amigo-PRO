@@ -8,12 +8,14 @@ const APP = 'src/App.tsx';
 const GATE = 'src/components/auth/FirstUseGate.tsx';
 const LAYOUT = 'src/components/Layout.tsx';
 const WIZARD = 'src/pages/Onboarding.tsx';
+const FIRST_USE_ROUTE = 'src/pages/FirstUseRoute.tsx';
 const SERVICE = 'src/services/firstUseService.ts';
+const PROFILE_SERVICE = 'src/services/profileService.ts';
 
 
 test('wizard fica fora do layout e bloqueia as rotas privadas até a conclusão', async () => {
   const [app, gate, layout] = await Promise.all([read(APP), read(GATE), read(LAYOUT)]);
-  const wizardRoute = '<Route path="/primeiros-passos" element={<Onboarding />} />';
+  const wizardRoute = '<Route path="/primeiros-passos" element={<FirstUseRoute />} />';
   const gateRoute = '<Route element={<FirstUseGate />}>';
 
   assert.ok(app.includes(wizardRoute));
@@ -21,9 +23,19 @@ test('wizard fica fora do layout e bloqueia as rotas privadas até a conclusão'
   assert.ok(app.indexOf(wizardRoute) < app.indexOf(gateRoute));
   assert.match(gate, /firstUseService\.requiresFirstUse\(user\)/);
   assert.ok(gate.includes('<Navigate to="/primeiros-passos" replace />'));
-  assert.doesNotMatch(gate, /useLocation/);
   assert.doesNotMatch(layout, /\/primeiros-passos/);
   assert.doesNotMatch(layout, /Primeiros Passos/);
+});
+
+
+test('usuário consegue sair da conta mesmo durante o primeiro uso', async () => {
+  const route = await read(FIRST_USE_ROUTE);
+
+  assert.match(route, /const \{ signOut \} = useAuth\(\)/);
+  assert.match(route, /await signOut\(\)/);
+  assert.match(route, /window\.location\.replace\('\/login'\)/);
+  assert.match(route, /Sair da conta/);
+  assert.match(route, /fixed right-4 top-4 z-\[70\]/);
 });
 
 
@@ -49,6 +61,24 @@ test('toda conta sem conclusão registrada deve passar pelo primeiro uso', async
   assert.match(service, /first_use_version/);
   assert.match(service, /return !completedAt \|\| completedVersion < FIRST_USE_VERSION/);
   assert.match(service, /status\.complete/);
+});
+
+
+test('progresso regressa e o wizard volta quando dados obrigatórios são apagados', async () => {
+  const [gate, service, profileService] = await Promise.all([
+    read(GATE),
+    read(SERVICE),
+    read(PROFILE_SERVICE),
+  ]);
+
+  assert.match(gate, /firstUseService\.load\(user\)/);
+  assert.match(gate, /!snapshot\.status\.complete/);
+  assert.match(gate, /firstUseService\.invalidateCompletion\(\)/);
+  assert.match(gate, /solamigo:profile-updated/);
+  assert.match(gate, /useLocation\(\)/);
+  assert.match(service, /first_use_completed_at: null/);
+  assert.match(profileService, /notifyProfileUpdated\(updatedProfile\)/);
+  assert.match(profileService, /solamigo:profile-updated/);
 });
 
 
