@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase/client';
 import { legalService, type LegalStatus } from './legalService';
 import { profileService } from './profileService';
 
-export const FIRST_USE_VERSION = 1;
+export const FIRST_USE_VERSION = 2;
 
 export type FirstUseStatus = {
   company_complete: boolean;
