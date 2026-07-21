@@ -139,7 +139,7 @@ test('onboarding não depende mais de proposta ou cálculo', async () => {
   assert.match(page, /total_steps: 4/);
   assert.doesNotMatch(page, /proposal_complete/);
   assert.doesNotMatch(page, /\/propostas\/nova/);
-  assert.match(app, /path="primeiros-passos" element={<Onboarding \/>}/);
+  assert.ok(app.includes('<Route path="/primeiros-passos" element={<Onboarding />} />'));
 });
 
 test('Wizard e serviços de cálculo foram retirados das rotas e mutações', async () => {
