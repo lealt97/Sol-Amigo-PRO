@@ -13,11 +13,14 @@ const SERVICE = 'src/services/firstUseService.ts';
 
 test('wizard fica fora do layout e bloqueia as rotas privadas até a conclusão', async () => {
   const [app, gate, layout] = await Promise.all([read(APP), read(GATE), read(LAYOUT)]);
+  const wizardRoute = '<Route path="/primeiros-passos" element={<Onboarding />} />';
+  const gateRoute = '<Route element={<FirstUseGate />}>';
 
-  assert.match(app, /<Route path="\/primeiros-passos" element={<Onboarding \/>} \/>/);
-  assert.match(app, /<Route path="\/primeiros-passos" element={<Onboarding \/>} \/>[\s\S]*<Route element={<FirstUseGate \/>}>/);
+  assert.ok(app.includes(wizardRoute));
+  assert.ok(app.includes(gateRoute));
+  assert.ok(app.indexOf(wizardRoute) < app.indexOf(gateRoute));
   assert.match(gate, /firstUseService\.requiresFirstUse\(user\)/);
-  assert.match(gate, /<Navigate to="\/primeiros-passos" replace \/>/);
+  assert.ok(gate.includes('<Navigate to="/primeiros-passos" replace />'));
   assert.doesNotMatch(gate, /useLocation/);
   assert.doesNotMatch(layout, /\/primeiros-passos/);
   assert.doesNotMatch(layout, /Primeiros Passos/);
