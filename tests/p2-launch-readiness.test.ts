@@ -6,6 +6,7 @@ import { LEGAL_DOCUMENTS, REQUIRED_LEGAL_ACCEPTANCES } from '../src/lib/legal/le
 const read = (path: string) => readFile(path, 'utf8');
 
 const MIGRATION = 'supabase/migrations/20260721010000_p2_lgpd_admin_onboarding.sql';
+const ONBOARDING_MIGRATION = 'supabase/migrations/20260721020000_remove_proposal_onboarding_step.sql';
 const REGISTER = 'src/components/auth/RegisterForm.tsx';
 const AUTH_SCHEMA = 'src/lib/validations/auth.schema.ts';
 const APP = 'src/App.tsx';
@@ -14,7 +15,8 @@ const DELETE_FUNCTION = 'supabase/functions/account-delete/index.ts';
 const ADMIN_FUNCTION = 'supabase/functions/admin-console/index.ts';
 const ONBOARDING = 'src/pages/Onboarding.tsx';
 const ACCOUNT_DATA = 'src/pages/AccountData.tsx';
-const PAYBACK = 'src/components/pdf/sections/PaybackSection.tsx';
+const PROPOSAL_SERVICE = 'src/services/proposalService.ts';
+const PROPOSAL_LIST = 'src/pages/propostas/ProposalList.tsx';
 const CONFIG = 'supabase/config.toml';
 
 const extractTableDefinition = (migration: string, tableName: string) => {
@@ -121,32 +123,39 @@ test('papel administrativo é validado no servidor e toda mutação gera auditor
   assert.doesNotMatch(source, /body\.role/);
 });
 
-test('onboarding usa dados reais e registra feedback estruturado do beta', async () => {
+test('onboarding não depende mais de proposta ou cálculo', async () => {
   const [migration, page, app] = await Promise.all([
-    read(MIGRATION),
+    read(ONBOARDING_MIGRATION),
     read(ONBOARDING),
     read(APP),
   ]);
 
-  assert.match(migration, /create or replace function public\.get_my_onboarding_status\(\)/);
-  assert.match(migration, /exists \([\s\S]*from public\.solar_kits/);
-  assert.match(migration, /exists \([\s\S]*from public\.clients/);
-  assert.match(migration, /exists \([\s\S]*from public\.proposals/);
-  assert.match(migration, /create table if not exists public\.beta_feedback/);
-  assert.match(migration, /with check \(auth\.uid\(\) = account_id\)/);
-  assert.match(page, /onboardingService\.getStatus\(\)/);
-  assert.match(page, /betaFeedbackService\.submit/);
-  assert.match(page, /Primeiros passos/);
+  assert.match(migration, /'total_steps', 4/);
+  assert.match(migration, /from public\.solar_kits/);
+  assert.match(migration, /from public\.clients/);
+  assert.doesNotMatch(migration, /from public\.proposals/);
+  assert.match(page, /total_steps: 4/);
+  assert.doesNotMatch(page, /proposal_complete/);
+  assert.doesNotMatch(page, /\/propostas\/nova/);
   assert.match(app, /path="primeiros-passos" element={<Onboarding \/>}/);
 });
 
-test('P2 declara explicitamente que o cálculo financeiro é payback simples', async () => {
-  const payback = await read(PAYBACK);
+test('Wizard e serviços de cálculo foram retirados das rotas e mutações', async () => {
+  const [app, service, list] = await Promise.all([
+    read(APP),
+    read(PROPOSAL_SERVICE),
+    read(PROPOSAL_LIST),
+  ]);
 
-  assert.match(payback, /Payback Simples/);
-  assert.match(payback, /Importante — estimativa simplificada/);
-  assert.match(payback, /não considera inflação energética/);
-  assert.match(payback, /não constituem garantia de geração, economia ou retorno financeiro/);
+  assert.doesNotMatch(app, /ProposalWizard/);
+  assert.match(app, /path="propostas\/nova" element={<Navigate to="\/propostas" replace \/>}/);
+  assert.match(app, /path="propostas\/:id\/editar" element={<Navigate to="\/propostas" replace \/>}/);
+  assert.doesNotMatch(service, /lib\/calculations/);
+  assert.doesNotMatch(service, /createProposal/);
+  assert.doesNotMatch(service, /updateProposal/);
+  assert.doesNotMatch(service, /duplicateProposal/);
+  assert.match(list, /Gerador de propostas removido/);
+  assert.doesNotMatch(list, /Nova Proposta/);
 });
 
 test('rotas públicas legais e área privada de dados estão registradas', async () => {
