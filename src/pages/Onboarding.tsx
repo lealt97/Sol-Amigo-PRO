@@ -22,7 +22,11 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
 import { LEGAL_DOCUMENTS, type LegalDocumentType } from '../lib/legal/legalCatalog';
-import { firstUseService, type FirstUseStatus } from '../services/firstUseService';
+import {
+  firstUseService,
+  MIN_FIRST_USE_LOGOS,
+  type FirstUseStatus,
+} from '../services/firstUseService';
 import { legalService, type LegalStatus } from '../services/legalService';
 import { profileService } from '../services/profileService';
 import type { Profile } from '../types/profile';
@@ -127,7 +131,8 @@ export function Onboarding() {
   const logos = useMemo(() => extractAllLogos(profile?.logo_url || null), [profile?.logo_url]);
   const activeLogo = useMemo(() => extractActiveLogo(profile?.logo_url || null), [profile?.logo_url]);
   const logoCount = logos.length;
-  const logosComplete = logoCount === MAX_ACCOUNT_LOGOS;
+  const hasMinimumLogo = logoCount >= MIN_FIRST_USE_LOGOS;
+  const logoLimitReached = logoCount >= MAX_ACCOUNT_LOGOS;
 
   const saveCompany = async () => {
     if (!user || !profile) return false;
@@ -201,7 +206,7 @@ export function Onboarding() {
 
   const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!user || !profile || !event.target.files?.length) return;
-    if (logoCount >= MAX_ACCOUNT_LOGOS) {
+    if (logoLimitReached) {
       toast.error(`O limite de ${MAX_ACCOUNT_LOGOS} logos já foi preenchido.`);
       event.target.value = '';
       return;
@@ -235,8 +240,9 @@ export function Onboarding() {
 
     try {
       setIsSaving(true);
-      const serialized = serializeLogos(logoUrl, logos);
-      const updated = await profileService.updateProfile(user.id, { logo_url: serialized });
+      const updated = await profileService.updateProfile(user.id, {
+        logo_url: serializeLogos(logoUrl, logos),
+      });
       setProfile(updated);
       refreshStatus(updated);
       window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: updated }));
@@ -256,8 +262,9 @@ export function Onboarding() {
       setIsSaving(true);
       const nextLogos = logos.filter((logo) => logo !== logoUrl);
       const nextActive = activeLogo === logoUrl ? nextLogos[0] || null : activeLogo;
-      const serialized = nextLogos.length ? serializeLogos(nextActive, nextLogos) : null;
-      const updated = await profileService.updateProfile(user.id, { logo_url: serialized });
+      const updated = await profileService.updateProfile(user.id, {
+        logo_url: nextLogos.length ? serializeLogos(nextActive, nextLogos) : null,
+      });
       setProfile(updated);
       refreshStatus(updated);
       window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: updated }));
@@ -301,8 +308,8 @@ export function Onboarding() {
       return;
     }
     if (currentStep === 3) {
-      if (!logosComplete) {
-        toast.error(`Envie as ${MAX_ACCOUNT_LOGOS} logos obrigatórias. Faltam ${MAX_ACCOUNT_LOGOS - logoCount}.`);
+      if (!hasMinimumLogo) {
+        toast.error('Envie pelo menos uma logo para continuar.');
         return;
       }
       setCurrentStep(4);
@@ -448,13 +455,13 @@ export function Onboarding() {
                   <Sparkles className="mx-auto h-12 w-12 text-brand-yellow" />
                   <h2 className="mt-5 text-3xl font-bold text-brand-dark">Vamos preparar sua operação</h2>
                   <p className="mt-4 text-base leading-7 text-slate-500">
-                    Este fluxo funciona como a configuração inicial de um sistema operacional. Os dados preenchidos aqui serão salvos diretamente nas áreas reais do SolAmigo e continuarão disponíveis para consulta e edição dentro da plataforma.
+                    Os dados preenchidos aqui serão salvos diretamente nas áreas reais do SolAmigo e continuarão disponíveis para consulta e edição dentro da plataforma.
                   </p>
                   <div className="mt-8 grid gap-3 text-left sm:grid-cols-2">
                     {[
                       'Identificação da empresa',
                       'Responsável comercial',
-                      '3 logos da marca (limite da conta)',
+                      'De 1 a 3 logos da marca',
                       'Segurança e documentos legais',
                     ].map((item) => (
                       <div key={item} className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-gray/50 p-4 text-sm font-semibold text-brand-dark">
@@ -524,24 +531,28 @@ export function Onboarding() {
               {currentStep === 3 && (
                 <div className="mx-auto max-w-3xl space-y-6">
                   <div>
-                    <h2 className="text-xl font-bold text-brand-dark">Envie as 3 logos da empresa</h2>
+                    <h2 className="text-xl font-bold text-brand-dark">Adicione as logos da empresa</h2>
                     <p className="mt-1 text-sm leading-6 text-slate-500">
-                      A plataforma aceita no máximo <strong className="text-brand-dark">3 logos por conta</strong>. Para concluir o primeiro uso, os três espaços abaixo devem estar preenchidos. Depois, as mesmas logos ficarão disponíveis em Configurações da Conta → Logo e no sistema de capas.
+                      Envie <strong className="text-brand-dark">pelo menos 1 logo</strong> para continuar. A conta permite no máximo <strong className="text-brand-dark">3 logos</strong>, que ficarão disponíveis em Configurações da Conta → Logo e no sistema de capas.
                     </p>
                   </div>
 
-                  <div className={`rounded-2xl border p-4 ${logosComplete ? 'border-emerald-200 bg-emerald-50' : 'border-brand-blue/20 bg-brand-blue/5'}`}>
+                  <div className={`rounded-2xl border p-4 ${hasMinimumLogo ? 'border-emerald-200 bg-emerald-50' : 'border-brand-blue/20 bg-brand-blue/5'}`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className={`font-bold ${logosComplete ? 'text-emerald-700' : 'text-brand-dark'}`}>
-                          {logosComplete ? 'As 3 logos foram cadastradas' : `${logoCount} de ${MAX_ACCOUNT_LOGOS} logos enviadas`}
+                        <p className={`font-bold ${hasMinimumLogo ? 'text-emerald-700' : 'text-brand-dark'}`}>
+                          {hasMinimumLogo ? `${logoCount} logo(s) cadastrada(s)` : 'Envie a primeira logo para continuar'}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {logosComplete ? 'Escolha abaixo qual será usada como logo principal.' : `Faltam ${MAX_ACCOUNT_LOGOS - logoCount} logo(s) para liberar a próxima etapa.`}
+                          {logoLimitReached
+                            ? 'O limite da conta foi preenchido. Escolha abaixo qual será a logo principal.'
+                            : hasMinimumLogo
+                              ? `A etapa já está liberada. Você ainda pode adicionar mais ${MAX_ACCOUNT_LOGOS - logoCount}.`
+                              : `Mínimo obrigatório: ${MIN_FIRST_USE_LOGOS}. Máximo permitido: ${MAX_ACCOUNT_LOGOS}.`}
                         </p>
                       </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${logosComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-blue/10 text-brand-blue'}`}>
-                        Limite: {MAX_ACCOUNT_LOGOS}
+                      <span className="rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-bold text-brand-blue">
+                        {logoCount} de {MAX_ACCOUNT_LOGOS}
                       </span>
                     </div>
                   </div>
@@ -550,6 +561,7 @@ export function Onboarding() {
                     {Array.from({ length: MAX_ACCOUNT_LOGOS }, (_, index) => {
                       const logo = logos[index];
                       const isPrimary = Boolean(logo && logo === activeLogo);
+                      const requiredSlot = index < MIN_FIRST_USE_LOGOS;
                       return (
                         <Card key={logo || `empty-logo-${index}`} className={`overflow-hidden border-2 ${isPrimary ? 'border-brand-blue' : logo ? 'border-brand-border' : 'border-dashed border-brand-border'}`}>
                           <div className="flex min-h-44 items-center justify-center bg-white p-5">
@@ -559,7 +571,7 @@ export function Onboarding() {
                               <div className="text-center">
                                 <ImageIcon className="mx-auto h-10 w-10 text-slate-300" />
                                 <p className="mt-3 text-sm font-bold text-brand-dark">Logo {index + 1}</p>
-                                <p className="mt-1 text-xs text-slate-400">Aguardando upload</p>
+                                <p className="mt-1 text-xs text-slate-400">{requiredSlot ? 'Obrigatória' : 'Opcional'}</p>
                               </div>
                             )}
                           </div>
@@ -580,7 +592,7 @@ export function Onboarding() {
                                 </Button>
                               </div>
                             ) : (
-                              <p className="py-2 text-center text-xs font-semibold text-slate-400">Obrigatória</p>
+                              <p className="py-2 text-center text-xs font-semibold text-slate-400">{requiredSlot ? 'Mínimo necessário' : 'Espaço opcional'}</p>
                             )}
                           </div>
                         </Card>
@@ -588,17 +600,17 @@ export function Onboarding() {
                     })}
                   </div>
 
-                  <input id="first-use-logo" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} disabled={isUploadingLogo || logosComplete} />
+                  <input id="first-use-logo" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} disabled={isUploadingLogo || logoLimitReached} />
                   <div className="flex flex-col items-center gap-3">
-                    <Button type="button" className="gap-2" disabled={isUploadingLogo || isSaving || logosComplete} onClick={() => document.getElementById('first-use-logo')?.click()}>
+                    <Button type="button" className="gap-2" disabled={isUploadingLogo || isSaving || logoLimitReached} onClick={() => document.getElementById('first-use-logo')?.click()}>
                       {isUploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                       {isUploadingLogo
                         ? 'Enviando...'
-                        : logosComplete
+                        : logoLimitReached
                           ? 'Limite de 3 logos preenchido'
                           : `Enviar logo ${logoCount + 1} de ${MAX_ACCOUNT_LOGOS}`}
                     </Button>
-                    <p className="text-center text-xs text-slate-500">Formatos PNG, JPG ou WebP. O botão de continuar será liberado somente após o terceiro upload.</p>
+                    <p className="text-center text-xs text-slate-500">Formatos PNG, JPG ou WebP. Após o primeiro upload, você já poderá continuar.</p>
                   </div>
                 </div>
               )}
@@ -653,23 +665,23 @@ export function Onboarding() {
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     {[
-                      ['Empresa', status.company_complete, companyForm.company_name],
-                      ['Responsável', status.responsible_complete, responsibleForm.seller_name],
-                      ['Identidade visual', status.identity_complete, `${logoCount} de ${MAX_ACCOUNT_LOGOS} logos configuradas`],
-                      ['Documentos legais', status.legal_complete, legalStatus.complete ? 'Versões atuais aceitas' : 'Aceite pendente'],
-                    ].map(([label, complete, detail]) => (
-                      <div key={String(label)} className="rounded-2xl border border-brand-border bg-brand-gray/50 p-4">
+                      { label: 'Empresa', complete: status.company_complete, detail: companyForm.company_name },
+                      { label: 'Responsável', complete: status.responsible_complete, detail: responsibleForm.seller_name },
+                      { label: 'Identidade visual', complete: status.identity_complete, detail: `${logoCount} de ${MAX_ACCOUNT_LOGOS} logos configuradas` },
+                      { label: 'Documentos legais', complete: status.legal_complete, detail: legalStatus.complete ? 'Versões atuais aceitas' : 'Aceite pendente' },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-brand-border bg-brand-gray/50 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-bold text-brand-dark">{label}</p>
-                          {complete ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <ShieldCheck className="h-5 w-5 text-amber-500" />}
+                          <p className="font-bold text-brand-dark">{item.label}</p>
+                          {item.complete ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <ShieldCheck className="h-5 w-5 text-amber-500" />}
                         </div>
-                        <p className="mt-2 text-sm text-slate-500">{detail}</p>
+                        <p className="mt-2 text-sm text-slate-500">{item.detail}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-5 text-sm leading-6 text-slate-600">
-                    Depois da entrada, os próximos cadastros recomendados serão o primeiro kit solar, a capa padrão do PDF e o primeiro cliente. Os dados deste fluxo permanecem disponíveis nas áreas reais da plataforma.
+                    As logos adicionais continuam opcionais e podem ser incluídas depois em Configurações da Conta → Logo, respeitando o limite de três.
                   </div>
                 </div>
               )}
@@ -681,9 +693,9 @@ export function Onboarding() {
               </Button>
 
               {currentStep < 5 ? (
-                <Button type="button" disabled={isSaving || isUploadingLogo || isAcceptingLegal || (currentStep === 3 && !logosComplete)} onClick={() => void goNext()} className="gap-2">
+                <Button type="button" disabled={isSaving || isUploadingLogo || isAcceptingLegal || (currentStep === 3 && !hasMinimumLogo)} onClick={() => void goNext()} className="gap-2">
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {currentStep === 0 ? 'Começar configuração' : currentStep === 3 ? `Continuar com ${MAX_ACCOUNT_LOGOS} logos` : 'Salvar e continuar'} <ArrowRight className="h-4 w-4" />
+                  {currentStep === 0 ? 'Começar configuração' : currentStep === 3 ? 'Salvar e continuar' : 'Salvar e continuar'} <ArrowRight className="h-4 w-4" />
                 </Button>
               ) : (
                 <Button type="button" disabled={isSaving || !status.complete} onClick={() => void finishWizard()} className="gap-2">
