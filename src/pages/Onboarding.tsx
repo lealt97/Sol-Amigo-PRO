@@ -10,6 +10,8 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  Star,
+  Trash2,
   Upload,
   UserRound,
 } from 'lucide-react';
@@ -24,7 +26,12 @@ import { firstUseService, type FirstUseStatus } from '../services/firstUseServic
 import { legalService, type LegalStatus } from '../services/legalService';
 import { profileService } from '../services/profileService';
 import type { Profile } from '../types/profile';
-import { extractActiveLogo, extractAllLogos, serializeLogos } from '../utils/logoHelper';
+import {
+  extractActiveLogo,
+  extractAllLogos,
+  MAX_ACCOUNT_LOGOS,
+  serializeLogos,
+} from '../utils/logoHelper';
 
 const EMPTY_LEGAL_STATUS: LegalStatus = { complete: false, documents: [] };
 const EMPTY_STATUS: FirstUseStatus = {
@@ -54,9 +61,9 @@ export function Onboarding() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [legalStatus, setLegalStatus] = useState<LegalStatus>(EMPTY_LEGAL_STATUS);
   const [status, setStatus] = useState<FirstUseStatus>(EMPTY_STATUS);
-  const [logoSkipped, setLogoSkipped] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isAcceptingLegal, setIsAcceptingLegal] = useState(false);
@@ -75,8 +82,8 @@ export function Onboarding() {
 
   const mandatoryFirstUse = Boolean(user && firstUseService.requiresFirstUse(user));
 
-  const refreshStatus = (nextProfile: Profile, nextLegalStatus = legalStatus, nextLogoSkipped = logoSkipped) => {
-    const nextStatus = firstUseService.buildStatus(nextProfile, nextLegalStatus, nextLogoSkipped);
+  const refreshStatus = (nextProfile: Profile, nextLegalStatus = legalStatus) => {
+    const nextStatus = firstUseService.buildStatus(nextProfile, nextLegalStatus);
     setStatus(nextStatus);
     return nextStatus;
   };
@@ -86,10 +93,10 @@ export function Onboarding() {
 
     try {
       setIsLoading(true);
+      setLoadError(null);
       const snapshot = await firstUseService.load(user);
       setProfile(snapshot.profile);
       setLegalStatus(snapshot.legalStatus);
-      setLogoSkipped(snapshot.logoSkipped);
       setStatus(snapshot.status);
       setCompanyForm({
         company_name: snapshot.profile.company_name || '',
@@ -105,6 +112,7 @@ export function Onboarding() {
       });
     } catch (error) {
       console.error('Erro ao carregar o primeiro uso:', error);
+      setLoadError('Não foi possível carregar a configuração inicial da conta.');
       toast.error('Não foi possível carregar a configuração inicial da conta.');
     } finally {
       setIsLoading(false);
@@ -116,7 +124,10 @@ export function Onboarding() {
   }, [user?.id]);
 
   const progress = Math.round((status.completed_steps / Math.max(status.total_steps, 1)) * 100);
+  const logos = useMemo(() => extractAllLogos(profile?.logo_url || null), [profile?.logo_url]);
   const activeLogo = useMemo(() => extractActiveLogo(profile?.logo_url || null), [profile?.logo_url]);
+  const logoCount = logos.length;
+  const logosComplete = logoCount === MAX_ACCOUNT_LOGOS;
 
   const saveCompany = async () => {
     if (!user || !profile) return false;
@@ -190,42 +201,70 @@ export function Onboarding() {
 
   const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!user || !profile || !event.target.files?.length) return;
+    if (logoCount >= MAX_ACCOUNT_LOGOS) {
+      toast.error(`O limite de ${MAX_ACCOUNT_LOGOS} logos já foi preenchido.`);
+      event.target.value = '';
+      return;
+    }
+
     const file = event.target.files[0];
     setIsUploadingLogo(true);
 
     try {
       const url = await profileService.uploadLogo(file, user.id);
-      const currentLogos = extractAllLogos(profile.logo_url);
-      const allLogos = currentLogos.includes(url) ? currentLogos : [...currentLogos, url];
-      const serialized = serializeLogos(url, allLogos);
+      const nextLogos = logos.includes(url) ? logos : [...logos, url];
+      const principal = activeLogo || url;
+      const serialized = serializeLogos(principal, nextLogos);
       const updated = await profileService.updateProfile(user.id, { logo_url: serialized });
       await firstUseService.setLogoSkipped(false);
-      setLogoSkipped(false);
       setProfile(updated);
-      refreshStatus(updated, legalStatus, false);
+      refreshStatus(updated);
       window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: updated }));
-      toast.success('Logo adicionada e definida como principal.');
+      toast.success(`Logo ${nextLogos.length} de ${MAX_ACCOUNT_LOGOS} adicionada.`);
     } catch (error) {
       console.error('Erro ao enviar logo:', error);
-      toast.error('Não foi possível enviar a logo.');
+      toast.error(error instanceof Error ? error.message : 'Não foi possível enviar a logo.');
     } finally {
       setIsUploadingLogo(false);
       event.target.value = '';
     }
   };
 
-  const skipLogo = async () => {
-    if (!profile) return;
+  const setPrimaryLogo = async (logoUrl: string) => {
+    if (!user || !profile || activeLogo === logoUrl) return;
+
     try {
       setIsSaving(true);
-      await firstUseService.setLogoSkipped(true);
-      setLogoSkipped(true);
-      refreshStatus(profile, legalStatus, true);
-      toast('Você poderá adicionar uma logo depois em Configurações da Conta.');
-      setCurrentStep(4);
+      const serialized = serializeLogos(logoUrl, logos);
+      const updated = await profileService.updateProfile(user.id, { logo_url: serialized });
+      setProfile(updated);
+      refreshStatus(updated);
+      window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: updated }));
+      toast.success('Logo principal definida.');
     } catch (error) {
-      console.error('Erro ao registrar escolha de logo:', error);
-      toast.error('Não foi possível continuar sem a logo.');
+      console.error('Erro ao definir logo principal:', error);
+      toast.error('Não foi possível definir a logo principal.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeLogo = async (logoUrl: string) => {
+    if (!user || !profile) return;
+
+    try {
+      setIsSaving(true);
+      const nextLogos = logos.filter((logo) => logo !== logoUrl);
+      const nextActive = activeLogo === logoUrl ? nextLogos[0] || null : activeLogo;
+      const serialized = nextLogos.length ? serializeLogos(nextActive, nextLogos) : null;
+      const updated = await profileService.updateProfile(user.id, { logo_url: serialized });
+      setProfile(updated);
+      refreshStatus(updated);
+      window.dispatchEvent(new CustomEvent<Profile>('solamigo:profile-updated', { detail: updated }));
+      toast.success('Logo removida do cadastro.');
+    } catch (error) {
+      console.error('Erro ao remover logo:', error);
+      toast.error('Não foi possível remover a logo.');
     } finally {
       setIsSaving(false);
     }
@@ -238,7 +277,7 @@ export function Onboarding() {
       await legalService.acceptCurrentDocuments();
       const nextLegalStatus = await legalService.getMyStatus();
       setLegalStatus(nextLegalStatus);
-      refreshStatus(profile, nextLegalStatus, logoSkipped);
+      refreshStatus(profile, nextLegalStatus);
       toast.success('Aceite das versões atuais registrado.');
     } catch (error) {
       console.error('Erro ao registrar aceite:', error);
@@ -262,8 +301,8 @@ export function Onboarding() {
       return;
     }
     if (currentStep === 3) {
-      if (!activeLogo && !logoSkipped) {
-        toast.error('Adicione uma logo ou escolha continuar sem logo.');
+      if (!logosComplete) {
+        toast.error(`Envie as ${MAX_ACCOUNT_LOGOS} logos obrigatórias. Faltam ${MAX_ACCOUNT_LOGOS - logoCount}.`);
         return;
       }
       setCurrentStep(4);
@@ -280,7 +319,7 @@ export function Onboarding() {
 
   const finishWizard = async () => {
     if (!profile) return;
-    const finalStatus = refreshStatus(profile, legalStatus, logoSkipped);
+    const finalStatus = refreshStatus(profile, legalStatus);
     if (!finalStatus.complete) {
       toast.error('Ainda existem etapas obrigatórias pendentes.');
       const firstPending = [
@@ -306,13 +345,25 @@ export function Onboarding() {
     }
   };
 
-  if (isLoading || !profile) {
+  if (isLoading) {
     return (
       <div className={`${mandatoryFirstUse ? 'fixed inset-0 z-50' : ''} grid min-h-[60vh] place-items-center bg-brand-gray`}>
         <div className="flex items-center gap-3 text-brand-blue">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span className="font-semibold">Preparando sua configuração inicial...</span>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError || !profile) {
+    return (
+      <div className={`${mandatoryFirstUse ? 'fixed inset-0 z-50' : ''} grid min-h-[60vh] place-items-center bg-brand-gray p-6`}>
+        <Card className="w-full max-w-lg p-6 text-center">
+          <h1 className="text-xl font-bold text-brand-dark">Não foi possível preparar o primeiro uso</h1>
+          <p className="mt-2 text-sm text-slate-500">{loadError || 'Os dados da conta não foram encontrados.'}</p>
+          <Button type="button" className="mt-5" onClick={() => void loadWizard()}>Tentar novamente</Button>
+        </Card>
       </div>
     );
   }
@@ -403,7 +454,7 @@ export function Onboarding() {
                     {[
                       'Identificação da empresa',
                       'Responsável comercial',
-                      'Logo da marca',
+                      '3 logos da marca (limite da conta)',
                       'Segurança e documentos legais',
                     ].map((item) => (
                       <div key={item} className="flex items-center gap-3 rounded-xl border border-brand-border bg-brand-gray/50 p-4 text-sm font-semibold text-brand-dark">
@@ -471,44 +522,84 @@ export function Onboarding() {
               )}
 
               {currentStep === 3 && (
-                <div className="mx-auto max-w-2xl space-y-6">
+                <div className="mx-auto max-w-3xl space-y-6">
                   <div>
-                    <h2 className="text-xl font-bold text-brand-dark">Identidade visual</h2>
-                    <p className="mt-1 text-sm text-slate-500">A logo ficará disponível em Configurações da Conta e poderá ser utilizada pelo sistema de capas.</p>
+                    <h2 className="text-xl font-bold text-brand-dark">Envie as 3 logos da empresa</h2>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      A plataforma aceita no máximo <strong className="text-brand-dark">3 logos por conta</strong>. Para concluir o primeiro uso, os três espaços abaixo devem estar preenchidos. Depois, as mesmas logos ficarão disponíveis em Configurações da Conta → Logo e no sistema de capas.
+                    </p>
                   </div>
 
-                  <Card className="border-dashed p-6">
-                    {activeLogo ? (
-                      <div className="flex flex-col items-center gap-5 text-center">
-                        <div className="flex min-h-40 w-full items-center justify-center rounded-2xl bg-white p-6">
-                          <img src={activeLogo} alt="Logo principal" className="max-h-32 max-w-full object-contain" />
-                        </div>
-                        <div className="flex items-center gap-2 text-sm font-bold text-emerald-600">
-                          <CheckCircle2 className="h-5 w-5" /> Logo principal configurada
-                        </div>
+                  <div className={`rounded-2xl border p-4 ${logosComplete ? 'border-emerald-200 bg-emerald-50' : 'border-brand-blue/20 bg-brand-blue/5'}`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className={`font-bold ${logosComplete ? 'text-emerald-700' : 'text-brand-dark'}`}>
+                          {logosComplete ? 'As 3 logos foram cadastradas' : `${logoCount} de ${MAX_ACCOUNT_LOGOS} logos enviadas`}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {logosComplete ? 'Escolha abaixo qual será usada como logo principal.' : `Faltam ${MAX_ACCOUNT_LOGOS - logoCount} logo(s) para liberar a próxima etapa.`}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="flex min-h-48 flex-col items-center justify-center text-center">
-                        <ImageIcon className="h-12 w-12 text-slate-300" />
-                        <p className="mt-4 font-bold text-brand-dark">Adicione a logo da sua empresa</p>
-                        <p className="mt-1 max-w-md text-sm text-slate-500">Formatos PNG, JPG ou WebP. A imagem será armazenada na mesma biblioteca de logos das configurações da conta.</p>
-                      </div>
-                    )}
-                  </Card>
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${logosComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-blue/10 text-brand-blue'}`}>
+                        Limite: {MAX_ACCOUNT_LOGOS}
+                      </span>
+                    </div>
+                  </div>
 
-                  <input id="first-use-logo" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} disabled={isUploadingLogo} />
-                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                    <Button type="button" className="gap-2" disabled={isUploadingLogo} onClick={() => document.getElementById('first-use-logo')?.click()}>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {Array.from({ length: MAX_ACCOUNT_LOGOS }, (_, index) => {
+                      const logo = logos[index];
+                      const isPrimary = Boolean(logo && logo === activeLogo);
+                      return (
+                        <Card key={logo || `empty-logo-${index}`} className={`overflow-hidden border-2 ${isPrimary ? 'border-brand-blue' : logo ? 'border-brand-border' : 'border-dashed border-brand-border'}`}>
+                          <div className="flex min-h-44 items-center justify-center bg-white p-5">
+                            {logo ? (
+                              <img src={logo} alt={`Logo ${index + 1}`} className="max-h-28 max-w-full object-contain" />
+                            ) : (
+                              <div className="text-center">
+                                <ImageIcon className="mx-auto h-10 w-10 text-slate-300" />
+                                <p className="mt-3 text-sm font-bold text-brand-dark">Logo {index + 1}</p>
+                                <p className="mt-1 text-xs text-slate-400">Aguardando upload</p>
+                              </div>
+                            )}
+                          </div>
+                          <div className="border-t border-brand-border p-3">
+                            {logo ? (
+                              <div className="space-y-2">
+                                {isPrimary ? (
+                                  <div className="flex items-center justify-center gap-2 rounded-lg bg-brand-blue/10 px-3 py-2 text-xs font-bold text-brand-blue">
+                                    <Star className="h-3.5 w-3.5 fill-current" /> Logo principal
+                                  </div>
+                                ) : (
+                                  <Button type="button" variant="outline" className="w-full gap-2" disabled={isSaving || isUploadingLogo} onClick={() => void setPrimaryLogo(logo)}>
+                                    <Star className="h-4 w-4" /> Definir como principal
+                                  </Button>
+                                )}
+                                <Button type="button" variant="outline" className="w-full gap-2 text-red-600 hover:text-red-700" disabled={isSaving || isUploadingLogo} onClick={() => void removeLogo(logo)}>
+                                  <Trash2 className="h-4 w-4" /> Remover
+                                </Button>
+                              </div>
+                            ) : (
+                              <p className="py-2 text-center text-xs font-semibold text-slate-400">Obrigatória</p>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  <input id="first-use-logo" type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} disabled={isUploadingLogo || logosComplete} />
+                  <div className="flex flex-col items-center gap-3">
+                    <Button type="button" className="gap-2" disabled={isUploadingLogo || isSaving || logosComplete} onClick={() => document.getElementById('first-use-logo')?.click()}>
                       {isUploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {isUploadingLogo ? 'Enviando...' : activeLogo ? 'Trocar logo' : 'Adicionar logo'}
+                      {isUploadingLogo
+                        ? 'Enviando...'
+                        : logosComplete
+                          ? 'Limite de 3 logos preenchido'
+                          : `Enviar logo ${logoCount + 1} de ${MAX_ACCOUNT_LOGOS}`}
                     </Button>
-                    {!activeLogo && (
-                      <Button type="button" variant="outline" disabled={isSaving} onClick={() => void skipLogo()}>
-                        Continuar sem logo
-                      </Button>
-                    )}
+                    <p className="text-center text-xs text-slate-500">Formatos PNG, JPG ou WebP. O botão de continuar será liberado somente após o terceiro upload.</p>
                   </div>
-                  {logoSkipped && !activeLogo && <p className="text-center text-xs font-semibold text-amber-600">Você escolheu adicionar a logo posteriormente.</p>}
                 </div>
               )}
 
@@ -564,7 +655,7 @@ export function Onboarding() {
                     {[
                       ['Empresa', status.company_complete, companyForm.company_name],
                       ['Responsável', status.responsible_complete, responsibleForm.seller_name],
-                      ['Identidade visual', status.identity_complete, activeLogo ? 'Logo configurada' : 'Continuar sem logo'],
+                      ['Identidade visual', status.identity_complete, `${logoCount} de ${MAX_ACCOUNT_LOGOS} logos configuradas`],
                       ['Documentos legais', status.legal_complete, legalStatus.complete ? 'Versões atuais aceitas' : 'Aceite pendente'],
                     ].map(([label, complete, detail]) => (
                       <div key={String(label)} className="rounded-2xl border border-brand-border bg-brand-gray/50 p-4">
@@ -578,7 +669,7 @@ export function Onboarding() {
                   </div>
 
                   <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-5 text-sm leading-6 text-slate-600">
-                    Depois da entrada, os próximos cadastros recomendados serão o primeiro kit solar, a capa padrão do PDF e o primeiro cliente. Eles continuarão disponíveis em “Primeiros Passos”, sem duplicar informações.
+                    Depois da entrada, os próximos cadastros recomendados serão o primeiro kit solar, a capa padrão do PDF e o primeiro cliente. Os dados deste fluxo permanecem disponíveis nas áreas reais da plataforma.
                   </div>
                 </div>
               )}
@@ -590,9 +681,9 @@ export function Onboarding() {
               </Button>
 
               {currentStep < 5 ? (
-                <Button type="button" disabled={isSaving || isUploadingLogo || isAcceptingLegal} onClick={() => void goNext()} className="gap-2">
+                <Button type="button" disabled={isSaving || isUploadingLogo || isAcceptingLegal || (currentStep === 3 && !logosComplete)} onClick={() => void goNext()} className="gap-2">
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {currentStep === 0 ? 'Começar configuração' : 'Salvar e continuar'} <ArrowRight className="h-4 w-4" />
+                  {currentStep === 0 ? 'Começar configuração' : currentStep === 3 ? `Continuar com ${MAX_ACCOUNT_LOGOS} logos` : 'Salvar e continuar'} <ArrowRight className="h-4 w-4" />
                 </Button>
               ) : (
                 <Button type="button" disabled={isSaving || !status.complete} onClick={() => void finishWizard()} className="gap-2">
