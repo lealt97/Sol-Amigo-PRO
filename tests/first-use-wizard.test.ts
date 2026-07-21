@@ -75,7 +75,8 @@ test('progresso regressa e o wizard volta quando dados obrigatórios são apagad
   assert.match(gate, /!snapshot\.status\.complete/);
   assert.match(gate, /firstUseService\.invalidateCompletion\(\)/);
   assert.match(gate, /solamigo:profile-updated/);
-  assert.match(gate, /useLocation\(\)/);
+  assert.match(gate, /requiredProfileDataComplete/);
+  assert.doesNotMatch(gate, /useLocation/);
   assert.match(service, /first_use_completed_at: null/);
   assert.match(profileService, /notifyProfileUpdated\(updatedProfile\)/);
   assert.match(profileService, /solamigo:profile-updated/);
