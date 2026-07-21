@@ -182,10 +182,11 @@ test('PDF com capa rasterizada detalhada contém exatamente uma página', async 
 test('três gerações preservam a estrutura da capa única', async () => {
   const proposal = makeProposal();
   const proposalBeforeRendering = JSON.stringify(proposal);
+  const coverImage = makeDetailedCoverPng();
   const generations: PdfQualityMetrics[] = [];
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const blob = await renderCover(proposal);
+    const blob = await renderCover(proposal, coverImage);
     const metrics = await validatePdfBlob(blob, {
       minByteLength: 4_096,
       maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
@@ -198,6 +199,7 @@ test('três gerações preservam a estrutura da capa única', async () => {
     assert.equal(metrics.hasEofMarker, true);
     assert.ok(metrics.objectCount > 0);
     assert.ok(metrics.streamCount > 0);
+    assert.ok(metrics.imageCount >= 1);
     generations.push(metrics);
   }
 
