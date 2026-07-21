@@ -20,8 +20,6 @@
     "src/types/proposal.ts",
     "src/types/solar.ts",
     "src/types/solarKit.ts",
-    "src/types/payback.ts",
-    "src/types/pricing.ts",
     "src/types/loadSurvey.ts",
     "src/types/roofLayout.ts",
     "tests/**/*.ts"
