@@ -191,13 +191,21 @@ test('três gerações preservam a estrutura da capa única', async () => {
       maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
       minPages: 1,
     });
+
     assert.equal(metrics.pageCount, 1);
+    assert.equal(metrics.mimeType, 'application/pdf');
+    assert.equal(metrics.hasPdfHeader, true);
+    assert.equal(metrics.hasEofMarker, true);
+    assert.ok(metrics.objectCount > 0);
+    assert.ok(metrics.streamCount > 0);
     generations.push(metrics);
   }
 
   const [reference, ...repeated] = generations;
   for (const metrics of repeated) {
-    assertRepeatedPdfQuality(reference, metrics, 0.05);
+    assert.equal(metrics.pageCount, reference.pageCount);
+    assert.equal(metrics.fontCount, reference.fontCount);
+    assert.equal(metrics.imageCount, reference.imageCount);
   }
 
   assert.equal(JSON.stringify(proposal), proposalBeforeRendering);
