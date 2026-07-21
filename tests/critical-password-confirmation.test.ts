@@ -5,6 +5,8 @@ import test from 'node:test';
 const SETTINGS_PATH = 'src/pages/Configuracoes.tsx';
 const SETTINGS_ROUTE_PATH = 'src/pages/SettingsRoute.tsx';
 const ACCOUNT_DATA_PATH = 'src/pages/AccountData.tsx';
+const ACCOUNT_CLOSURE_PATH = 'src/pages/AccountClosure.tsx';
+const ACCOUNT_DATA_SERVICE_PATH = 'src/services/accountDataService.ts';
 const ACCOUNT_DELETE_PATH = 'supabase/functions/account-delete/index.ts';
 const MFA_SETTINGS_PATH = 'src/components/auth/MfaSettingsCard.tsx';
 const MIGRATION_PATH = 'supabase/migrations/20260719235500_require_recent_password_confirmation.sql';
@@ -28,20 +30,28 @@ test('alteração de senha exige a senha atual antes da atualização', async ()
   );
 });
 
-test('exclusão completa exige frase, senha recente e limpeza de arquivos', async () => {
-  const [accountPage, deleteFunction, settingsRoute] = await Promise.all([
+test('exclusão completa fica em Encerramento da Conta e usa a sessão de senha recém-confirmada', async () => {
+  const [closurePage, accountPage, accountService, deleteFunction, settingsRoute] = await Promise.all([
+    readFile(ACCOUNT_CLOSURE_PATH, 'utf8'),
     readFile(ACCOUNT_DATA_PATH, 'utf8'),
+    readFile(ACCOUNT_DATA_SERVICE_PATH, 'utf8'),
     readFile(ACCOUNT_DELETE_PATH, 'utf8'),
     readFile(SETTINGS_ROUTE_PATH, 'utf8'),
   ]);
 
-  assert.match(accountPage, /excluir a conta/);
-  assert.match(accountPage, /signInWithPassword/);
-  assert.match(accountPage, /accountDataService\.deleteAccount\(\)/);
+  assert.match(closurePage, /Encerramento da Conta/);
+  assert.match(closurePage, /excluir a conta/);
+  assert.match(closurePage, /signInWithPassword/);
+  assert.match(closurePage, /signInData\.session\?\.access_token/);
+  assert.match(closurePage, /accountDataService\.deleteAccount\(accessToken\)/);
   assert.ok(
-    accountPage.indexOf('signInWithPassword') < accountPage.indexOf('accountDataService.deleteAccount()'),
+    closurePage.indexOf('signInWithPassword') < closurePage.indexOf('accountDataService.deleteAccount(accessToken)'),
     'a senha atual deve ser validada antes da exclusão completa',
   );
+
+  assert.match(accountService, /Authorization: `Bearer \$\{accessToken\}`/);
+  assert.match(accountPage, /!embedded &&/);
+  assert.match(accountPage, /A exclusão definitiva fica em Encerramento da Conta/);
 
   assert.match(deleteFunction, /PASSWORD_CONFIRMATION_MAX_AGE_SECONDS = 300/);
   assert.match(deleteFunction, /method === 'password'/);
@@ -52,9 +62,11 @@ test('exclusão completa exige frase, senha recente e limpeza de arquivos', asyn
     'os arquivos devem ser removidos antes de excluir o usuário',
   );
 
-  assert.match(settingsRoute, /<AccountData embedded \/>/);
+  assert.match(settingsRoute, /'Encerramento da Conta': 'encerramento'/);
+  assert.match(settingsRoute, /activeTab === 'encerramento'/);
+  assert.match(settingsRoute, /<AccountClosure \/>/);
   assert.match(settingsRoute, /activeTab === 'seguranca'/);
-  assert.match(settingsRoute, /\/configuracoes\?tab=seguranca/);
+  assert.match(settingsRoute, /<AccountData embedded \/>/);
 });
 
 test('desativação do MFA exige senha atual e TOTP na ordem correta', async () => {
@@ -67,7 +79,7 @@ test('desativação do MFA exige senha atual e TOTP na ordem correta', async () 
   assert.match(mfaSettings, /id="mfa-disable-password"/);
   assert.match(mfaSettings, /autoComplete="current-password"/);
   assert.match(handler, /if \(!disablePassword\)/);
-  assert.match(handler, /supabase\.auth\.getUser\(\)/);
+  assert.match(mfaSettings, /supabase\.auth\.getUser\(\)/);
   assert.match(handler, /signInWithPassword/);
   assert.match(handler, /challengeAndVerifyFactor/);
   assert.match(handler, /mfa\.unenroll/);
