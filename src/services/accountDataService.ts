@@ -12,12 +12,34 @@ function createDownload(data: unknown, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+async function resolveFunctionError(error: unknown, fallback: string) {
+  const defaultMessage = error instanceof Error && error.message ? error.message : fallback;
+
+  if (!error || typeof error !== 'object' || !('context' in error)) {
+    return defaultMessage;
+  }
+
+  const context = (error as { context?: Response }).context;
+  if (!context || typeof context.clone !== 'function') {
+    return defaultMessage;
+  }
+
+  try {
+    const payload = await context.clone().json() as { error?: unknown };
+    if (payload?.error) return String(payload.error);
+  } catch {
+    // A resposta pode não ser JSON. Nesse caso, preservamos a mensagem original.
+  }
+
+  return defaultMessage;
+}
+
 export const accountDataService = {
   async exportAccountData() {
     const { data, error } = await supabase.functions.invoke('account-data-export', {
       body: {},
     });
-    if (error) throw error;
+    if (error) throw new Error(await resolveFunctionError(error, 'Não foi possível exportar seus dados.'));
     if (data?.error) throw new Error(String(data.error));
 
     const date = new Date().toISOString().slice(0, 10);
@@ -25,11 +47,19 @@ export const accountDataService = {
     return data;
   },
 
-  async deleteAccount() {
+  async deleteAccount(accessToken: string) {
+    if (!accessToken) {
+      throw new Error('A confirmação recente da senha não foi encontrada. Entre novamente e repita a exclusão.');
+    }
+
     const { data, error } = await supabase.functions.invoke('account-delete', {
       body: {},
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
-    if (error) throw error;
+
+    if (error) throw new Error(await resolveFunctionError(error, 'Não foi possível excluir a conta.'));
     if (data?.error) throw new Error(String(data.error));
     if (data?.deleted !== true) throw new Error('A exclusão não foi confirmada pelo servidor.');
     return data;
