@@ -8,10 +8,18 @@ import {
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9_.-]/g, '-');
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
 const PROFILE_AVATAR_TYPES = new Map([
   ['image/jpeg', 'jpg'],
   ['image/png', 'png'],
   ['image/webp', 'webp'],
+]);
+const LOGO_TYPES = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/jpg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+  ['image/svg+xml', 'svg'],
 ]);
 
 function notifyProfileUpdated(profile: Profile) {
@@ -31,6 +39,34 @@ function resolveProfileAvatarPath(value: string, userId: string) {
   }
 
   return path;
+}
+
+async function validateLogoFile(file: File) {
+  if (file.size > LOGO_MAX_BYTES) {
+    throw new Error('A logo deve ter no máximo 5 MB.');
+  }
+
+  const lowerName = file.name.toLowerCase();
+  const isSvg = file.type === 'image/svg+xml' || lowerName.endsWith('.svg');
+  const contentType = isSvg ? 'image/svg+xml' : file.type;
+
+  if (!LOGO_TYPES.has(contentType)) {
+    throw new Error('Envie uma logo em PNG, JPG, WebP ou SVG.');
+  }
+
+  if (isSvg) {
+    const source = await file.text();
+    if (!/<svg(?:\s|>)/i.test(source)) {
+      throw new Error('O arquivo SVG informado não é válido.');
+    }
+
+    const unsafeSvg = /<script(?:\s|>)|<foreignObject(?:\s|>)|\son[a-z]+\s*=|(?:href|xlink:href)\s*=\s*["']\s*javascript:/i;
+    if (unsafeSvg.test(source)) {
+      throw new Error('O SVG contém conteúdo ativo não permitido. Exporte novamente a logo como SVG estático.');
+    }
+  }
+
+  return contentType;
 }
 
 async function assertLogoUploadAvailable(userId: string) {
@@ -135,17 +171,21 @@ export const profileService = {
   },
 
   async uploadLogo(file: File, userId: string) {
+    const contentType = await validateLogoFile(file);
+
     // Validate before creating a Storage object so a fourth upload cannot leave
     // an orphaned file when the account has already reached its logo quota.
     await assertLogoUploadAvailable(userId);
 
-    const safeName = sanitizeFileName(file.name || 'logo');
+    const fallbackExtension = LOGO_TYPES.get(contentType) || 'logo';
+    const originalName = file.name || `logo.${fallbackExtension}`;
+    const safeName = sanitizeFileName(originalName);
     const filePath = `${userId}/logos/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('logos')
       .upload(filePath, file, {
-        contentType: file.type || undefined,
+        contentType,
         upsert: false,
       });
 
