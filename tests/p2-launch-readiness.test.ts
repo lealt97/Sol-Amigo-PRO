@@ -10,6 +10,8 @@ const ONBOARDING_MIGRATION = 'supabase/migrations/20260721020000_remove_proposal
 const REGISTER = 'src/components/auth/RegisterForm.tsx';
 const AUTH_SCHEMA = 'src/lib/validations/auth.schema.ts';
 const APP = 'src/App.tsx';
+const LAYOUT = 'src/components/Layout.tsx';
+const SETTINGS_ROUTE = 'src/pages/SettingsRoute.tsx';
 const EXPORT_FUNCTION = 'supabase/functions/account-data-export/index.ts';
 const DELETE_FUNCTION = 'supabase/functions/account-delete/index.ts';
 const ADMIN_FUNCTION = 'supabase/functions/admin-console/index.ts';
@@ -158,12 +160,22 @@ test('Wizard e serviços de cálculo foram retirados das rotas e mutações', as
   assert.doesNotMatch(list, /Nova Proposta/);
 });
 
-test('rotas públicas legais e área privada de dados estão registradas', async () => {
-  const app = await read(APP);
+test('privacidade e dados ficam unificados na aba Segurança', async () => {
+  const [app, layout, settingsRoute, accountData] = await Promise.all([
+    read(APP),
+    read(LAYOUT),
+    read(SETTINGS_ROUTE),
+    read(ACCOUNT_DATA),
+  ]);
 
   assert.match(app, /path="\/termos"/);
   assert.match(app, /path="\/privacidade"/);
   assert.match(app, /path="\/cancelamento-reembolso"/);
-  assert.match(app, /path="privacidade-dados" element={<AccountData \/>}/);
+  assert.match(app, /path="privacidade-dados" element={<Navigate to="\/configuracoes\?tab=seguranca" replace \/>}/);
+  assert.doesNotMatch(layout, /label: 'Privacidade e Dados'/);
+  assert.match(settingsRoute, /activeTab === 'seguranca'/);
+  assert.match(settingsRoute, /<AccountData embedded \/>/);
+  assert.match(accountData, /embedded = false/);
+  assert.match(accountData, /Documentos legais, exportação e exclusão completa agora fazem parte das configurações de segurança/);
   assert.match(app, /path="admin" element={<AdminDashboard \/>}/);
 });
