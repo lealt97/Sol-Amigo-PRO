@@ -84,13 +84,18 @@ export function AccountData({ embedded = false }: AccountDataProps) {
 
     try {
       setIsDeleting(true);
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password,
       });
       if (signInError) throw new Error('A senha digitada está incorreta.');
 
-      await accountDataService.deleteAccount();
+      const accessToken = signInData.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Não foi possível gerar uma confirmação recente da senha. Entre novamente e repita a exclusão.');
+      }
+
+      await accountDataService.deleteAccount(accessToken);
       toast.success('Conta, dados e arquivos excluídos.');
       await signOut();
       navigate('/login', { replace: true });
@@ -125,7 +130,7 @@ export function AccountData({ embedded = false }: AccountDataProps) {
             <Shield className="h-5 w-5" />
             <h2 className="text-lg font-bold text-brand-dark">Privacidade e dados</h2>
           </div>
-          <p className="mt-2 text-sm leading-6 text-slate-500">Documentos legais, exportação e exclusão completa agora fazem parte das configurações de segurança da conta.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Documentos legais e exportação de dados fazem parte das configurações de segurança. A exclusão definitiva fica em Encerramento da Conta.</p>
         </div>
       )}
 
@@ -187,34 +192,36 @@ export function AccountData({ embedded = false }: AccountDataProps) {
         </div>
       </Card>
 
-      <Card className="overflow-hidden border-red-200">
-        <div className="border-b border-red-200 bg-red-50 px-6 py-5">
-          <div className="flex items-center gap-2 text-red-700">
-            <Trash2 className="h-5 w-5" />
-            <h2 className="text-lg font-bold">Excluir conta e dados</h2>
+      {!embedded && (
+        <Card className="overflow-hidden border-red-200">
+          <div className="border-b border-red-200 bg-red-50 px-6 py-5">
+            <div className="flex items-center gap-2 text-red-700">
+              <Trash2 className="h-5 w-5" />
+              <h2 className="text-lg font-bold">Excluir conta e dados</h2>
+            </div>
+            <p className="mt-2 text-sm text-red-600">A função remove primeiro os arquivos das pastas da conta e somente depois exclui o usuário e os registros relacionados.</p>
           </div>
-          <p className="mt-2 text-sm text-red-600">A função remove primeiro os arquivos das pastas da conta e somente depois exclui o usuário e os registros relacionados.</p>
-        </div>
-        <form onSubmit={handleDelete} className="space-y-4 p-6">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-            Gere a exportação antes de continuar. Logs estritamente necessários para segurança, prevenção de fraude ou obrigação legal podem ser preservados de forma desvinculada conforme a política de retenção aprovada.
-          </div>
-          <div>
-            <label className="text-sm font-medium text-brand-dark">Digite <strong className="text-red-600">excluir a conta</strong></label>
-            <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-brand-dark">Senha atual</label>
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm" />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" variant="destructive" disabled={isDeleting} className="gap-2 bg-red-600 text-white hover:bg-red-700">
-              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              {isDeleting ? 'Excluindo...' : 'Excluir permanentemente'}
-            </Button>
-          </div>
-        </form>
-      </Card>
+          <form onSubmit={handleDelete} className="space-y-4 p-6">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+              Gere a exportação antes de continuar. Logs estritamente necessários para segurança, prevenção de fraude ou obrigação legal podem ser preservados de forma desvinculada conforme a política de retenção aprovada.
+            </div>
+            <div>
+              <label className="text-sm font-medium text-brand-dark">Digite <strong className="text-red-600">excluir a conta</strong></label>
+              <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-brand-dark">Senha atual</label>
+              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-lg border border-brand-border bg-brand-surface px-3 py-2 text-sm" />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" variant="destructive" disabled={isDeleting} className="gap-2 bg-red-600 text-white hover:bg-red-700">
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {isDeleting ? 'Excluindo...' : 'Excluir permanentemente'}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
     </section>
   );
 }
