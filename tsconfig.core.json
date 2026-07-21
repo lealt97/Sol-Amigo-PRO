@@ -9,7 +9,6 @@
   },
   "include": [
     "src/lib/auth/**/*.ts",
-    "src/lib/calculations/**/*.ts",
     "src/lib/clients/**/*.ts",
     "src/lib/kits/**/*.ts",
     "src/lib/pdf/pdfGenerationOperations.ts",
@@ -17,7 +16,6 @@
     "src/lib/public-proposals/**/*.ts",
     "src/lib/validations/auth.schema.ts",
     "src/lib/validations/client.schema.ts",
-    "src/lib/validations/proposal.schema.ts",
     "src/types/client.ts",
     "src/types/proposal.ts",
     "src/types/solar.ts",
