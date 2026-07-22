@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { FileText, LayoutDashboard, LogOut, Menu, Package, PenTool, Settings, ShieldCheck, Users } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatedNavbarLogo } from "./brand/AnimatedNavbarLogo";
+import {
+  AdminCategoryIcon,
+  ClientsCategoryIcon,
+  DashboardCategoryIcon,
+  DesignPdfCategoryIcon,
+  ProposalsCategoryIcon,
+  SettingsCategoryIcon,
+  SolarKitsCategoryIcon,
+} from "./icons/SolAmigoCategoryIcons";
 import { profileService } from "../services/profileService";
 import { adminService } from "../services/adminService";
 import { Profile } from "../types/profile";
@@ -77,13 +86,13 @@ export function Layout() {
   };
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/clientes', label: 'Clientes', icon: Users },
-    { path: '/propostas', label: 'Propostas', icon: FileText },
-    { path: '/kits-solares', label: 'Kits Solares', icon: Package },
-    { path: '/design-pdf', label: 'Design PDF', icon: PenTool },
-    { path: '/configuracoes', label: 'Configurações da Conta', icon: Settings },
-    ...(isAdmin ? [{ path: '/admin', label: 'Administração', icon: ShieldCheck }] : []),
+    { path: '/dashboard', label: 'Dashboard', icon: DashboardCategoryIcon },
+    { path: '/clientes', label: 'Clientes', icon: ClientsCategoryIcon },
+    { path: '/propostas', label: 'Propostas', icon: ProposalsCategoryIcon },
+    { path: '/kits-solares', label: 'Kits Solares', icon: SolarKitsCategoryIcon },
+    { path: '/design-pdf', label: 'Design PDF', icon: DesignPdfCategoryIcon },
+    { path: '/configuracoes', label: 'Configurações da Conta', icon: SettingsCategoryIcon },
+    ...(isAdmin ? [{ path: '/admin', label: 'Administração', icon: AdminCategoryIcon }] : []),
   ];
 
   const getPageTitle = () => {
@@ -116,13 +125,13 @@ export function Layout() {
                     isSidebarExpanded ? "gap-3 px-3 py-2" : "justify-center p-2"
                   } ${
                     isActive
-                      ? "bg-gray-50 text-brand-dark"
-                      : "text-slate-500 hover:text-brand-dark hover:bg-gray-50/50"
+                      ? "bg-gray-50 text-brand-blue"
+                      : "text-slate-500 hover:text-brand-light hover:bg-gray-50/50"
                   }`}
                   title={!isSidebarExpanded ? item.label : undefined}
                 >
-                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? "opacity-100 text-brand-blue" : "opacity-70"}`} />
-                  {isSidebarExpanded && <span className="truncate">{item.label}</span>}
+                  <Icon className={`h-6 w-6 shrink-0 transition-transform duration-200 ${isActive ? "scale-105 opacity-100" : "opacity-80"}`} />
+                  {isSidebarExpanded && <span className={`truncate ${isActive ? "font-medium text-brand-dark" : ""}`}>{item.label}</span>}
                 </Link>
               );
             })}
