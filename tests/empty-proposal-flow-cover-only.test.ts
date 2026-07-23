@@ -4,10 +4,10 @@ import test from 'node:test';
 
 const read = (path: string) => readFile(path, 'utf8');
 
-test('rotas de criação e edição de proposta permanecem vazias para reconstrução', async () => {
+test('rota de criação recebe a calculadora profissional e edição permanece vazia', async () => {
   const app = await read('src/App.tsx');
 
-  assert.match(app, /path="propostas\/nova" element=\{null\}/);
+  assert.match(app, /path="propostas\/nova" element={<ProfessionalSolarCalculator \/>}/);
   assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
   assert.doesNotMatch(app, /ProposalWizard/);
 });
