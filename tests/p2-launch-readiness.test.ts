@@ -20,8 +20,9 @@ const ACCOUNT_DATA = 'src/pages/AccountData.tsx';
 const ACCOUNT_CLOSURE = 'src/pages/AccountClosure.tsx';
 const PROPOSAL_SERVICE = 'src/services/proposalService.ts';
 const PROPOSAL_LIST = 'src/pages/propostas/ProposalList.tsx';
-const SIZING_CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculator.tsx';
+const SIZING_CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 const SIZING_ENGINE = 'src/lib/calculations/professionalSizing.ts';
+const CONSUMPTION_ENGINE = 'src/lib/calculations/consumptionModes.ts';
 const CONFIG = 'supabase/config.toml';
 
 const extractTableDefinition = (migration: string, tableName: string) => {
@@ -147,13 +148,14 @@ test('onboarding não depende mais de proposta ou cálculo', async () => {
   assert.ok(app.includes('<Route path="/primeiros-passos" element={<FirstUseRoute />} />'));
 });
 
-test('dimensionamento começa pelo cliente e usa consumo, HSP e kit cadastrado sem reativar mutações antigas', async () => {
-  const [app, service, list, calculator, engine] = await Promise.all([
+test('dimensionamento começa pelo cliente e oferece três modos de consumo sem reativar mutações antigas', async () => {
+  const [app, service, list, calculator, engine, consumptionEngine] = await Promise.all([
     read(APP),
     read(PROPOSAL_SERVICE),
     read(PROPOSAL_LIST),
     read(SIZING_CALCULATOR),
     read(SIZING_ENGINE),
+    read(CONSUMPTION_ENGINE),
   ]);
 
   assert.doesNotMatch(app, /ProposalWizard/);
@@ -165,14 +167,19 @@ test('dimensionamento começa pelo cliente e usa consumo, HSP e kit cadastrado s
   assert.match(list, /Novo dimensionamento/);
   assert.match(calculator, /clientService\.getClients\(\)/);
   assert.match(calculator, /Selecione o cliente/);
-  assert.match(calculator, /Selecione um cliente cadastrado/);
   assert.match(calculator, /searchParams\.get\('clienteId'\)/);
+  assert.match(calculator, /Consumo médio direto/);
+  assert.match(calculator, /Histórico de 12 meses/);
+  assert.match(calculator, /Levantamento de cargas/);
+  assert.match(calculator, /Adicionar equipamento/);
   assert.match(calculator, /solarKitService\.getActiveKits\(\)/);
   assert.match(calculator, /CRESESB\/SunData/);
   assert.match(calculator, /Tipo de ligação/);
   assert.match(calculator, /Rendimento global/);
   assert.match(calculator, /Kit solar/);
   assert.doesNotMatch(calculator, /Voc|Vmp|strings|MPPT/);
+  assert.match(consumptionEngine, /resolveAverageMonthlyConsumptionKwh/);
+  assert.match(consumptionEngine, /daysPerWeek \/ 7/);
   assert.match(engine, /averageMonthlyConsumptionKwh/);
   assert.match(engine, /availabilityConsumptionKwh/);
   assert.match(engine, /requiredPowerKwp/);
