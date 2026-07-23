@@ -8,6 +8,7 @@ const STORAGE_SERVICE_PATH = 'src/services/storageAssetService.ts';
 const PDF_GENERATOR_PATH = 'src/lib/pdf/generateProposalPdf.tsx';
 const PDF_PREVIEW_PATH = 'src/features/design-pdf/components/PdfPreview.tsx';
 const APP_PATH = 'src/App.tsx';
+const CALCULATOR_PATH = 'src/pages/propostas/ProfessionalSizingCalculator.tsx';
 
 const read = (path: string) => readFile(path, 'utf8');
 
@@ -55,13 +56,15 @@ test('geração de PDF falha fechada sem restaurar URL pública', async () => {
   assert.match(pdfGenerator, /resolveStorageAssetUrl\(privateRoofImage, 900\)/);
 });
 
-test('upload de telhado não está mais exposto pelo Wizard removido', async () => {
-  const [service, app] = await Promise.all([
+test('upload de telhado não está exposto pelo dimensionamento inicial', async () => {
+  const [service, app, calculator] = await Promise.all([
     read(STORAGE_SERVICE_PATH),
     read(APP_PATH),
+    read(CALCULATOR_PATH),
   ]);
 
   assert.match(service, /uploadRoofImage/);
   assert.doesNotMatch(app, /ProposalWizard/);
-  assert.match(app, /path="propostas\/nova" element=\{null\}/);
+  assert.match(app, /path="propostas\/nova" element=\{<ProfessionalSizingCalculator \/>\}/);
+  assert.doesNotMatch(calculator, /uploadRoofImage/);
 });
