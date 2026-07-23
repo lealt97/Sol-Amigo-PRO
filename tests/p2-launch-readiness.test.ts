@@ -20,6 +20,8 @@ const ACCOUNT_DATA = 'src/pages/AccountData.tsx';
 const ACCOUNT_CLOSURE = 'src/pages/AccountClosure.tsx';
 const PROPOSAL_SERVICE = 'src/services/proposalService.ts';
 const PROPOSAL_LIST = 'src/pages/propostas/ProposalList.tsx';
+const PROFESSIONAL_CALCULATOR = 'src/pages/propostas/ProfessionalSolarCalculator.tsx';
+const PROFESSIONAL_ENGINE = 'src/lib/calculations/professionalSolar.ts';
 const CONFIG = 'supabase/config.toml';
 
 const extractTableDefinition = (migration: string, tableName: string) => {
@@ -128,7 +130,7 @@ test('papel administrativo é validado no servidor e toda mutação gera auditor
   assert.doesNotMatch(source, /body\.role/);
 });
 
-test('onboarding não depende mais de proposta ou cálculo', async () => {
+test('onboarding não depende de proposta ou cálculo', async () => {
   const [migration, page, app] = await Promise.all([
     read(ONBOARDING_MIGRATION),
     read(ONBOARDING),
@@ -145,22 +147,30 @@ test('onboarding não depende mais de proposta ou cálculo', async () => {
   assert.ok(app.includes('<Route path="/primeiros-passos" element={<FirstUseRoute />} />'));
 });
 
-test('Wizard e serviços de cálculo foram retirados das rotas e mutações', async () => {
-  const [app, service, list] = await Promise.all([
+test('calculadora profissional volta à rota sem reativar mutações antigas de proposta', async () => {
+  const [app, service, list, calculator, engine] = await Promise.all([
     read(APP),
     read(PROPOSAL_SERVICE),
     read(PROPOSAL_LIST),
+    read(PROFESSIONAL_CALCULATOR),
+    read(PROFESSIONAL_ENGINE),
   ]);
 
   assert.doesNotMatch(app, /ProposalWizard/);
-  assert.match(app, /path="propostas\/nova" element=\{null\}/);
+  assert.match(app, /path="propostas\/nova" element={<ProfessionalSolarCalculator \/>}/);
   assert.match(app, /path="propostas\/:id\/editar" element=\{null\}/);
-  assert.doesNotMatch(service, /lib\/calculations/);
   assert.doesNotMatch(service, /createProposal/);
   assert.doesNotMatch(service, /updateProposal/);
   assert.doesNotMatch(service, /duplicateProposal/);
-  assert.match(list, /Gerador de propostas removido/);
-  assert.doesNotMatch(list, /Nova Proposta/);
+  assert.match(list, /Nova proposta/);
+  assert.match(list, /Calculadora profissional reativada/);
+  assert.match(calculator, /calculateProfessionalSolar/);
+  assert.match(calculator, /Perdas totais estimadas/);
+  assert.match(calculator, /Geração adicional desejada/);
+  assert.match(calculator, /Relação DC\/AC desejada/);
+  assert.match(engine, /annualSpecificYieldKwhPerKwp/);
+  assert.match(engine, /generationAdditionalPercent/);
+  assert.match(engine, /totalLossPercent/);
 });
 
 test('privacidade e exportação ficam em Segurança e exclusão em Encerramento da Conta', async () => {
