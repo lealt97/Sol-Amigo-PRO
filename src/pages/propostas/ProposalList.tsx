@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Calculator, Eye, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Eye, Search, Trash2 } from 'lucide-react';
 import { proposalService } from '../../services/proposalService';
 import { Proposal } from '../../types/proposal';
 import { Button } from '../../components/ui/Button';
@@ -79,21 +79,16 @@ export function ProposalList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
-          <p className="text-sm text-slate-500">Dimensione novos sistemas e consulte propostas existentes.</p>
-        </div>
-        <Button className="gap-2" onClick={() => navigate('/propostas/nova')}>
-          <Plus className="h-4 w-4" /> Nova proposta
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
+        <p className="text-sm text-slate-500">Consulte e exclua propostas já existentes.</p>
       </div>
 
-      <div className="flex items-start gap-3 rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4 text-brand-dark">
-        <Calculator className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
         <div>
-          <p className="font-semibold">Calculadora profissional reativada</p>
-          <p className="mt-1 text-sm text-slate-600">A primeira entrega inclui dimensionamento anual com consumo e HSP mensais, perdas totais, geração adicional, módulos, área, relação DC/AC, créditos e economia estimada.</p>
+          <p className="font-semibold">Gerador de propostas removido</p>
+          <p className="mt-1 text-sm">O Wizard, a edição, a duplicação e os cálculos foram removidos. Os registros existentes foram preservados apenas para consulta e exclusão.</p>
         </div>
       </div>
 
