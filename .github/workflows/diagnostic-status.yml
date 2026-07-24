@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,12 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Aplicar compatibilidade elétrica dos kits
-        run: python3 .github/scripts/apply-kit-electrical-compatibility.py
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -127,30 +121,6 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
-
-      - name: Commitar compatibilidade elétrica
-        if: steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/types/solarKit.ts \
-            src/lib/kits/solarKitOperations.ts \
-            src/pages/kits/SolarKitCatalog.tsx \
-            src/types/proposalDraft.ts \
-            src/lib/calculations/electricalCompatibility.ts \
-            src/pages/propostas/ProfessionalSizingCalculatorView.tsx \
-            supabase/migrations/20260724150000_add_solar_kit_electrical_compatibility.sql \
-            supabase-schema.sql \
-            tests/electrical-compatibility.test.ts \
-            tests/solarKitOperations.test.ts
-          if git diff --cached --quiet; then
-            echo "Nenhuma alteração funcional necessária."
-            exit 0
-          fi
-          git commit -m "feat: adicionar compatibilidade elétrica aos kits"
-          git push origin main
 
       - name: Registrar conclusão informativa
         if: always()
