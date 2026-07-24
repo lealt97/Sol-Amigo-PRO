@@ -1,3 +1,5 @@
+import type { ElectricalStandardId } from '../lib/calculations/electricalStandards';
+
 export const PROPOSAL_DRAFT_VERSION = 1 as const;
 
 export type ProposalDraftConsumptionMode = 'history' | 'average' | 'loads';
@@ -39,6 +41,7 @@ export type ProposalDraftStateV1 = {
   loadSurvey: ProposalDraftLoad[];
   connectionType: ProposalDraftConnectionType;
   gridVoltageV?: string;
+  electricalStandardId?: ElectricalStandardId;
   hspDaily: string;
   performanceRatioPercent: string;
   generationIncreasePercent: string;

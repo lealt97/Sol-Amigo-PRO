@@ -175,7 +175,7 @@ test('dimensionamento começa pelo cliente, oferece três modos de consumo e per
   assert.match(calculator, /solarKitService\.getActiveKits\(\)/);
   assert.doesNotMatch(calculator, /Latitude|Longitude|CRESESB\/SunData|Fonte da irradiação/);
   assert.match(calculator, /Geração adicional desejada/);
-  assert.match(calculator, /Tipo de ligação/);
+  assert.match(calculator, /Padrão elétrico da unidade/);
   assert.match(calculator, /Rendimento global/);
   assert.match(calculator, /Kit solar/);
   assert.doesNotMatch(calculator, /Voc|Vmp|strings|MPPT/);

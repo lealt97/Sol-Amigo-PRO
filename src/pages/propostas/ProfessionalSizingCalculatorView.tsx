@@ -43,6 +43,12 @@ import {
 } from '../../lib/calculations/moduleSizing';
 import { calculateDcAcOversizing } from '../../lib/calculations/oversizing';
 import { calculateElectricalCompatibility } from '../../lib/calculations/electricalCompatibility';
+import {
+  ELECTRICAL_STANDARD_OPTIONS,
+  getElectricalStandard,
+  inferElectricalStandardId,
+  type ElectricalStandardId,
+} from '../../lib/calculations/electricalStandards';
 import type { PaybackResult } from '../../lib/calculations/payback';
 import { clampProposalFlowStep, getProposalContinuePath } from '../../lib/proposals/flow';
 import { clientService } from '../../services/clientService';
@@ -192,8 +198,7 @@ export function ProfessionalSizingCalculator() {
     () => Array.from({ length: 12 }, () => ''),
   );
   const [loadSurvey, setLoadSurvey] = useState<LoadSurveyDraft[]>([createLoadDraft()]);
-  const [connectionType, setConnectionType] = useState<ConnectionType>('monophase');
-  const [gridVoltageV, setGridVoltageV] = useState('');
+  const [electricalStandardId, setElectricalStandardId] = useState<ElectricalStandardId>('monophase_127');
 
   const [hspDaily, setHspDaily] = useState('');
   const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
@@ -212,6 +217,10 @@ export function ProfessionalSizingCalculator() {
   const [paybackForm, setPaybackForm] = useState<ProposalDraftPaybackForm | null>(null);
   const [roofPhotoReference, setRoofPhotoReference] = useState<string | null>(null);
 
+  const selectedElectricalStandard = getElectricalStandard(electricalStandardId);
+  const connectionType = selectedElectricalStandard.connectionType;
+  const gridVoltageV = String(selectedElectricalStandard.referenceVoltageV);
+
   function hydrateProposalDraft(state: ProposalDraftState, fallbackTitle = '', startAtBeginning = false) {
     setCurrentStep(startAtBeginning ? 0 : clampProposalFlowStep(state.currentStep));
     setProposalTitle(state.proposalTitle || fallbackTitle);
@@ -223,8 +232,13 @@ export function ProfessionalSizingCalculator() {
       ? state.monthlyConsumption
       : Array.from({ length: 12 }, (_, index) => state.monthlyConsumption[index] || ''));
     setLoadSurvey(state.loadSurvey.length > 0 ? state.loadSurvey : [createLoadDraft()]);
-    setConnectionType(state.connectionType as ConnectionType);
-    setGridVoltageV(state.gridVoltageV || '');
+    setElectricalStandardId(
+      state.electricalStandardId
+        ?? inferElectricalStandardId(
+          state.connectionType as ConnectionType,
+          parseOptionalNumber(state.gridVoltageV || ''),
+        ),
+    );
     setHspDaily(state.hspDaily);
     setPerformanceRatioPercent(state.performanceRatioPercent);
     setGenerationIncreasePercent(state.generationIncreasePercent);
@@ -331,11 +345,11 @@ export function ProfessionalSizingCalculator() {
 
     return calculateElectricalCompatibility({
       customerConnectionType: connectionType,
-      customerVoltageV: parseOptionalNumber(gridVoltageV),
+      customerVoltagesV: selectedElectricalStandard.availableVoltagesV,
       kitConnectionType: selectedKit.grid_connection_type ?? null,
       kitVoltageV: selectedKit.grid_voltage_v ?? null,
     });
-  }, [connectionType, gridVoltageV, selectedKit]);
+  }, [connectionType, selectedElectricalStandard, selectedKit]);
 
   const consumptionModeInput = useMemo(() => ({
     mode: consumptionMode,
@@ -458,12 +472,6 @@ export function ProfessionalSizingCalculator() {
         return false;
       }
 
-      const parsedGridVoltage = parseNumber(gridVoltageV);
-      if (!Number.isFinite(parsedGridVoltage) || parsedGridVoltage <= 0) {
-        toast.error('Informe a tensão da unidade consumidora em volts.');
-        return false;
-      }
-
       const availability = CONNECTION_AVAILABILITY_KWH[connectionType];
       if (consumptionResolution.averageMonthlyConsumptionKwh <= availability) {
         toast.error('O consumo médio deve ser maior que o custo de disponibilidade.');
@@ -535,6 +543,7 @@ export function ProfessionalSizingCalculator() {
     loadSurvey,
     connectionType,
     gridVoltageV,
+    electricalStandardId,
     hspDaily,
     performanceRatioPercent,
     generationIncreasePercent,
@@ -1022,28 +1031,20 @@ export function ProfessionalSizingCalculator() {
                   </div>
                 )}
 
-                <div className="grid max-w-3xl gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-semibold text-brand-dark">Tipo de ligação</span>
-                    <Select value={connectionType} onChange={(event) => setConnectionType(event.target.value as ConnectionType)}>
-                      <option value="monophase">Monofásica — 30 kWh</option>
-                      <option value="biphase">Bifásica — 50 kWh</option>
-                      <option value="triphase">Trifásica — 100 kWh</option>
-                    </Select>
-                    <p className="text-xs leading-5 text-slate-500">
-                      O sistema subtrai automaticamente o custo de disponibilidade da média mensal obtida no modo escolhido.
-                    </p>
-                  </label>
-                  <Field
-                    label="Tensão da unidade consumidora"
-                    value={gridVoltageV}
-                    onChange={setGridVoltageV}
-                    suffix="V"
-                    min={1}
-                    step="1"
-                    helper="Use a tensão nominal informada na conta ou no padrão de entrada, como 127, 220 ou 380 V."
-                  />
-                </div>
+                <label className="block max-w-xl space-y-2">
+                  <span className="text-sm font-semibold text-brand-dark">Padrão elétrico da unidade</span>
+                  <Select
+                    value={electricalStandardId}
+                    onChange={(event) => setElectricalStandardId(event.target.value as ElectricalStandardId)}
+                  >
+                    {ELECTRICAL_STANDARD_OPTIONS.map((standard) => (
+                      <option key={standard.id} value={standard.id}>{standard.label}</option>
+                    ))}
+                  </Select>
+                  <p className="text-xs leading-5 text-slate-500">
+                    O tipo de ligação define o custo de disponibilidade de {CONNECTION_AVAILABILITY_KWH[connectionType]} kWh. As tensões do padrão são usadas somente para conferir a compatibilidade do inversor.
+                  </p>
+                </label>
 
                 {consumptionPreview && (
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1289,11 +1290,9 @@ export function ProfessionalSizingCalculator() {
                           ? 'border-emerald-400/50 bg-emerald-500/10'
                           : selectedKitElectricalCompatibility.status === 'connection_upgrade_required'
                             ? 'border-amber-400/50 bg-amber-500/10'
-                            : selectedKitElectricalCompatibility.status === 'voltage_adaptation_required'
-                              ? 'border-red-400/50 bg-red-500/10'
-                              : selectedKitElectricalCompatibility.status === 'technical_review'
-                                ? 'border-brand-light/40 bg-brand-blue/10'
-                                : 'border-slate-400/40 bg-slate-500/10'
+                            : selectedKitElectricalCompatibility.status === 'technical_review'
+                              ? 'border-brand-light/40 bg-brand-blue/10'
+                              : 'border-slate-400/40 bg-slate-500/10'
                       }`}>
                         <div className="flex items-start gap-3">
                           {selectedKitElectricalCompatibility.status === 'compatible' ? (
@@ -1301,7 +1300,7 @@ export function ProfessionalSizingCalculator() {
                           ) : selectedKitElectricalCompatibility.status === 'technical_review' ? (
                             <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-brand-light" />
                           ) : (
-                            <AlertTriangle className={`mt-0.5 h-6 w-6 shrink-0 ${selectedKitElectricalCompatibility.status === 'voltage_adaptation_required' ? 'text-red-300' : 'text-amber-300'}`} />
+                            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
                           )}
                           <div>
                             <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Compatibilidade elétrica</p>

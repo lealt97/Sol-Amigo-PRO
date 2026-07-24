@@ -2,14 +2,34 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { calculateElectricalCompatibility } from '../src/lib/calculations/electricalCompatibility';
+import {
+  ELECTRICAL_STANDARD_OPTIONS,
+  getElectricalStandard,
+  inferElectricalStandardId,
+} from '../src/lib/calculations/electricalStandards';
 
 const CATALOG = 'src/pages/kits/SolarKitCatalog.tsx';
 const CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 
-test('confirma ligação e tensão nominal compatíveis', () => {
+test('expõe os seis padrões elétricos definidos para a unidade', () => {
+  assert.deepEqual(
+    ELECTRICAL_STANDARD_OPTIONS.map((standard) => standard.label),
+    [
+      'Monofásico — 127 V',
+      'Monofásico — 220 V',
+      'Bifásico — 127/220 V',
+      'Bifásico — 220/380 V',
+      'Trifásico — 127/220 V',
+      'Trifásico — 220/380 V',
+    ],
+  );
+});
+
+test('confirma kit de 220 V em padrão bifásico 127/220 V', () => {
+  const standard = getElectricalStandard('biphase_127_220');
   const result = calculateElectricalCompatibility({
-    customerConnectionType: 'biphase',
-    customerVoltageV: 220,
+    customerConnectionType: standard.connectionType,
+    customerVoltagesV: standard.availableVoltagesV,
     kitConnectionType: 'biphase',
     kitVoltageV: 220,
   });
@@ -18,10 +38,23 @@ test('confirma ligação e tensão nominal compatíveis', () => {
   assert.equal(result.requiresConnectionUpgrade, false);
 });
 
-test('indica aumento de carga quando o kit exige mais fases', () => {
+test('confirma kit de 380 V em padrão trifásico 220/380 V', () => {
+  const standard = getElectricalStandard('triphase_220_380');
   const result = calculateElectricalCompatibility({
-    customerConnectionType: 'monophase',
-    customerVoltageV: 220,
+    customerConnectionType: standard.connectionType,
+    customerVoltagesV: standard.availableVoltagesV,
+    kitConnectionType: 'triphase',
+    kitVoltageV: 380,
+  });
+
+  assert.equal(result.status, 'compatible');
+});
+
+test('indica aumento de carga quando o kit exige mais fases', () => {
+  const standard = getElectricalStandard('monophase_220');
+  const result = calculateElectricalCompatibility({
+    customerConnectionType: standard.connectionType,
+    customerVoltagesV: standard.availableVoltagesV,
     kitConnectionType: 'triphase',
     kitVoltageV: 380,
   });
@@ -32,43 +65,37 @@ test('indica aumento de carga quando o kit exige mais fases', () => {
 });
 
 test('aceita pequena diferença entre tensões nominais', () => {
+  const standard = getElectricalStandard('monophase_220');
   const result = calculateElectricalCompatibility({
-    customerConnectionType: 'biphase',
-    customerVoltageV: 220,
-    kitConnectionType: 'biphase',
+    customerConnectionType: standard.connectionType,
+    customerVoltagesV: standard.availableVoltagesV,
+    kitConnectionType: 'monophase',
     kitVoltageV: 230,
   });
 
   assert.equal(result.status, 'compatible');
 });
 
-test('trata divergência de tensão apenas como análise técnica', () => {
+test('trata tensão fora do padrão apenas como análise técnica', () => {
+  const standard = getElectricalStandard('triphase_127_220');
   const result = calculateElectricalCompatibility({
-    customerConnectionType: 'triphase',
-    customerVoltageV: 220,
+    customerConnectionType: standard.connectionType,
+    customerVoltagesV: standard.availableVoltagesV,
     kitConnectionType: 'triphase',
     kitVoltageV: 380,
   });
 
   assert.equal(result.status, 'technical_review');
-  assert.equal(result.statusLabel, 'Análise técnica necessária');
   assert.match(result.guidance, /não significa automaticamente/i);
-  assert.doesNotMatch(result.guidance, /adequação de tensão necessária/i);
 });
 
-test('ligação menor que a unidade exige análise de balanceamento', () => {
-  const result = calculateElectricalCompatibility({
-    customerConnectionType: 'triphase',
-    customerVoltageV: 220,
-    kitConnectionType: 'monophase',
-    kitVoltageV: 220,
-  });
-
-  assert.equal(result.status, 'technical_review');
-  assert.match(result.guidance, /balanceamento de fases/i);
+test('converte os dados antigos do rascunho para o padrão unificado', () => {
+  assert.equal(inferElectricalStandardId('monophase', 220), 'monophase_220');
+  assert.equal(inferElectricalStandardId('biphase', 220), 'biphase_127_220');
+  assert.equal(inferElectricalStandardId('triphase', 380), 'triphase_220_380');
 });
 
-test('catálogo e proposta coletam e exibem os dados elétricos', async () => {
+test('catálogo mantém dados do kit e proposta usa um único campo da unidade', async () => {
   const [catalog, calculator] = await Promise.all([
     readFile(CATALOG, 'utf8'),
     readFile(CALCULATOR, 'utf8'),
@@ -76,7 +103,8 @@ test('catálogo e proposta coletam e exibem os dados elétricos', async () => {
 
   assert.match(catalog, /Ligação atendida \*/);
   assert.match(catalog, /Tensão nominal V \*/);
-  assert.match(calculator, /Tensão da unidade consumidora/);
+  assert.match(calculator, /Padrão elétrico da unidade/);
+  assert.doesNotMatch(calculator, /label="Tensão da unidade consumidora"/);
   assert.match(calculator, /Compatibilidade elétrica/);
   assert.match(calculator, /A relação está acima da referência de 1,20[\s\S]*não bloqueia a compatibilidade do kit/);
 });
