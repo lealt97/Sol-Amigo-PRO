@@ -23,19 +23,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-
       - name: Aplicar alteração
         run: python .github/scripts/apply-optional-roof-area.py
-
-      - name: Instalar dependências
-        run: npm ci
-
-      - name: Validar TypeScript, testes e build
-        run: npm run build
 
       - name: Commitar funcionalidade
         run: |
