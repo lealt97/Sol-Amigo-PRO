@@ -106,5 +106,5 @@ test('catálogo mantém dados do kit e proposta usa um único campo da unidade',
   assert.match(calculator, /Padrão elétrico da unidade/);
   assert.doesNotMatch(calculator, /label="Tensão da unidade consumidora"/);
   assert.match(calculator, /Compatibilidade elétrica/);
-  assert.match(calculator, /A relação está acima da referência de 1,20[\s\S]*não bloqueia a compatibilidade do kit/);
+  assert.match(calculator, /A referência de 1,20 é apenas comparativa[\s\S]*limites específicos cadastrados/);
 });
