@@ -75,9 +75,9 @@ export function calculateElectricalCompatibility(
 
   if (!voltageCompatible) {
     return {
-      status: 'voltage_adaptation_required',
-      statusLabel: 'Adequação de tensão necessária',
-      guidance: `A tensão nominal do kit é ${kitVoltageV} V e a unidade foi informada com ${customerVoltageV} V. Selecione uma versão compatível do kit ou confirme a adequação elétrica com o projetista e a distribuidora.`,
+      status: 'technical_review',
+      statusLabel: 'Análise técnica necessária',
+      guidance: `A tensão nominal cadastrada para o kit é ${kitVoltageV} V e a unidade foi informada com ${customerVoltageV} V. Isso não significa automaticamente que a rede precise ser adequada: confirme apenas a versão correta do inversor, a tensão de conexão e as regras da distribuidora.`,
       requiresConnectionUpgrade: false,
       voltageDifferencePercent,
     };
