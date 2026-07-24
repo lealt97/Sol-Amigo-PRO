@@ -29,7 +29,9 @@ jobs:
           fetch-depth: 0
 
       - name: Aplicar padrão elétrico unificado
-        run: python3 .github/scripts/apply-unified-electrical-standard.py
+        run: |
+          python3 .github/scripts/apply-unified-electrical-standard.py
+          python3 .github/scripts/update-electrical-standard-regression.py
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -139,7 +141,8 @@ jobs:
             src/lib/calculations/electricalCompatibility.ts \
             src/types/proposalDraft.ts \
             src/pages/propostas/ProfessionalSizingCalculatorView.tsx \
-            tests/electrical-compatibility.test.ts
+            tests/electrical-compatibility.test.ts \
+            tests/p2-launch-readiness.test.ts
           if git diff --cached --quiet; then
             echo "Nenhuma alteração funcional necessária."
             exit 0
