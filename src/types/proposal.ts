@@ -2,6 +2,7 @@ import { SolarSystemCalculation } from './solar';
 import { ProposalLoad } from './loadSurvey';
 import { RoofLayoutData } from './roofLayout';
 import { SolarKitSnapshot, SolarSystemType } from './solarKit';
+import type { ProposalDraftState } from './proposalDraft';
 
 export interface Proposal {
   id: string;
@@ -49,6 +50,11 @@ export interface Proposal {
   estimated_profit: number | null;
   real_margin_percentage: number | null;
   markup_percentage: number | null;
+  flow_step?: number | null;
+  flow_state?: ProposalDraftState | null;
+  flow_version?: number | null;
+  flow_completed?: boolean;
+  flow_last_saved_at?: string | null;
   pdf_url: string | null;
   pdf_storage_path?: string | null;
   public_token: string | null;
