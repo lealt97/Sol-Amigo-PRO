@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,247 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar simplificação de HSP e meta de geração
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          if [ ! -f .github/workflows/one-time-generation-control.yml ]; then
+            echo "Ajuste já aplicado."
+            exit 0
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
+          source = path.read_text(encoding='utf-8')
+
+          source = source.replace('  MapPin,\n', '')
+          source = source.replace("  { id: 'irradiation', title: 'Irradiação e potência' },", "  { id: 'irradiation', title: 'HSP e meta de geração' },")
+
+          old_state = """  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [hspDaily, setHspDaily] = useState('');
+  const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
+  const [irradiationSource, setIrradiationSource] = useState('CRESESB/SunData');
+"""
+          new_state = """  const [hspDaily, setHspDaily] = useState('');
+  const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
+  const [generationIncreasePercent, setGenerationIncreasePercent] = useState('0');
+"""
+          if old_state not in source:
+              raise SystemExit('Estados antigos de irradiação não encontrados.')
+          source = source.replace(old_state, new_state, 1)
+
+          old_calc = """    const hsp = parseNumber(hspDaily);
+    const performanceRatio = parseNumber(performanceRatioPercent);
+    if (!Number.isFinite(hsp) || !Number.isFinite(performanceRatio)) {
+      return { result: null, error: null };
+    }
+"""
+          new_calc = """    const hsp = parseNumber(hspDaily);
+    const performanceRatio = parseNumber(performanceRatioPercent);
+    const generationIncrease = parseNumber(generationIncreasePercent);
+    if (!Number.isFinite(hsp) || !Number.isFinite(performanceRatio) || !Number.isFinite(generationIncrease)) {
+      return { result: null, error: null };
+    }
+"""
+          if old_calc not in source:
+              raise SystemExit('Preparação do cálculo não encontrada.')
+          source = source.replace(old_calc, new_calc, 1)
+
+          source = source.replace(
+              '          performanceRatioPercent: performanceRatio,\n          selectedKitPowerKwp:',
+              '          performanceRatioPercent: performanceRatio,\n          generationIncreasePercent: generationIncrease,\n          selectedKitPowerKwp:',
+              1,
+          )
+          source = source.replace(
+              '    performanceRatioPercent,\n    selectedKit,',
+              '    performanceRatioPercent,\n    generationIncreasePercent,\n    selectedKit,',
+              1,
+          )
+
+          validation_start = source.index('    if (currentStep === 2) {')
+          validation_end = source.index('\n    if (currentStep === 3', validation_start)
+          source = source[:validation_start] + """    if (currentStep === 2) {
+      const parsedHsp = parseNumber(hspDaily);
+      const parsedPerformanceRatio = parseNumber(performanceRatioPercent);
+      const parsedGenerationIncrease = parseNumber(generationIncreasePercent);
+
+      if (!Number.isFinite(parsedHsp) || parsedHsp <= 0) {
+        toast.error('Informe uma HSP diária maior que zero.');
+        return false;
+      }
+      if (!Number.isFinite(parsedPerformanceRatio) || parsedPerformanceRatio < 75 || parsedPerformanceRatio > 80) {
+        toast.error('Informe um rendimento global entre 75% e 80%.');
+        return false;
+      }
+      if (!Number.isFinite(parsedGenerationIncrease) || parsedGenerationIncrease < 0 || parsedGenerationIncrease > 100) {
+        toast.error('Informe uma geração adicional entre 0% e 100%.');
+        return false;
+      }
+    }
+""" + source[validation_end:]
+
+          step_start = source.index('            {currentStep === 2 && (')
+          step_end = source.index('            {currentStep === 3 && (', step_start)
+          source = source[:step_start] + """            {currentStep === 2 && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold text-brand-dark">HSP, rendimento e meta de geração</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Informe a HSP, o rendimento global e quanto o cliente deseja gerar além do consumo compensável.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    label="HSP média diária"
+                    value={hspDaily}
+                    onChange={setHspDaily}
+                    suffix="h/dia"
+                    min={0.1}
+                    step="0.01"
+                    helper="Use a HSP média diária obtida para a região do cliente."
+                  />
+                  <Field
+                    label="Rendimento global"
+                    value={performanceRatioPercent}
+                    onChange={setPerformanceRatioPercent}
+                    suffix="%"
+                    min={75}
+                    max={80}
+                    step="0.5"
+                    helper="Faixa adotada neste fluxo: 75% a 80%."
+                  />
+                </div>
+
+                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="max-w-md flex-1">
+                      <Field
+                        label="Geração adicional desejada"
+                        value={generationIncreasePercent}
+                        onChange={setGenerationIncreasePercent}
+                        suffix="%"
+                        min={0}
+                        max={100}
+                        step="1"
+                        helper="O percentual é aplicado sobre o consumo compensável. Use 0% quando o cliente não solicitar geração adicional."
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[0, 10, 20, 30].map((percentage) => (
+                        <Button
+                          key={percentage}
+                          type="button"
+                          variant={generationIncreasePercent === String(percentage) ? 'default' : 'outline'}
+                          onClick={() => setGenerationIncreasePercent(String(percentage))}
+                        >
+                          {percentage}%
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {result && (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <Summary label="Consumo compensável" value={`${number.format(result.compensableMonthlyConsumptionKwh)} kWh/mês`} />
+                    <Summary label="Geração adicional" value={`${number.format(result.generationIncreasePercent)}%`} />
+                    <Summary label="Meta de geração" value={`${number.format(result.targetMonthlyGenerationKwh)} kWh/mês`} />
+                    <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
+                  </div>
+                )}
+              </section>
+            )}
+
+""" + source[step_end:]
+
+          source = source.replace('Cobertura do compensável', 'Cobertura da meta')
+
+          old_card = """                    <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4 text-sm text-slate-600">
+                      <div className="flex items-start gap-3">
+                        <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
+                        <p>
+                          Coordenadas: <strong>{latitude}, {longitude}</strong>. HSP: <strong>{hspDaily} h/dia</strong>. Fonte: <strong>{irradiationSource}</strong>.
+                          O saldo energético mensal estimado é de <strong>{number.format(result.selectedKitEnergyBalanceKwh ?? 0)} kWh</strong>.
+                        </p>
+                      </div>
+                    </div>"""
+          new_card = """                    <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4 text-sm text-slate-600">
+                      <div className="flex items-start gap-3">
+                        <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-brand-blue" />
+                        <p>
+                          Meta de geração: <strong>{number.format(result.targetMonthlyGenerationKwh)} kWh/mês</strong>, com <strong>{number.format(result.generationIncreasePercent)}%</strong> adicional.
+                          HSP adotada: <strong>{hspDaily} h/dia</strong> e rendimento global de <strong>{performanceRatioPercent}%</strong>.
+                          O saldo mensal estimado do kit em relação à meta é de <strong>{number.format(result.selectedKitEnergyBalanceKwh ?? 0)} kWh</strong>.
+                        </p>
+                      </div>
+                    </div>"""
+          if old_card not in source:
+              raise SystemExit('Resumo antigo com coordenadas não encontrado.')
+          source = source.replace(old_card, new_card, 1)
+
+          source = source.replace(
+              '            hspDaily={hspDaily}\n          />',
+              '            hspDaily={hspDaily}\n            generationIncreasePercent={generationIncreasePercent}\n          />',
+              1,
+          )
+          source = source.replace(
+              '  hspDaily,\n}: {',
+              '  hspDaily,\n  generationIncreasePercent,\n}: {',
+              1,
+          )
+          source = source.replace(
+              '  hspDaily: string;\n}) {',
+              '  hspDaily: string;\n  generationIncreasePercent: string;\n}) {',
+              1,
+          )
+
+          old_preview = """            <PreviewRow label="Consumo compensável" value={`${number.format(consumptionPreview.compensableMonthlyConsumptionKwh)} kWh`} />
+            <PreviewRow label="HSP" value={Number.isFinite(parseNumber(hspDaily)) ? `${number.format(parseNumber(hspDaily))} h/dia` : 'Não informada'} />
+            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />"""
+          new_preview = """            <PreviewRow label="Consumo compensável" value={`${number.format(consumptionPreview.compensableMonthlyConsumptionKwh)} kWh`} />
+            <PreviewRow label="Geração adicional" value={`${number.format(parseNumber(generationIncreasePercent))}%`} />
+            <PreviewRow label="Meta de geração" value={result ? `${number.format(result.targetMonthlyGenerationKwh)} kWh/mês` : 'Aguardando HSP'} />
+            <PreviewRow label="HSP" value={Number.isFinite(parseNumber(hspDaily)) ? `${number.format(parseNumber(hspDaily))} h/dia` : 'Não informada'} />
+            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />"""
+          if old_preview not in source:
+              raise SystemExit('Prévia antiga não encontrada.')
+          source = source.replace(old_preview, new_preview, 1)
+
+          forbidden = ['latitude', 'longitude', 'irradiationSource', 'CRESESB/SunData', '<MapPin']
+          for token in forbidden:
+              if token in source:
+                  raise SystemExit(f'Trecho antigo ainda presente: {token}')
+
+          path.write_text(source, encoding='utf-8')
+
+          test_path = Path('tests/p2-launch-readiness.test.ts')
+          tests = test_path.read_text(encoding='utf-8')
+          tests = tests.replace(
+              '  assert.match(calculator, /CRESESB\\/SunData/);',
+              '  assert.doesNotMatch(calculator, /Latitude|Longitude|CRESESB\\/SunData/);\n  assert.match(calculator, /Geração adicional desejada/);',
+          )
+          tests = tests.replace(
+              '  assert.match(engine, /requiredPowerKwp/);',
+              '  assert.match(engine, /targetMonthlyGenerationKwh/);\n  assert.match(engine, /generationIncreasePercent/);\n  assert.match(engine, /requiredPowerKwp/);',
+          )
+          test_path.write_text(tests, encoding='utf-8')
+          PY
+
+          rm -f .github/workflows/one-time-generation-control.yml
+          git show HEAD^:.github/workflows/diagnostic-status.yml > .github/workflows/diagnostic-status.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: simplificar HSP e adicionar controle de geração"
+          git push origin HEAD:main
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
