@@ -76,9 +76,5 @@ source = replace_once(source,
     "</div>\n\n                 {isLoadingClients ? (",
     "</div>\n\n                 <label className=\"block max-w-xl space-y-2\">\n                   <span className=\"text-sm font-semibold text-brand-dark\">Nome da proposta *</span>\n                   <Input\n                     type=\"text\"\n                     value={proposalTitle}\n                     maxLength={120}\n                     placeholder=\"Ex.: Sistema fotovoltaico — Residência Silva\"\n                     onChange={(event) => setProposalTitle(event.target.value)}\n                   />\n                   <span className=\"flex justify-between gap-4 text-xs text-slate-500\">\n                     <span>Este nome identifica a proposta na listagem e pode ser alterado depois.</span>\n                     <span className=\"shrink-0\">{proposalTitle.length}/120</span>\n                   </span>\n                 </label>\n\n                 {isLoadingClients ? (",
     'campo nome da proposta')
-source = replace_once(source,
-    "                  <Button type=\"button\" onClick={() => void completeSizing()} className=\"gap-2\" disabled={isSavingDraft}>\n                    Concluir dimensionamento <CheckCircle2 className=\"h-4 w-4\" />",
-    "                  <Button type=\"button\" onClick={() => void completeSizing()} className=\"gap-2\" disabled={isSavingDraft}>\n                    {isEditMode ? 'Salvar alterações' : 'Concluir dimensionamento'} <CheckCircle2 className=\"h-4 w-4\" />",
-    'botão final')
 
 PATH.write_text(source, encoding='utf-8')
