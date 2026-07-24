@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,12 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Aplicar limites do fabricante do inversor
+        run: python3 .github/scripts/apply-inverter-manufacturer-limits.py
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -121,6 +127,30 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
+
+      - name: Commitar limites do fabricante do inversor
+        if: steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/types/solarKit.ts \
+            src/lib/kits/solarKitOperations.ts \
+            src/lib/calculations/inverterDcLimits.ts \
+            src/pages/kits/SolarKitCatalog.tsx \
+            src/pages/propostas/ProfessionalSizingCalculatorView.tsx \
+            supabase/migrations/20260724234906_add_inverter_manufacturer_dc_limits.sql \
+            supabase-schema.sql \
+            tests/inverter-dc-limits.test.ts \
+            tests/solarKitOperations.test.ts \
+            tests/electrical-compatibility.test.ts
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração funcional necessária."
+            exit 0
+          fi
+          git commit -m "feat: validar oversizing pelos limites do inversor"
+          git push origin main
 
       - name: Registrar conclusão informativa
         if: always()
