@@ -14,13 +14,13 @@ build=0
 792-# Subtest: onboarding não depende mais de proposta ou cálculo
 793-ok 132 - onboarding não depende mais de proposta ou cálculo
 794-  ---
-795-  duration_ms: 1.394452
+795-  duration_ms: 2.226567
 796-  type: 'test'
 797-  ...
 798-# Subtest: dimensionamento começa pelo cliente e oferece três modos de consumo sem reativar mutações antigas
 799:not ok 133 - dimensionamento começa pelo cliente e oferece três modos de consumo sem reativar mutações antigas
 800-  ---
-801-  duration_ms: 7.646895
+801-  duration_ms: 14.780713
 802-  type: 'test'
 803-  location: '/home/runner/work/Sol-Amigo-PRO/Sol-Amigo-PRO/tests/p2-launch-readiness.test.ts:1:6646'
 804-  failureType: 'testCodeFailure'
@@ -54,13 +54,13 @@ build=0
 1979-# Subtest: identifica somente rascunhos ativos do fluxo e limita a etapa salva
 1980-ok 222 - identifica somente rascunhos ativos do fluxo e limita a etapa salva
 1981-  ---
-1982-  duration_ms: 1.162407
+1982-  duration_ms: 1.168712
 1983-  type: 'test'
 1984-  ...
 1985-# Subtest: o fluxo possui rota de continuação e salva antes de avançar
 1986:not ok 223 - o fluxo possui rota de continuação e salva antes de avançar
 1987-  ---
-1988-  duration_ms: 13.335487
+1988-  duration_ms: 15.872737
 1989-  type: 'test'
 1990-  location: '/home/runner/work/Sol-Amigo-PRO/Sol-Amigo-PRO/tests/proposal-draft-flow.test.ts:1:1171'
 1991-  failureType: 'testCodeFailure'
@@ -94,13 +94,13 @@ build=0
 3837-# Subtest: não cria uma segunda proposta ativa para o mesmo cliente
 3838-ok 225 - não cria uma segunda proposta ativa para o mesmo cliente
 3839-  ---
-3840-  duration_ms: 6.009628
+3840-  duration_ms: 3.41734
 3841-  type: 'test'
 3842-  ...
 3843-# Subtest: rascunho em fluxo oferece somente continuar e excluir na listagem
 3844:not ok 226 - rascunho em fluxo oferece somente continuar e excluir na listagem
 3845-  ---
-3846-  duration_ms: 3.063671
+3846-  duration_ms: 2.685123
 3847-  type: 'test'
 3848-  location: '/home/runner/work/Sol-Amigo-PRO/Sol-Amigo-PRO/tests/proposal-draft-flow.test.ts:1:3472'
 3849-  failureType: 'testCodeFailure'
@@ -131,25 +131,25 @@ build=0
 3874-      "  const [statusFilter, setStatusFilter] = useState('');\n" +
 
 === TEST SUMMARY ===
-  duration_ms: 1.034406
+  duration_ms: 1.234655
   type: 'test'
   ...
 # Subtest: remove casas decimais de valores técnicos com quatro ou mais dígitos
 ok 268 - remove casas decimais de valores técnicos com quatro ou mais dígitos
   ---
-  duration_ms: 0.957703
+  duration_ms: 1.049349
   type: 'test'
   ...
 # Subtest: mantém precisão de até três casas para valores abaixo de mil
 ok 269 - mantém precisão de até três casas para valores abaixo de mil
   ---
-  duration_ms: 0.196171
+  duration_ms: 0.293127
   type: 'test'
   ...
 # Subtest: usa marcador neutro para valores inválidos
 ok 270 - usa marcador neutro para valores inválidos
   ---
-  duration_ms: 0.111616
+  duration_ms: 0.170698
   type: 'test'
   ...
 1..270
@@ -160,7 +160,7 @@ ok 270 - usa marcador neutro para valores inválidos
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 7176.977343
+# duration_ms 6837.678695
 
 === BUILD ===
 
@@ -180,4 +180,4 @@ computing gzip size...
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[32m✓ built in 7.09s[39m
+[32m✓ built in 6.83s[39m
