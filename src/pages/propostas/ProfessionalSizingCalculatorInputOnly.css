@@ -1,0 +1,29 @@
+.generation-input-only
+  .rounded-xl.border.border-brand-border.bg-brand-gray\/30.p-5
+  > .flex.flex-col.gap-4.sm\:flex-row.sm\:items-end.sm\:justify-between
+  > .flex.flex-wrap.gap-2 {
+  display: none !important;
+}
+
+.generation-input-only
+  .rounded-xl.border.border-brand-border.bg-brand-gray\/30.p-5:has(
+    > .flex.flex-col.gap-4.sm\:flex-row.sm\:items-end.sm\:justify-between
+      > .flex.flex-wrap.gap-2
+  ) {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.generation-input-only
+  .rounded-xl.border.border-brand-border.bg-brand-gray\/30.p-5
+  > .flex.flex-col.gap-4.sm\:flex-row.sm\:items-end.sm\:justify-between {
+  display: block;
+}
+
+.generation-input-only
+  .rounded-xl.border.border-brand-border.bg-brand-gray\/30.p-5
+  > .flex.flex-col.gap-4.sm\:flex-row.sm\:items-end.sm\:justify-between
+  > .max-w-md.flex-1 {
+  max-width: 28rem;
+}
