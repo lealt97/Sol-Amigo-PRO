@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,14 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Aplicar padrão elétrico unificado
-        run: |
-          python3 .github/scripts/apply-unified-electrical-standard.py
-          python3 .github/scripts/update-electrical-standard-regression.py
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -129,26 +121,6 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
-
-      - name: Commitar padrão elétrico unificado
-        if: steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/lib/calculations/electricalStandards.ts \
-            src/lib/calculations/electricalCompatibility.ts \
-            src/types/proposalDraft.ts \
-            src/pages/propostas/ProfessionalSizingCalculatorView.tsx \
-            tests/electrical-compatibility.test.ts \
-            tests/p2-launch-readiness.test.ts
-          if git diff --cached --quiet; then
-            echo "Nenhuma alteração funcional necessária."
-            exit 0
-          fi
-          git commit -m "feat: unificar padrão elétrico da unidade"
-          git push origin main
 
       - name: Registrar conclusão informativa
         if: always()
