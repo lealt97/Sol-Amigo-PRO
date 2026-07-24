@@ -1,4 +1,4 @@
-# execução única 2
+# execução única 3
 name: Remover atalhos de geração
 
 on:
@@ -55,17 +55,19 @@ jobs:
                   </div>
                 </div>'''
 
-          new_block = '''                <div className="max-w-md">
-                  <Field
-                    label="Geração adicional desejada"
-                    value={generationIncreasePercent}
-                    onChange={setGenerationIncreasePercent}
-                    suffix="%"
-                    min={0}
-                    max={100}
-                    step="1"
-                    helper="Digite o percentual solicitado pelo cliente. Use 0% quando não houver geração adicional."
-                  />
+          new_block = '''                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
+                  <div className="max-w-md">
+                    <Field
+                      label="Geração adicional desejada"
+                      value={generationIncreasePercent}
+                      onChange={setGenerationIncreasePercent}
+                      suffix="%"
+                      min={0}
+                      max={100}
+                      step="1"
+                      helper="O percentual é aplicado sobre o consumo compensável. Use 0% quando o cliente não solicitar geração adicional."
+                    />
+                  </div>
                 </div>'''
 
           if old_block not in source:
