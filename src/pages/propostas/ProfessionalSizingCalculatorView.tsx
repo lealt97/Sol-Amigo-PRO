@@ -160,8 +160,7 @@ export function ProfessionalSizingCalculator() {
   const [modulePowerW, setModulePowerW] = useState('275');
   const [moduleWidthM, setModuleWidthM] = useState('');
   const [moduleHeightM, setModuleHeightM] = useState('');
-  const [roofWidthM, setRoofWidthM] = useState('');
-  const [roofHeightM, setRoofHeightM] = useState('');
+  const [roofAreaM2, setRoofAreaM2] = useState('');
 
   const [kits, setKits] = useState<SolarKit[]>([]);
   const [selectedKitId, setSelectedKitId] = useState('');
@@ -352,8 +351,7 @@ export function ProfessionalSizingCalculator() {
         { value: parseNumber(modulePowerW), message: 'Informe a potência do módulo em Wp.' },
         { value: parseNumber(moduleWidthM), message: 'Informe a largura do módulo em metros.' },
         { value: parseNumber(moduleHeightM), message: 'Informe a altura do módulo em metros.' },
-        { value: parseNumber(roofWidthM), message: 'Informe a largura útil do telhado em metros.' },
-        { value: parseNumber(roofHeightM), message: 'Informe a altura útil do telhado em metros.' },
+        { value: parseNumber(roofAreaM2), message: 'Informe a área do telhado em metros quadrados.' },
       ];
       const invalidModuleField = moduleFields.find((field) => !Number.isFinite(field.value) || field.value <= 0);
       if (invalidModuleField) {
@@ -399,8 +397,7 @@ export function ProfessionalSizingCalculator() {
       modulePowerW: parseNumber(modulePowerW),
       moduleWidthM: parseNumber(moduleWidthM),
       moduleHeightM: parseNumber(moduleHeightM),
-      roofWidthM: parseNumber(roofWidthM),
-      roofHeightM: parseNumber(roofHeightM),
+      roofAreaM2: parseNumber(roofAreaM2),
     };
 
     if (Object.values(values).some((value) => !Number.isFinite(value) || value <= 0)) {
@@ -421,7 +418,7 @@ export function ProfessionalSizingCalculator() {
         error: error instanceof Error ? error.message : 'Não foi possível calcular a ocupação do telhado.',
       };
     }
-  }, [moduleHeightM, modulePowerW, moduleWidthM, result, roofHeightM, roofWidthM]);
+  }, [moduleHeightM, modulePowerW, moduleWidthM, result, roofAreaM2]);
 
   const hasCalculation = Boolean(result);
 
@@ -770,12 +767,10 @@ export function ProfessionalSizingCalculator() {
                       suffix="Wp"
                       min={1}
                       step="1"
-                      helper="Com 275 Wp e potência necessária de 4,556 kWp, o resultado é 17 módulos."
                     />
                     <Field label="Largura do módulo" value={moduleWidthM} onChange={setModuleWidthM} suffix="m" min={0.01} step="0.001" />
                     <Field label="Altura do módulo" value={moduleHeightM} onChange={setModuleHeightM} suffix="m" min={0.01} step="0.001" />
-                    <Field label="Largura útil do telhado" value={roofWidthM} onChange={setRoofWidthM} suffix="m" min={0.01} step="0.01" />
-                    <Field label="Altura útil do telhado" value={roofHeightM} onChange={setRoofHeightM} suffix="m" min={0.01} step="0.01" />
+                    <Field label="Área do telhado" value={roofAreaM2} onChange={setRoofAreaM2} suffix="m²" min={0.01} step="0.01" />
                   </div>
 
                   {result && moduleQuantity != null && (
