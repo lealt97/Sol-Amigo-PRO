@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,24 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar input único de área do telhado
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          python3 .github/scripts/apply-roof-area-input.py
+
+          if git diff --quiet; then
+            echo "Input único de área do telhado já aplicado."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx
+            git commit -m "refactor: reduzir inputs da área do telhado"
+            git push origin HEAD:main
+          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
