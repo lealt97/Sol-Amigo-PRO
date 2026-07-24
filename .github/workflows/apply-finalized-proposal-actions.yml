@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Aplicar nome e edição no Wizard
-        run: python3 .github/scripts/apply-finalized-proposal-actions.py
+        run: python3 .github/scripts/apply-finalized-proposal-actions-v2.py
 
       - name: Publicar alteração
         shell: bash
