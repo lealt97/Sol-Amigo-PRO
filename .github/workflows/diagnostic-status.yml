@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,92 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Aplicar identificação dinâmica da disponibilidade
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
-          source = path.read_text(encoding='utf-8')
-
-          steps_marker = """const STEPS = [
-  { id: 'client', title: 'Cliente' },
-  { id: 'consumption', title: 'Consumo' },
-  { id: 'irradiation', title: 'HSP e meta de geração' },
-  { id: 'kit', title: 'Kit e resultado' },
-] as const;
-"""
-          labels_block = """const CONNECTION_TYPE_LABELS: Record<ConnectionType, string> = {
-  monophase: 'Monofásica',
-  biphase: 'Bifásica',
-  triphase: 'Trifásica',
-};
-
-"""
-          if 'const CONNECTION_TYPE_LABELS' not in source:
-              if steps_marker not in source:
-                  raise SystemExit('Marcador das etapas não encontrado.')
-              source = source.replace(steps_marker, steps_marker + '\n' + labels_block, 1)
-
-          old_preview = """    return {
-      sourceLabel: CONSUMPTION_MODE_LABELS[consumptionMode],
-      annualConsumptionKwh: averageMonthlyConsumptionKwh * 12,
-      averageMonthlyConsumptionKwh,
-      availabilityConsumptionKwh,
-"""
-          new_preview = """    return {
-      sourceLabel: CONSUMPTION_MODE_LABELS[consumptionMode],
-      connectionTypeLabel: CONNECTION_TYPE_LABELS[connectionType],
-      annualConsumptionKwh: averageMonthlyConsumptionKwh * 12,
-      averageMonthlyConsumptionKwh,
-      availabilityConsumptionKwh,
-"""
-          if 'connectionTypeLabel: CONNECTION_TYPE_LABELS[connectionType]' not in source:
-              if old_preview not in source:
-                  raise SystemExit('Marcador do resumo de consumo não encontrado.')
-              source = source.replace(old_preview, new_preview, 1)
-
-          old_type = """  consumptionPreview: {
-    sourceLabel: string;
-    annualConsumptionKwh: number;
-"""
-          new_type = """  consumptionPreview: {
-    sourceLabel: string;
-    connectionTypeLabel: string;
-    annualConsumptionKwh: number;
-"""
-          if 'connectionTypeLabel: string;' not in source:
-              if old_type not in source:
-                  raise SystemExit('Tipo do resumo de consumo não encontrado.')
-              source = source.replace(old_type, new_type, 1)
-
-          old_row = """            <PreviewRow label=\"Disponibilidade\" value={`${consumptionPreview.availabilityConsumptionKwh} kWh`} />"""
-          new_row = """            <PreviewRow
-              label=\"Disponibilidade\"
-              value={`${consumptionPreview.connectionTypeLabel} — ${consumptionPreview.availabilityConsumptionKwh} kWh`}
-            />"""
-          if 'consumptionPreview.connectionTypeLabel' not in source.split('label="Disponibilidade"', 1)[-1][:250]:
-              if old_row not in source:
-                  raise SystemExit('Linha de disponibilidade não encontrada.')
-              source = source.replace(old_row, new_row, 1)
-
-          path.write_text(source, encoding='utf-8')
-          PY
-
-          if git diff --quiet; then
-            echo "Identificação dinâmica já aplicada."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx
-            git commit -m "fix: identificar tipo de ligação na disponibilidade"
-            git push origin HEAD:main
-          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
