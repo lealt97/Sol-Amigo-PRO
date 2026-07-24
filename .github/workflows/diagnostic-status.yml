@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,97 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Remover atalhos fixos da geração adicional
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          calculator_path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
-          source = calculator_path.read_text(encoding='utf-8')
-
-          if '[0, 10, 20, 30]' not in source:
-              print('Atalhos fixos já foram removidos.')
-              raise SystemExit(0)
-
-          old_block = '''                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div className="max-w-md flex-1">
-                      <Field
-                        label="Geração adicional desejada"
-                        value={generationIncreasePercent}
-                        onChange={setGenerationIncreasePercent}
-                        suffix="%"
-                        min={0}
-                        max={100}
-                        step="1"
-                        helper="O percentual é aplicado sobre o consumo compensável. Use 0% quando o cliente não solicitar geração adicional."
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {[0, 10, 20, 30].map((percentage) => (
-                        <Button
-                          key={percentage}
-                          type="button"
-                          variant={generationIncreasePercent === String(percentage) ? 'default' : 'outline'}
-                          onClick={() => setGenerationIncreasePercent(String(percentage))}
-                        >
-                          {percentage}%
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>'''
-
-          new_block = '''                <div className="max-w-md">
-                  <Field
-                    label="Geração adicional desejada"
-                    value={generationIncreasePercent}
-                    onChange={setGenerationIncreasePercent}
-                    suffix="%"
-                    min={0}
-                    max={100}
-                    step="1"
-                    helper="Digite o percentual solicitado pelo cliente. Use 0% quando não houver geração adicional."
-                  />
-                </div>'''
-
-          if old_block not in source:
-              raise SystemExit('Bloco de atalhos de geração não encontrado.')
-
-          source = source.replace(old_block, new_block, 1)
-
-          for token in ('[0, 10, 20, 30]', 'setGenerationIncreasePercent(String(percentage))'):
-              if token in source:
-                  raise SystemExit(f'Atalho fixo ainda presente: {token}')
-
-          calculator_path.write_text(source, encoding='utf-8')
-
-          test_path = Path('tests/p2-launch-readiness.test.ts')
-          tests = test_path.read_text(encoding='utf-8')
-          marker = '  assert.match(calculator, /Geração adicional desejada/);\n'
-          assertion = '  assert.doesNotMatch(calculator, /\\[0, 10, 20, 30\\]|setGenerationIncreasePercent\\(String\\(percentage\\)\\)/);\n'
-          if assertion not in tests:
-              if marker not in tests:
-                  raise SystemExit('Marcador do teste de geração adicional não encontrado.')
-              tests = tests.replace(marker, marker + assertion, 1)
-          test_path.write_text(tests, encoding='utf-8')
-          PY
-
-          if git diff --quiet -- src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/p2-launch-readiness.test.ts; then
-            echo "Nenhuma alteração pendente."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/p2-launch-readiness.test.ts
-          git commit -m "fix: manter somente input para geração adicional"
-          git push origin HEAD:main
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
