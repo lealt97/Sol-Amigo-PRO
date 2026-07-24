@@ -31,16 +31,15 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          if [ ! -f .github/workflows/one-time-remove-generation-presets.yml ]; then
-            echo "Ajuste já aplicado."
-            exit 0
-          fi
-
           python - <<'PY'
           from pathlib import Path
 
           calculator_path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
           source = calculator_path.read_text(encoding='utf-8')
+
+          if '[0, 10, 20, 30]' not in source:
+              print('Atalhos fixos já foram removidos.')
+              raise SystemExit(0)
 
           old_block = '''                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -106,12 +105,14 @@ jobs:
           test_path.write_text(tests, encoding='utf-8')
           PY
 
-          rm -f .github/workflows/one-time-remove-generation-presets.yml
-          git show HEAD^:.github/workflows/diagnostic-status.yml > .github/workflows/diagnostic-status.yml
+          if git diff --quiet -- src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/p2-launch-readiness.test.ts; then
+            echo "Nenhuma alteração pendente."
+            exit 0
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/p2-launch-readiness.test.ts
           git commit -m "fix: manter somente input para geração adicional"
           git push origin HEAD:main
 
