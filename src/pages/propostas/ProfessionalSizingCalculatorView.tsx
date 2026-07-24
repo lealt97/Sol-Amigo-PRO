@@ -34,6 +34,11 @@ import {
   type ConnectionType,
   type ProfessionalSizingResult,
 } from '../../lib/calculations/professionalSizing';
+import {
+  calculateModuleQuantity,
+  calculateModuleSizing,
+  type ModuleSizingResult,
+} from '../../lib/calculations/moduleSizing';
 import { clientService } from '../../services/clientService';
 import { solarKitService } from '../../services/solarKitService';
 import type { Client } from '../../types/client';
@@ -150,6 +155,12 @@ export function ProfessionalSizingCalculator() {
   const [hspDaily, setHspDaily] = useState('');
   const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
   const [generationIncreasePercent, setGenerationIncreasePercent] = useState('0');
+
+  const [modulePowerW, setModulePowerW] = useState('275');
+  const [moduleWidthM, setModuleWidthM] = useState('');
+  const [moduleHeightM, setModuleHeightM] = useState('');
+  const [roofWidthM, setRoofWidthM] = useState('');
+  const [roofHeightM, setRoofHeightM] = useState('');
 
   const [kits, setKits] = useState<SolarKit[]>([]);
   const [selectedKitId, setSelectedKitId] = useState('');
@@ -333,6 +344,19 @@ export function ProfessionalSizingCalculator() {
         toast.error('Informe uma geração adicional entre 0% e 100%.');
         return false;
       }
+
+      const moduleFields = [
+        { value: parseNumber(modulePowerW), message: 'Informe a potência do módulo em Wp.' },
+        { value: parseNumber(moduleWidthM), message: 'Informe a largura do módulo em metros.' },
+        { value: parseNumber(moduleHeightM), message: 'Informe a altura do módulo em metros.' },
+        { value: parseNumber(roofWidthM), message: 'Informe a largura útil do telhado em metros.' },
+        { value: parseNumber(roofHeightM), message: 'Informe a altura útil do telhado em metros.' },
+      ];
+      const invalidModuleField = moduleFields.find((field) => !Number.isFinite(field.value) || field.value <= 0);
+      if (invalidModuleField) {
+        toast.error(invalidModuleField.message);
+        return false;
+      }
     }
 
     if (currentStep === 3 && !selectedKit) {
@@ -354,6 +378,48 @@ export function ProfessionalSizingCalculator() {
   };
 
   const result = calculation.result;
+  const moduleQuantity = useMemo(() => {
+    const parsedModulePower = parseNumber(modulePowerW);
+    if (!result || !Number.isFinite(parsedModulePower) || parsedModulePower <= 0) return null;
+
+    try {
+      return calculateModuleQuantity(result.requiredPowerKwp, parsedModulePower);
+    } catch {
+      return null;
+    }
+  }, [modulePowerW, result]);
+
+  const moduleSizing = useMemo<{ result: ModuleSizingResult | null; error: string | null }>(() => {
+    if (!result) return { result: null, error: null };
+
+    const values = {
+      modulePowerW: parseNumber(modulePowerW),
+      moduleWidthM: parseNumber(moduleWidthM),
+      moduleHeightM: parseNumber(moduleHeightM),
+      roofWidthM: parseNumber(roofWidthM),
+      roofHeightM: parseNumber(roofHeightM),
+    };
+
+    if (Object.values(values).some((value) => !Number.isFinite(value) || value <= 0)) {
+      return { result: null, error: null };
+    }
+
+    try {
+      return {
+        result: calculateModuleSizing({
+          requiredPowerKwp: result.requiredPowerKwp,
+          ...values,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        error: error instanceof Error ? error.message : 'Não foi possível calcular a ocupação do telhado.',
+      };
+    }
+  }, [moduleHeightM, modulePowerW, moduleWidthM, result, roofHeightM, roofWidthM]);
+
   const hasCalculation = Boolean(result);
 
   return (
@@ -679,6 +745,76 @@ export function ProfessionalSizingCalculator() {
                     <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
                   </div>
                 )}
+
+                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
+                  <div>
+                    <h3 className="font-bold text-brand-dark">Quantidade de módulos e área do telhado</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      A quantidade é arredondada para cima. A verificação compara a área total dos módulos com a área útil informada.
+                    </p>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <Field
+                      label="Potência do módulo"
+                      value={modulePowerW}
+                      onChange={setModulePowerW}
+                      suffix="Wp"
+                      min={1}
+                      step="1"
+                      helper="Com 275 Wp e potência necessária de 4,556 kWp, o resultado é 17 módulos."
+                    />
+                    <Field label="Largura do módulo" value={moduleWidthM} onChange={setModuleWidthM} suffix="m" min={0.01} step="0.001" />
+                    <Field label="Altura do módulo" value={moduleHeightM} onChange={setModuleHeightM} suffix="m" min={0.01} step="0.001" />
+                    <Field label="Largura útil do telhado" value={roofWidthM} onChange={setRoofWidthM} suffix="m" min={0.01} step="0.01" />
+                    <Field label="Altura útil do telhado" value={roofHeightM} onChange={setRoofHeightM} suffix="m" min={0.01} step="0.01" />
+                  </div>
+
+                  {result && moduleQuantity != null && (
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <Summary label="Quantidade de módulos" value={`${moduleQuantity} módulos`} highlight />
+                      <Summary label="Potência instalada" value={`${number.format((moduleQuantity * parseNumber(modulePowerW)) / 1000)} kWp`} />
+                      {moduleSizing.result && (
+                        <>
+                          <Summary label="Área por módulo" value={`${number.format(moduleSizing.result.moduleAreaM2)} m²`} />
+                          <Summary label="Área total dos módulos" value={`${number.format(moduleSizing.result.totalModuleAreaM2)} m²`} />
+                          <Summary label="Área útil do telhado" value={`${number.format(moduleSizing.result.roofAreaM2)} m²`} />
+                          <Summary label="Saldo de área" value={`${number.format(moduleSizing.result.availableAreaBalanceM2)} m²`} />
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {moduleSizing.error && (
+                    <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {moduleSizing.error}
+                    </div>
+                  )}
+
+                  {moduleSizing.result && (
+                    <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
+                      moduleSizing.result.modulesFitRoof
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-red-200 bg-red-50 text-red-700'
+                    }`}>
+                      {moduleSizing.result.modulesFitRoof ? (
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                      )}
+                      <div>
+                        <p className="font-bold">
+                          {moduleSizing.result.modulesFitRoof
+                            ? 'Os módulos cabem na área útil do telhado'
+                            : 'Os módulos não cabem na área útil do telhado'}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 opacity-80">
+                          Estimativa por área. Recuos, obstáculos, orientação e espaçamento devem ser verificados no projeto executivo.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </section>
             )}
 
@@ -808,6 +944,8 @@ export function ProfessionalSizingCalculator() {
             selectedKit={selectedKit}
             hspDaily={hspDaily}
             generationIncreasePercent={generationIncreasePercent}
+            moduleQuantity={moduleQuantity}
+            moduleSizing={moduleSizing.result}
           />
         </div>
       </div>
@@ -854,6 +992,8 @@ function SizingPreview({
   selectedKit,
   hspDaily,
   generationIncreasePercent,
+  moduleQuantity,
+  moduleSizing,
 }: {
   selectedClient: Client | null;
   consumptionPreview: {
@@ -867,6 +1007,8 @@ function SizingPreview({
   selectedKit: SolarKit | null;
   hspDaily: string;
   generationIncreasePercent: string;
+  moduleQuantity: number | null;
+  moduleSizing: ModuleSizingResult | null;
 }) {
   return (
     <Card>
@@ -918,6 +1060,14 @@ function SizingPreview({
                 : 'Aguardando HSP'}
             />
             <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />
+            {moduleQuantity != null && <PreviewRow label="Quantidade de módulos" value={`${moduleQuantity} módulos`} />}
+            {moduleSizing && (
+              <>
+                <PreviewRow label="Área dos módulos" value={`${number.format(moduleSizing.totalModuleAreaM2)} m²`} />
+                <PreviewRow label="Área útil do telhado" value={`${number.format(moduleSizing.roofAreaM2)} m²`} />
+                <PreviewRow label="Status do telhado" value={moduleSizing.modulesFitRoof ? 'Cabe' : 'Não cabe'} highlight />
+              </>
+            )}
           </dl>
         )}
 

@@ -39,3 +39,20 @@ test('o resumo identifica dinamicamente o tipo de ligação na disponibilidade',
   assert.match(calculatorEntry, /MutationObserver/);
   assert.match(calculatorEntry, /addEventListener\('change', synchronize\)/);
 });
+
+
+test('o fluxo calcula quantidade de módulos, áreas e status do telhado', async () => {
+  const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+
+  assert.match(calculator, /calculateModuleQuantity/);
+  assert.match(calculator, /calculateModuleSizing/);
+  assert.match(calculator, /label="Potência do módulo"/);
+  assert.match(calculator, /label="Largura do módulo"/);
+  assert.match(calculator, /label="Altura do módulo"/);
+  assert.match(calculator, /label="Largura útil do telhado"/);
+  assert.match(calculator, /label="Altura útil do telhado"/);
+  assert.match(calculator, /Quantidade de módulos e área do telhado/);
+  assert.match(calculator, /modulesFitRoof/);
+  assert.match(calculator, /Os módulos cabem na área útil do telhado/);
+  assert.match(calculator, /Os módulos não cabem na área útil do telhado/);
+});
