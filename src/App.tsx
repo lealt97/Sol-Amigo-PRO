@@ -74,8 +74,8 @@ export default function App() {
                 <Route path="propostas" element={<ProposalList />} />
                 <Route path="propostas/nova" element={<ProfessionalSizingCalculator />} />
                 <Route path="propostas/:id/continuar" element={<ProfessionalSizingCalculator />} />
+                <Route path="propostas/:id/editar" element={<ProfessionalSizingCalculator />} />
                 <Route path="propostas/:id" element={<ProposalDetailsRoute />} />
-                <Route path="propostas/:id/editar" element={null} />
                 <Route path="kits-solares" element={<SolarKitCatalog />} />
                 <Route path="design-pdf" element={<DesignPdf />} />
                 <Route path="checkout" element={<BillingCheckout />} />
