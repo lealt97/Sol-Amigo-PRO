@@ -10,6 +10,7 @@ test('remove casas decimais de valores técnicos com quatro ou mais dígitos', (
 test('mantém precisão de até três casas para valores abaixo de mil', () => {
   assert.equal(technicalNumber.format(373.479), '373,479');
   assert.equal(technicalNumber.format(4.407), '4,407');
+  assert.equal(technicalNumber.format(4.556), '4,556');
 });
 
 test('usa marcador neutro para valores inválidos', () => {
