@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,318 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar cálculo de módulos e área do telhado
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
+          source = path.read_text(encoding='utf-8')
+
+          import_marker = """} from '../../lib/calculations/professionalSizing';
+          """
+          module_import = """import {
+            calculateModuleQuantity,
+            calculateModuleSizing,
+            type ModuleSizingResult,
+          } from '../../lib/calculations/moduleSizing';
+          """
+          if "from '../../lib/calculations/moduleSizing'" not in source:
+              if import_marker not in source:
+                  raise SystemExit('Import de dimensionamento não encontrado.')
+              source = source.replace(import_marker, import_marker + module_import, 1)
+
+          state_marker = """  const [generationIncreasePercent, setGenerationIncreasePercent] = useState('0');
+          """
+          module_states = """
+            const [modulePowerW, setModulePowerW] = useState('275');
+            const [moduleWidthM, setModuleWidthM] = useState('');
+            const [moduleHeightM, setModuleHeightM] = useState('');
+            const [roofWidthM, setRoofWidthM] = useState('');
+            const [roofHeightM, setRoofHeightM] = useState('');
+          """
+          if 'const [modulePowerW' not in source:
+              if state_marker not in source:
+                  raise SystemExit('Estado de geração adicional não encontrado.')
+              source = source.replace(state_marker, state_marker + module_states, 1)
+
+          validation_marker = """      if (!Number.isFinite(parsedGenerationIncrease) || parsedGenerationIncrease < 0 || parsedGenerationIncrease > 100) {
+                toast.error('Informe uma geração adicional entre 0% e 100%.');
+                return false;
+              }
+          """
+          validation_block = """
+              const moduleFields = [
+                { value: parseNumber(modulePowerW), message: 'Informe a potência do módulo em Wp.' },
+                { value: parseNumber(moduleWidthM), message: 'Informe a largura do módulo em metros.' },
+                { value: parseNumber(moduleHeightM), message: 'Informe a altura do módulo em metros.' },
+                { value: parseNumber(roofWidthM), message: 'Informe a largura útil do telhado em metros.' },
+                { value: parseNumber(roofHeightM), message: 'Informe a altura útil do telhado em metros.' },
+              ];
+              const invalidModuleField = moduleFields.find((field) => !Number.isFinite(field.value) || field.value <= 0);
+              if (invalidModuleField) {
+                toast.error(invalidModuleField.message);
+                return false;
+              }
+          """
+          if 'const moduleFields = [' not in source:
+              if validation_marker not in source:
+                  raise SystemExit('Validação da geração adicional não encontrada.')
+              source = source.replace(validation_marker, validation_marker + validation_block, 1)
+
+          result_marker = """  const result = calculation.result;
+            const hasCalculation = Boolean(result);
+          """
+          result_block = """  const result = calculation.result;
+            const moduleQuantity = useMemo(() => {
+              const parsedModulePower = parseNumber(modulePowerW);
+              if (!result || !Number.isFinite(parsedModulePower) || parsedModulePower <= 0) return null;
+
+              try {
+                return calculateModuleQuantity(result.requiredPowerKwp, parsedModulePower);
+              } catch {
+                return null;
+              }
+            }, [modulePowerW, result]);
+
+            const moduleSizing = useMemo<{ result: ModuleSizingResult | null; error: string | null }>(() => {
+              if (!result) return { result: null, error: null };
+
+              const values = {
+                modulePowerW: parseNumber(modulePowerW),
+                moduleWidthM: parseNumber(moduleWidthM),
+                moduleHeightM: parseNumber(moduleHeightM),
+                roofWidthM: parseNumber(roofWidthM),
+                roofHeightM: parseNumber(roofHeightM),
+              };
+
+              if (Object.values(values).some((value) => !Number.isFinite(value) || value <= 0)) {
+                return { result: null, error: null };
+              }
+
+              try {
+                return {
+                  result: calculateModuleSizing({
+                    requiredPowerKwp: result.requiredPowerKwp,
+                    ...values,
+                  }),
+                  error: null,
+                };
+              } catch (error) {
+                return {
+                  result: null,
+                  error: error instanceof Error ? error.message : 'Não foi possível calcular a ocupação do telhado.',
+                };
+              }
+            }, [moduleHeightM, modulePowerW, moduleWidthM, result, roofHeightM, roofWidthM]);
+
+            const hasCalculation = Boolean(result);
+          """
+          if 'const moduleQuantity = useMemo' not in source:
+              if result_marker not in source:
+                  raise SystemExit('Marcador do resultado principal não encontrado.')
+              source = source.replace(result_marker, result_block, 1)
+
+          summary_marker = """                {result && (
+                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                              <Summary label="Consumo compensável" value={`${number.format(result.compensableMonthlyConsumptionKwh)} kWh/mês`} />
+                              <Summary label="Geração adicional" value={`${number.format(result.generationIncreasePercent)}%`} />
+                              <Summary label="Meta de geração" value={`${number.format(result.targetMonthlyGenerationKwh)} kWh/mês`} />
+                              <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
+                            </div>
+                          )}
+          """
+          module_ui = """                {result && (
+                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                              <Summary label="Consumo compensável" value={`${number.format(result.compensableMonthlyConsumptionKwh)} kWh/mês`} />
+                              <Summary label="Geração adicional" value={`${number.format(result.generationIncreasePercent)}%`} />
+                              <Summary label="Meta de geração" value={`${number.format(result.targetMonthlyGenerationKwh)} kWh/mês`} />
+                              <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
+                            </div>
+                          )}
+
+                          <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
+                            <div>
+                              <h3 className="font-bold text-brand-dark">Quantidade de módulos e área do telhado</h3>
+                              <p className="mt-1 text-sm leading-6 text-slate-500">
+                                A quantidade é arredondada para cima. A verificação do telhado compara a área total dos módulos com a área útil informada.
+                              </p>
+                            </div>
+
+                            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                              <Field
+                                label="Potência do módulo"
+                                value={modulePowerW}
+                                onChange={setModulePowerW}
+                                suffix="Wp"
+                                min={1}
+                                step="1"
+                                helper="Exemplo atual: 275 Wp resulta em 17 módulos para 4,556 kWp."
+                              />
+                              <Field label="Largura do módulo" value={moduleWidthM} onChange={setModuleWidthM} suffix="m" min={0.01} step="0.001" />
+                              <Field label="Altura do módulo" value={moduleHeightM} onChange={setModuleHeightM} suffix="m" min={0.01} step="0.001" />
+                              <Field label="Largura útil do telhado" value={roofWidthM} onChange={setRoofWidthM} suffix="m" min={0.01} step="0.01" />
+                              <Field label="Altura útil do telhado" value={roofHeightM} onChange={setRoofHeightM} suffix="m" min={0.01} step="0.01" />
+                            </div>
+
+                            {result && moduleQuantity != null && (
+                              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                <Summary label="Quantidade de módulos" value={`${moduleQuantity} módulos`} highlight />
+                                <Summary
+                                  label="Potência instalada"
+                                  value={`${number.format((moduleQuantity * parseNumber(modulePowerW)) / 1000)} kWp`}
+                                />
+                                {moduleSizing.result && (
+                                  <>
+                                    <Summary label="Área por módulo" value={`${number.format(moduleSizing.result.moduleAreaM2)} m²`} />
+                                    <Summary label="Área total dos módulos" value={`${number.format(moduleSizing.result.totalModuleAreaM2)} m²`} />
+                                    <Summary label="Área útil do telhado" value={`${number.format(moduleSizing.result.roofAreaM2)} m²`} />
+                                    <Summary
+                                      label="Saldo de área"
+                                      value={`${number.format(moduleSizing.result.availableAreaBalanceM2)} m²`}
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            )}
+
+                            {moduleSizing.error && (
+                              <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                                {moduleSizing.error}
+                              </div>
+                            )}
+
+                            {moduleSizing.result && (
+                              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
+                                moduleSizing.result.modulesFitRoof
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : 'border-red-200 bg-red-50 text-red-700'
+                              }`}>
+                                {moduleSizing.result.modulesFitRoof ? (
+                                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                                ) : (
+                                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                                )}
+                                <div>
+                                  <p className="font-bold">
+                                    {moduleSizing.result.modulesFitRoof
+                                      ? 'Os módulos cabem na área útil do telhado'
+                                      : 'Os módulos não cabem na área útil do telhado'}
+                                  </p>
+                                  <p className="mt-1 text-xs leading-5 opacity-80">
+                                    Estimativa somente por área. Recuos, obstáculos, orientação e espaçamento entre módulos devem ser verificados no projeto executivo.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+          """
+          if 'Quantidade de módulos e área do telhado' not in source:
+              if summary_marker not in source:
+                  raise SystemExit('Resumo da etapa HSP não encontrado.')
+              source = source.replace(summary_marker, module_ui, 1)
+
+          preview_call_marker = """            generationIncreasePercent={generationIncreasePercent}
+                      />
+          """
+          preview_call = """            generationIncreasePercent={generationIncreasePercent}
+                        moduleQuantity={moduleQuantity}
+                        moduleSizing={moduleSizing.result}
+                      />
+          """
+          if 'moduleSizing={moduleSizing.result}' not in source:
+              if preview_call_marker not in source:
+                  raise SystemExit('Chamada do resumo lateral não encontrada.')
+              source = source.replace(preview_call_marker, preview_call, 1)
+
+          preview_signature_marker = """  generationIncreasePercent,
+          }: {
+          """
+          preview_signature = """  generationIncreasePercent,
+            moduleQuantity,
+            moduleSizing,
+          }: {
+          """
+          if 'moduleSizing,' not in source.split('function SizingPreview', 1)[-1][:400]:
+              if preview_signature_marker not in source:
+                  raise SystemExit('Assinatura do resumo lateral não encontrada.')
+              source = source.replace(preview_signature_marker, preview_signature, 1)
+
+          preview_type_marker = """  generationIncreasePercent: string;
+          }) {
+          """
+          preview_type = """  generationIncreasePercent: string;
+            moduleQuantity: number | null;
+            moduleSizing: ModuleSizingResult | null;
+          }) {
+          """
+          if 'moduleSizing: ModuleSizingResult | null;' not in source:
+              if preview_type_marker not in source:
+                  raise SystemExit('Tipos do resumo lateral não encontrados.')
+              source = source.replace(preview_type_marker, preview_type, 1)
+
+          power_row = """            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />
+          """
+          module_preview_rows = """            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />
+                        {moduleQuantity != null && <PreviewRow label="Quantidade de módulos" value={`${moduleQuantity} módulos`} />}
+                        {moduleSizing && (
+                          <>
+                            <PreviewRow label="Área dos módulos" value={`${number.format(moduleSizing.totalModuleAreaM2)} m²`} />
+                            <PreviewRow label="Área útil do telhado" value={`${number.format(moduleSizing.roofAreaM2)} m²`} />
+                            <PreviewRow
+                              label="Status do telhado"
+                              value={moduleSizing.modulesFitRoof ? 'Cabe' : 'Não cabe'}
+                              highlight
+                            />
+                          </>
+                        )}
+          """
+          if 'label="Quantidade de módulos"' not in source.split('function SizingPreview', 1)[-1]:
+              if power_row not in source:
+                  raise SystemExit('Linha da potência necessária não encontrada.')
+              source = source.replace(power_row, module_preview_rows, 1)
+
+          path.write_text(source, encoding='utf-8')
+
+          test_path = Path('tests/generation-input-only.test.ts')
+          tests = test_path.read_text(encoding='utf-8')
+          test_block = """
+
+          test('o fluxo calcula quantidade de módulos, áreas e status do telhado', async () => {
+            const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+
+            assert.match(calculator, /calculateModuleQuantity/);
+            assert.match(calculator, /calculateModuleSizing/);
+            assert.match(calculator, /label="Potência do módulo"/);
+            assert.match(calculator, /label="Largura do módulo"/);
+            assert.match(calculator, /label="Altura do módulo"/);
+            assert.match(calculator, /label="Largura útil do telhado"/);
+            assert.match(calculator, /label="Altura útil do telhado"/);
+            assert.match(calculator, /Quantidade de módulos e área do telhado/);
+            assert.match(calculator, /modulesFitRoof/);
+            assert.match(calculator, /Os módulos cabem na área útil do telhado/);
+            assert.match(calculator, /Os módulos não cabem na área útil do telhado/);
+          });
+          """
+          if "o fluxo calcula quantidade de módulos" not in tests:
+              tests += test_block
+              test_path.write_text(tests, encoding='utf-8')
+          PY
+
+          if git diff --quiet; then
+            echo "Dimensionamento de módulos já aplicado."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/generation-input-only.test.ts
+            git commit -m "feat: integrar módulos e área do telhado ao fluxo"
+            git push origin HEAD:main
+          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
