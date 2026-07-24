@@ -3,7 +3,14 @@ import { toast } from 'sonner';
 import { Copy, Edit3, Loader2, Package, Plus, Power, Save, Search, Trash2, X, Zap } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { solarKitService } from '../../services/solarKitService';
-import { SOLAR_SYSTEM_TYPE_LABELS, SolarKit, SolarKitFormValues, SolarSystemType } from '../../types/solarKit';
+import {
+  SOLAR_KIT_CONNECTION_TYPE_LABELS,
+  SOLAR_SYSTEM_TYPE_LABELS,
+  SolarKit,
+  SolarKitConnectionType,
+  SolarKitFormValues,
+  SolarSystemType,
+} from '../../types/solarKit';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
@@ -20,6 +27,8 @@ type SolarKitFormState = {
   inverter_brand: string;
   inverter_model: string;
   inverter_power_kw: string;
+  grid_connection_type: SolarKitConnectionType | '';
+  grid_voltage_v: string;
   structure_type: string;
   battery_brand: string;
   battery_model: string;
@@ -46,6 +55,8 @@ const EMPTY_FORM: SolarKitFormState = {
   inverter_brand: '',
   inverter_model: '',
   inverter_power_kw: '',
+  grid_connection_type: '',
+  grid_voltage_v: '',
   structure_type: '',
   battery_brand: '',
   battery_model: '',
@@ -83,6 +94,8 @@ const toFormState = (kit: SolarKit): SolarKitFormState => ({
   inverter_brand: kit.inverter_brand || '',
   inverter_model: kit.inverter_model || '',
   inverter_power_kw: kit.inverter_power_kw ? String(kit.inverter_power_kw) : '',
+  grid_connection_type: kit.grid_connection_type || '',
+  grid_voltage_v: kit.grid_voltage_v ? String(kit.grid_voltage_v) : '',
   structure_type: kit.structure_type || '',
   battery_brand: kit.battery_brand || '',
   battery_model: kit.battery_model || '',
@@ -109,6 +122,8 @@ const toPayload = (form: SolarKitFormState): SolarKitFormValues => ({
   inverter_brand: form.inverter_brand || null,
   inverter_model: form.inverter_model || null,
   inverter_power_kw: parseOptionalNumber(form.inverter_power_kw),
+  grid_connection_type: form.grid_connection_type || null,
+  grid_voltage_v: parseOptionalNumber(form.grid_voltage_v),
   structure_type: form.structure_type || null,
   battery_brand: form.battery_brand || null,
   battery_model: form.battery_model || null,
@@ -163,6 +178,8 @@ export function SolarKitCatalog() {
         kit.module_model,
         kit.inverter_brand,
         kit.inverter_model,
+        kit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type] : null,
+        kit.grid_voltage_v ? `${kit.grid_voltage_v} V` : null,
         kit.battery_brand,
         kit.battery_model,
         kit.structure_type,
@@ -205,6 +222,8 @@ export function SolarKitCatalog() {
     if (!form.name.trim()) return 'Informe o nome do kit.';
     if (parseNumber(form.module_power_w) <= 0) return 'Informe a potência do módulo em W.';
     if (parseNumber(form.module_quantity) <= 0) return 'Informe a quantidade de módulos.';
+    if (!form.grid_connection_type) return 'Informe o tipo de ligação atendida pelo kit.';
+    if ((parseOptionalNumber(form.grid_voltage_v) ?? 0) <= 0) return 'Informe a tensão nominal do kit em volts.';
     if (hasStorage && parseOptionalNumber(form.battery_capacity_kwh) === null) return 'Informe a capacidade da bateria em kWh para kits híbridos/off-grid.';
     if (parseNumber(form.cost_price) < 0) return 'O custo do kit não pode ser negativo.';
     return null;
@@ -355,11 +374,22 @@ export function SolarKitCatalog() {
               </div>
 
               <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
-                <h3 className="mb-4 text-sm font-semibold text-brand-dark">Inversor</h3>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <h3 className="mb-1 text-sm font-semibold text-brand-dark">Inversor e conexão elétrica</h3>
+                <p className="mb-4 text-xs leading-5 text-slate-500">Cadastre a configuração para a qual o conjunto foi montado pelo fornecedor.</p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Marca</label><Input value={form.inverter_brand} onChange={(event) => updateField('inverter_brand', event.target.value)} placeholder="Ex: Deye" /></div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Modelo</label><Input value={form.inverter_model} onChange={(event) => updateField('inverter_model', event.target.value)} placeholder="Ex: SUN-5K-SG04LP1" /></div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência kW</label><Input type="number" min="0" step="0.01" value={form.inverter_power_kw} onChange={(event) => updateField('inverter_power_kw', event.target.value)} placeholder="5" /></div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-brand-dark">Ligação atendida *</label>
+                    <select value={form.grid_connection_type} onChange={(event) => updateField('grid_connection_type', event.target.value as SolarKitConnectionType)} className="flex h-10 w-full rounded-md border border-brand-border bg-gray-50 px-3 py-2 text-sm text-brand-dark outline-none ring-offset-brand-gray transition-colors focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2">
+                      <option value="">Selecione</option>
+                      <option value="monophase">Monofásica</option>
+                      <option value="biphase">Bifásica</option>
+                      <option value="triphase">Trifásica</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Tensão nominal V *</label><Input type="number" min="1" step="1" value={form.grid_voltage_v} onChange={(event) => updateField('grid_voltage_v', event.target.value)} placeholder="Ex: 220" /></div>
                 </div>
               </div>
 
@@ -411,7 +441,7 @@ export function SolarKitCatalog() {
         <div className="flex flex-col gap-4 border-b border-brand-border bg-gray-50 p-4 md:flex-row md:items-center md:justify-between">
           <div className="relative w-full md:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <Input className="pl-9" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por kit, fornecedor, módulo, inversor ou bateria..." />
+            <Input className="pl-9" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por kit, fornecedor, módulo, inversor, ligação, tensão ou bateria..." />
           </div>
           <div className="text-xs text-slate-500">
             Custo médio cadastrado: <span className="font-semibold text-brand-dark">{formatCurrency(averageCost)}</span> · Potência total: <span className="font-semibold text-brand-dark">{totalPowerKwp.toFixed(2)} kWp</span>
@@ -425,6 +455,7 @@ export function SolarKitCatalog() {
                 <th className="px-4 py-3 font-medium">Kit</th>
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Potência</th>
+                <th className="px-4 py-3 font-medium">Elétrica</th>
                 <th className="px-4 py-3 font-medium">Bateria/Backup</th>
                 <th className="px-4 py-3 font-medium">Custo</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -433,13 +464,17 @@ export function SolarKitCatalog() {
             </thead>
             <tbody className="bg-brand-surface">
               {isLoading ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-500"><div className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Carregando kits solares...</div></td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500"><div className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Carregando kits solares...</div></td></tr>
               ) : filteredKits.length > 0 ? (
                 filteredKits.map((kit) => (
                   <tr key={kit.id} className="border-b border-brand-border hover:bg-gray-50">
                     <td className="px-4 py-3"><div className="font-semibold text-brand-dark">{kit.name}</div><div className="text-[11px] text-slate-500">{kit.supplier || 'Fornecedor não informado'}</div></td>
                     <td className="px-4 py-3"><span className="rounded-full border border-brand-border bg-gray-50 px-2 py-1 text-[11px] font-semibold text-brand-dark">{SOLAR_SYSTEM_TYPE_LABELS[kit.system_type || 'on_grid']}</span></td>
                     <td className="px-4 py-3 text-brand-dark"><div className="font-semibold">{Number(kit.kit_power_kwp || 0).toFixed(2)} kWp</div><div className="text-[11px] text-slate-500">{kit.module_quantity} × {kit.module_power_w} W</div></td>
+                    <td className="px-4 py-3 text-brand-dark">
+                      <div className="font-semibold">{kit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type] : 'Ligação não informada'}</div>
+                      <div className="text-[11px] text-slate-500">{kit.grid_voltage_v ? `${kit.grid_voltage_v} V` : 'Tensão não informada'}</div>
+                    </td>
                     <td className="px-4 py-3 text-brand-dark">
                       {kit.system_type === 'hybrid' || kit.system_type === 'off_grid' ? (
                         <div><div>{kit.battery_capacity_kwh ? `${kit.battery_capacity_kwh} kWh` : 'Bateria não informada'}</div><div className="text-[11px] text-slate-500">{kit.backup_power_kw ? `${kit.backup_power_kw} kW backup` : 'Backup não informado'}{kit.autonomy_hours ? ` · ${kit.autonomy_hours}h` : ''}</div></div>
@@ -458,7 +493,7 @@ export function SolarKitCatalog() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={7} className="px-4 py-12 text-center"><Package className="mx-auto mb-3 h-10 w-10 text-slate-300" /><p className="text-sm font-medium text-brand-dark">Nenhum kit solar encontrado.</p><p className="mt-1 text-xs text-slate-500">Cadastre o primeiro kit para liberar a recomendação automática nas próximas etapas.</p></td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center"><Package className="mx-auto mb-3 h-10 w-10 text-slate-300" /><p className="text-sm font-medium text-brand-dark">Nenhum kit solar encontrado.</p><p className="mt-1 text-xs text-slate-500">Cadastre o primeiro kit para liberar a recomendação automática nas próximas etapas.</p></td></tr>
               )}
             </tbody>
           </table>

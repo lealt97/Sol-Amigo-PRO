@@ -42,6 +42,7 @@ import {
   type ModuleSizingResult,
 } from '../../lib/calculations/moduleSizing';
 import { calculateDcAcOversizing } from '../../lib/calculations/oversizing';
+import { calculateElectricalCompatibility } from '../../lib/calculations/electricalCompatibility';
 import type { PaybackResult } from '../../lib/calculations/payback';
 import { clampProposalFlowStep, getProposalContinuePath } from '../../lib/proposals/flow';
 import { clientService } from '../../services/clientService';
@@ -54,7 +55,11 @@ import {
   type ProposalDraftPaybackForm,
   type ProposalDraftState,
 } from '../../types/proposalDraft';
-import { buildSolarKitSnapshot, type SolarKit } from '../../types/solarKit';
+import {
+  SOLAR_KIT_CONNECTION_TYPE_LABELS,
+  buildSolarKitSnapshot,
+  type SolarKit,
+} from '../../types/solarKit';
 import { PaybackStep } from './PaybackStep';
 import { RoofPhotoUpload } from './RoofPhotoUpload';
 
@@ -188,6 +193,7 @@ export function ProfessionalSizingCalculator() {
   );
   const [loadSurvey, setLoadSurvey] = useState<LoadSurveyDraft[]>([createLoadDraft()]);
   const [connectionType, setConnectionType] = useState<ConnectionType>('monophase');
+  const [gridVoltageV, setGridVoltageV] = useState('');
 
   const [hspDaily, setHspDaily] = useState('');
   const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
@@ -218,6 +224,7 @@ export function ProfessionalSizingCalculator() {
       : Array.from({ length: 12 }, (_, index) => state.monthlyConsumption[index] || ''));
     setLoadSurvey(state.loadSurvey.length > 0 ? state.loadSurvey : [createLoadDraft()]);
     setConnectionType(state.connectionType as ConnectionType);
+    setGridVoltageV(state.gridVoltageV || '');
     setHspDaily(state.hspDaily);
     setPerformanceRatioPercent(state.performanceRatioPercent);
     setGenerationIncreasePercent(state.generationIncreasePercent);
@@ -318,6 +325,17 @@ export function ProfessionalSizingCalculator() {
       return null;
     }
   }, [selectedKit]);
+
+  const selectedKitElectricalCompatibility = useMemo(() => {
+    if (!selectedKit) return null;
+
+    return calculateElectricalCompatibility({
+      customerConnectionType: connectionType,
+      customerVoltageV: parseOptionalNumber(gridVoltageV),
+      kitConnectionType: selectedKit.grid_connection_type ?? null,
+      kitVoltageV: selectedKit.grid_voltage_v ?? null,
+    });
+  }, [connectionType, gridVoltageV, selectedKit]);
 
   const consumptionModeInput = useMemo(() => ({
     mode: consumptionMode,
@@ -440,6 +458,12 @@ export function ProfessionalSizingCalculator() {
         return false;
       }
 
+      const parsedGridVoltage = parseNumber(gridVoltageV);
+      if (!Number.isFinite(parsedGridVoltage) || parsedGridVoltage <= 0) {
+        toast.error('Informe a tensão da unidade consumidora em volts.');
+        return false;
+      }
+
       const availability = CONNECTION_AVAILABILITY_KWH[connectionType];
       if (consumptionResolution.averageMonthlyConsumptionKwh <= availability) {
         toast.error('O consumo médio deve ser maior que o custo de disponibilidade.');
@@ -510,6 +534,7 @@ export function ProfessionalSizingCalculator() {
     monthlyConsumption,
     loadSurvey,
     connectionType,
+    gridVoltageV,
     hspDaily,
     performanceRatioPercent,
     generationIncreasePercent,
@@ -997,17 +1022,28 @@ export function ProfessionalSizingCalculator() {
                   </div>
                 )}
 
-                <label className="block max-w-md space-y-2">
-                  <span className="text-sm font-semibold text-brand-dark">Tipo de ligação</span>
-                  <Select value={connectionType} onChange={(event) => setConnectionType(event.target.value as ConnectionType)}>
-                    <option value="monophase">Monofásica — 30 kWh</option>
-                    <option value="biphase">Bifásica — 50 kWh</option>
-                    <option value="triphase">Trifásica — 100 kWh</option>
-                  </Select>
-                  <p className="text-xs leading-5 text-slate-500">
-                    O sistema subtrai automaticamente o custo de disponibilidade da média mensal obtida no modo escolhido.
-                  </p>
-                </label>
+                <div className="grid max-w-3xl gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-semibold text-brand-dark">Tipo de ligação</span>
+                    <Select value={connectionType} onChange={(event) => setConnectionType(event.target.value as ConnectionType)}>
+                      <option value="monophase">Monofásica — 30 kWh</option>
+                      <option value="biphase">Bifásica — 50 kWh</option>
+                      <option value="triphase">Trifásica — 100 kWh</option>
+                    </Select>
+                    <p className="text-xs leading-5 text-slate-500">
+                      O sistema subtrai automaticamente o custo de disponibilidade da média mensal obtida no modo escolhido.
+                    </p>
+                  </label>
+                  <Field
+                    label="Tensão da unidade consumidora"
+                    value={gridVoltageV}
+                    onChange={setGridVoltageV}
+                    suffix="V"
+                    min={1}
+                    step="1"
+                    helper="Use a tensão nominal informada na conta ou no padrão de entrada, como 127, 220 ou 380 V."
+                  />
+                </div>
 
                 {consumptionPreview && (
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1199,7 +1235,7 @@ export function ProfessionalSizingCalculator() {
                       <option value="">Selecione um kit cadastrado</option>
                       {kits.map((kit) => (
                         <option key={kit.id} value={kit.id}>
-                          {kit.name} — {number.format(kit.kit_power_kwp)} kWp
+                          {kit.name} — {number.format(kit.kit_power_kwp)} kWp{kit.grid_connection_type ? ` — ${SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type]}` : ''}{kit.grid_voltage_v ? ` ${kit.grid_voltage_v} V` : ''}
                         </option>
                       ))}
                     </Select>
@@ -1219,6 +1255,8 @@ export function ProfessionalSizingCalculator() {
                             <Detail label="Módulo" value={[selectedKit.module_brand, selectedKit.module_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Inversor" value={[selectedKit.inverter_brand, selectedKit.inverter_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Potência AC do inversor" value={selectedKit.inverter_power_kw && selectedKit.inverter_power_kw > 0 ? `${number.format(selectedKit.inverter_power_kw)} kW` : 'Não informada'} />
+                            <Detail label="Ligação atendida pelo kit" value={selectedKit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[selectedKit.grid_connection_type] : 'Não informada'} />
+                            <Detail label="Tensão nominal do kit" value={selectedKit.grid_voltage_v ? `${number.format(selectedKit.grid_voltage_v)} V` : 'Não informada'} />
                           </dl>
                         </CardContent>
                       </Card>
@@ -1244,26 +1282,56 @@ export function ProfessionalSizingCalculator() {
                       </Card>
                     </div>
 
+
+                    {selectedKitElectricalCompatibility && (
+                      <div className={`rounded-xl border p-5 ${
+                        selectedKitElectricalCompatibility.status === 'compatible'
+                          ? 'border-emerald-400/50 bg-emerald-500/10'
+                          : selectedKitElectricalCompatibility.status === 'connection_upgrade_required'
+                            ? 'border-amber-400/50 bg-amber-500/10'
+                            : selectedKitElectricalCompatibility.status === 'voltage_adaptation_required'
+                              ? 'border-red-400/50 bg-red-500/10'
+                              : selectedKitElectricalCompatibility.status === 'technical_review'
+                                ? 'border-brand-light/40 bg-brand-blue/10'
+                                : 'border-slate-400/40 bg-slate-500/10'
+                      }`}>
+                        <div className="flex items-start gap-3">
+                          {selectedKitElectricalCompatibility.status === 'compatible' ? (
+                            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-300" />
+                          ) : selectedKitElectricalCompatibility.status === 'technical_review' ? (
+                            <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-brand-light" />
+                          ) : (
+                            <AlertTriangle className={`mt-0.5 h-6 w-6 shrink-0 ${selectedKitElectricalCompatibility.status === 'voltage_adaptation_required' ? 'text-red-300' : 'text-amber-300'}`} />
+                          )}
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Compatibilidade elétrica</p>
+                            <h3 className="mt-1 text-lg font-bold text-brand-dark">{selectedKitElectricalCompatibility.statusLabel}</h3>
+                            <p className="mt-2 text-sm leading-6 text-slate-200">{selectedKitElectricalCompatibility.guidance}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {selectedKitOversizing ? (
                       <div className={`rounded-xl border p-5 ${
                         selectedKitOversizing.status === 'reference'
                           ? 'border-emerald-400/50 bg-emerald-500/10'
-                          : selectedKitOversizing.status === 'above_reference'
-                            ? 'border-amber-400/50 bg-amber-500/10'
-                            : 'border-brand-light/30 bg-brand-blue/10'
+                          : 'border-brand-light/30 bg-brand-blue/10'
                       }`}>
                         <div className="flex items-start gap-3">
                           {selectedKitOversizing.status === 'reference' ? (
                             <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-300" />
-                          ) : selectedKitOversizing.status === 'above_reference' ? (
-                            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
                           ) : (
                             <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-brand-light" />
                           )}
                           <div className="min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Oversizing DC/AC</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Configuração DC/AC do kit</p>
                             <h3 className="mt-1 text-lg font-bold text-brand-dark">{selectedKitOversizing.statusLabel}</h3>
-                            <p className="mt-1 text-sm leading-6 text-slate-200">{selectedKitOversizing.guidance}</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-200">
+                              {selectedKitOversizing.status === 'above_reference'
+                                ? 'A relação está acima da referência de 1,20, mas faz parte do conjunto cadastrado pelo fornecedor e não bloqueia a compatibilidade do kit. Confirme os limites elétricos e as condições de garantia no datasheet.'
+                                : selectedKitOversizing.guidance}
+                            </p>
                           </div>
                         </div>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

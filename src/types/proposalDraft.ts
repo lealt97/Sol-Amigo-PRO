@@ -38,6 +38,7 @@ export type ProposalDraftStateV1 = {
   monthlyConsumption: string[];
   loadSurvey: ProposalDraftLoad[];
   connectionType: ProposalDraftConnectionType;
+  gridVoltageV?: string;
   hspDaily: string;
   performanceRatioPercent: string;
   generationIncreasePercent: string;

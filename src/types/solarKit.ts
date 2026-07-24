@@ -6,6 +6,14 @@ export const SOLAR_SYSTEM_TYPE_LABELS: Record<SolarSystemType, string> = {
   off_grid: 'Off-grid',
 };
 
+export type SolarKitConnectionType = 'monophase' | 'biphase' | 'triphase';
+
+export const SOLAR_KIT_CONNECTION_TYPE_LABELS: Record<SolarKitConnectionType, string> = {
+  monophase: 'Monofásica',
+  biphase: 'Bifásica',
+  triphase: 'Trifásica',
+};
+
 export interface SolarKit {
   id: string;
   user_id: string;
@@ -19,6 +27,8 @@ export interface SolarKit {
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
+  grid_connection_type?: SolarKitConnectionType | null;
+  grid_voltage_v?: number | null;
   structure_type: string | null;
   battery_brand: string | null;
   battery_model: string | null;
@@ -48,6 +58,8 @@ export interface SolarKitFormValues {
   inverter_brand?: string | null;
   inverter_model?: string | null;
   inverter_power_kw?: number | null;
+  grid_connection_type?: SolarKitConnectionType | null;
+  grid_voltage_v?: number | null;
   structure_type?: string | null;
   battery_brand?: string | null;
   battery_model?: string | null;
@@ -75,6 +87,8 @@ export interface SolarKitSnapshot {
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
+  grid_connection_type: SolarKitConnectionType | null;
+  grid_voltage_v: number | null;
   structure_type: string | null;
   battery_brand: string | null;
   battery_model: string | null;
@@ -102,6 +116,8 @@ export function buildSolarKitSnapshot(kit: SolarKit): SolarKitSnapshot {
     inverter_brand: kit.inverter_brand,
     inverter_model: kit.inverter_model,
     inverter_power_kw: kit.inverter_power_kw,
+    grid_connection_type: kit.grid_connection_type ?? null,
+    grid_voltage_v: kit.grid_voltage_v ?? null,
     structure_type: kit.structure_type,
     battery_brand: kit.battery_brand,
     battery_model: kit.battery_model,

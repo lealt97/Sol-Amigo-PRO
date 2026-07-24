@@ -1,5 +1,6 @@
 import type {
   SolarKit,
+  SolarKitConnectionType,
   SolarKitFormValues,
   SolarSystemType,
 } from '../../types/solarKit';
@@ -15,6 +16,8 @@ export type NormalizedSolarKitValues = {
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
+  grid_connection_type: SolarKitConnectionType | null;
+  grid_voltage_v: number | null;
   structure_type: string | null;
   battery_brand: string | null;
   battery_model: string | null;
@@ -50,6 +53,13 @@ export function normalizeSolarSystemType(
   return 'on_grid';
 }
 
+export function normalizeSolarKitConnectionType(
+  value?: SolarKitConnectionType | string | null,
+): SolarKitConnectionType | null {
+  if (value === 'monophase' || value === 'biphase' || value === 'triphase') return value;
+  return null;
+}
+
 function normalizeText(value?: string | null) {
   return value?.trim() || null;
 }
@@ -82,6 +92,8 @@ export function normalizeSolarKitPayload(
     inverter_brand: normalizeText(kit.inverter_brand),
     inverter_model: normalizeText(kit.inverter_model),
     inverter_power_kw: normalizeOptionalNumber(kit.inverter_power_kw),
+    grid_connection_type: normalizeSolarKitConnectionType(kit.grid_connection_type),
+    grid_voltage_v: normalizeOptionalNumber(kit.grid_voltage_v),
     structure_type: normalizeText(kit.structure_type),
     battery_brand: hasStorage ? normalizeText(kit.battery_brand) : null,
     battery_model: hasStorage ? normalizeText(kit.battery_model) : null,
@@ -122,6 +134,8 @@ export function solarKitToFormValues(kit: SolarKit): SolarKitFormValues {
     inverter_brand: kit.inverter_brand,
     inverter_model: kit.inverter_model,
     inverter_power_kw: kit.inverter_power_kw,
+    grid_connection_type: normalizeSolarKitConnectionType(kit.grid_connection_type),
+    grid_voltage_v: kit.grid_voltage_v ?? null,
     structure_type: kit.structure_type,
     battery_brand: kit.battery_brand,
     battery_model: kit.battery_model,
@@ -151,6 +165,8 @@ export function filterSolarKits(kits: SolarKit[], searchTerm: string) {
       kit.module_model,
       kit.inverter_brand,
       kit.inverter_model,
+      kit.grid_connection_type,
+      kit.grid_voltage_v,
       kit.battery_brand,
       kit.battery_model,
       kit.structure_type,
