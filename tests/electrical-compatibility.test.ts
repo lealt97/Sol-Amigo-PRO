@@ -42,7 +42,7 @@ test('aceita pequena diferença entre tensões nominais', () => {
   assert.equal(result.status, 'compatible');
 });
 
-test('solicita adequação quando a tensão diverge além da tolerância', () => {
+test('trata divergência de tensão apenas como análise técnica', () => {
   const result = calculateElectricalCompatibility({
     customerConnectionType: 'triphase',
     customerVoltageV: 220,
@@ -50,7 +50,10 @@ test('solicita adequação quando a tensão diverge além da tolerância', () =>
     kitVoltageV: 380,
   });
 
-  assert.equal(result.status, 'voltage_adaptation_required');
+  assert.equal(result.status, 'technical_review');
+  assert.equal(result.statusLabel, 'Análise técnica necessária');
+  assert.match(result.guidance, /não significa automaticamente/i);
+  assert.doesNotMatch(result.guidance, /adequação de tensão necessária/i);
 });
 
 test('ligação menor que a unidade exige análise de balanceamento', () => {
