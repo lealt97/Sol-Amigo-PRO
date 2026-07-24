@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/scripts/apply-optional-roof-area.py'
+      - '.github/workflows/apply-optional-roof-area.yml'
 
 permissions:
   contents: write
