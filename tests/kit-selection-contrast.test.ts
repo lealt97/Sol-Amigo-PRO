@@ -20,8 +20,8 @@ test('seleção do kit usa superfícies e textos com contraste no tema escuro', 
   assert.match(section, /text-slate-200/);
   assert.match(section, /text-amber-100/);
   assert.match(section, /text-brand-light/);
-  assert.doesNotMatch(section, /bg-emerald-50/);
-  assert.doesNotMatch(section, /bg-amber-50/);
+  assert.doesNotMatch(section, /bg-emerald-50\b/);
+  assert.doesNotMatch(section, /bg-amber-50\b/);
   assert.doesNotMatch(section, /text-slate-600/);
   assert.doesNotMatch(section, /text-brand-blue/);
 });
@@ -32,6 +32,6 @@ test('resumo lateral do kit também usa estados compatíveis com o tema escuro',
 
   assert.match(preview, /border-emerald-400\/50 bg-emerald-500\/10 text-emerald-100/);
   assert.match(preview, /border-amber-400\/50 bg-amber-500\/10 text-amber-100/);
-  assert.doesNotMatch(preview, /border-emerald-200 bg-emerald-50 text-emerald-700/);
-  assert.doesNotMatch(preview, /border-amber-200 bg-amber-50 text-amber-800/);
+  assert.doesNotMatch(preview, /border-emerald-200 bg-emerald-50\b text-emerald-700/);
+  assert.doesNotMatch(preview, /border-amber-200 bg-amber-50\b text-amber-800/);
 });
