@@ -1,18 +1,45 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Eye, Mail, MapPin, Phone, Trash2, Zap } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Copy,
+  Edit,
+  Eye,
+  FilePenLine,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  Trash2,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { clientService } from '../../services/clientService';
 import { proposalService } from '../../services/proposalService';
 import { supabase } from '../../lib/supabase/client';
+import { getProposalContinuePath, getProposalEditPath, isActiveProposalFlowDraft } from '../../lib/proposals/flow';
 import { Client } from '../../types/client';
+import type { Proposal } from '../../types/proposal';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { formatDate } from '../../lib/utils';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
+import { RenameProposalModal } from '../../components/proposals/RenameProposalModal';
+
+type ClientProposal = Pick<Proposal,
+  | 'id'
+  | 'title'
+  | 'code'
+  | 'status'
+  | 'created_at'
+  | 'updated_at'
+  | 'flow_state'
+  | 'flow_completed'
+>;
 
 const statusLabel = (status: string) => ({
-  draft: 'Pendente', pending: 'Pendente', sent: 'Enviada', viewed: 'Visualizada',
+  draft: 'Rascunho', pending: 'Pendente', sent: 'Enviada', viewed: 'Visualizada',
   accepted: 'Aprovada', approved: 'Aprovada', rejected: 'Recusada', expired: 'Expirada',
 }[status] || status);
 
@@ -20,24 +47,36 @@ export function ClientDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
-  const [proposals, setProposals] = useState<any[]>([]);
+  const [proposals, setProposals] = useState<ClientProposal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [proposalToDelete, setProposalToDelete] = useState<{ id: string; title: string | null } | null>(null);
+  const [proposalToRename, setProposalToRename] = useState<{ id: string; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [duplicatingProposalId, setDuplicatingProposalId] = useState<string | null>(null);
+
+  const loadClientProposals = async (clientId: string) => {
+    const { data, error: proposalsError } = await supabase
+      .from('proposals')
+      .select('id, title, code, status, created_at, updated_at, flow_state, flow_completed')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (proposalsError) throw proposalsError;
+    setProposals((data || []) as ClientProposal[]);
+  };
 
   useEffect(() => {
     async function loadClient() {
       if (!id) return;
       try {
         setIsLoading(true);
-        const [clientData, proposalsResult] = await Promise.all([
-          clientService.getClientById(id),
-          supabase.from('proposals').select('id, title, code, status, created_at').eq('client_id', id).order('created_at', { ascending: false }),
-        ]);
+        setError(null);
+        const clientData = await clientService.getClientById(id);
         setClient(clientData);
-        setProposals(proposalsResult.data || []);
+        await loadClientProposals(id);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao carregar detalhes do cliente');
       } finally {
@@ -61,6 +100,37 @@ export function ClientDetails() {
       toast.error(err instanceof Error ? err.message : 'Erro ao excluir proposta');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const confirmRenameProposal = async (title: string) => {
+    if (!proposalToRename) return;
+    try {
+      setIsRenaming(true);
+      const renamed = await proposalService.renameProposal(proposalToRename.id, title);
+      setProposals((current) => current.map((proposal) => (
+        proposal.id === renamed.id ? { ...proposal, title: renamed.title } : proposal
+      )));
+      setProposalToRename(null);
+      toast.success('Proposta renomeada.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao renomear proposta');
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const duplicateProposal = async (proposal: ClientProposal) => {
+    try {
+      setDuplicatingProposalId(proposal.id);
+      const duplicate = await proposalService.duplicateProposal(proposal.id);
+      toast.success('Proposta duplicada com sucesso.');
+      if (id) await loadClientProposals(id);
+      navigate(`/propostas/${duplicate.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao duplicar proposta');
+    } finally {
+      setDuplicatingProposalId(null);
     }
   };
 
@@ -119,8 +189,8 @@ export function ClientDetails() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Propostas históricas</CardTitle>
-            <CardDescription>O gerador foi removido. Estes registros permanecem somente para consulta e exclusão.</CardDescription>
+            <CardTitle>Propostas do cliente</CardTitle>
+            <CardDescription>Visualize e gerencie todas as propostas vinculadas a este cliente.</CardDescription>
           </CardHeader>
           <CardContent>
             {proposals.length === 0 ? (
@@ -130,14 +200,33 @@ export function ClientDetails() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-brand-gray text-[10px] uppercase tracking-widest text-slate-500"><tr><th className="px-4 py-3">Proposta</th><th className="px-4 py-3">Data</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Ações</th></tr></thead>
                   <tbody>
-                    {proposals.map((proposal) => (
-                      <tr key={proposal.id} className="border-t border-brand-border">
-                        <td className="px-4 py-3"><p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p><p className="text-xs text-slate-500">{proposal.code || 'Sem código'}</p></td>
-                        <td className="px-4 py-3 text-slate-500">{formatDate(proposal.created_at)}</td>
-                        <td className="px-4 py-3"><span className="rounded-full border border-brand-border px-2 py-0.5 text-xs">{statusLabel(proposal.status)}</span></td>
-                        <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/propostas/${proposal.id}`)}><Eye className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-red-500" title="Excluir" onClick={() => { setProposalToDelete({ id: proposal.id, title: proposal.title }); setDeleteModalOpen(true); }}><Trash2 className="h-4 w-4" /></Button></div></td>
-                      </tr>
-                    ))}
+                    {proposals.map((proposal) => {
+                      const isFlowDraft = isActiveProposalFlowDraft(proposal);
+                      return (
+                        <tr key={proposal.id} className="border-t border-brand-border">
+                          <td className="px-4 py-3"><p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p><p className="text-xs text-slate-500">{proposal.code || 'Sem código'}</p></td>
+                          <td className="px-4 py-3 text-slate-500">{formatDate(proposal.updated_at || proposal.created_at)}</td>
+                          <td className="px-4 py-3"><span className="rounded-full border border-brand-border px-2 py-0.5 text-xs">{statusLabel(proposal.status)}</span></td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              {isFlowDraft ? (
+                                <Button className="gap-2" onClick={() => navigate(getProposalContinuePath(proposal.id))}>
+                                  Continuar <ArrowRight className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/propostas/${proposal.id}`)}><Eye className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" title="Editar" onClick={() => navigate(getProposalEditPath(proposal.id))}><Pencil className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" title="Duplicar" disabled={duplicatingProposalId === proposal.id} onClick={() => void duplicateProposal(proposal)}><Copy className={`h-4 w-4 ${duplicatingProposalId === proposal.id ? 'animate-pulse' : ''}`} /></Button>
+                                  <Button variant="ghost" size="icon" title="Renomear" onClick={() => setProposalToRename({ id: proposal.id, title: proposal.title || 'Proposta sem título' })}><FilePenLine className="h-4 w-4" /></Button>
+                                </>
+                              )}
+                              <Button variant="ghost" size="icon" className="text-red-500" title="Excluir" onClick={() => { setProposalToDelete({ id: proposal.id, title: proposal.title }); setDeleteModalOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -145,6 +234,14 @@ export function ClientDetails() {
           </CardContent>
         </Card>
       </div>
+
+      <RenameProposalModal
+        isOpen={Boolean(proposalToRename)}
+        initialTitle={proposalToRename?.title || ''}
+        isLoading={isRenaming}
+        onClose={() => setProposalToRename(null)}
+        onConfirm={(title) => void confirmRenameProposal(title)}
+      />
 
       <DeleteConfirmModal
         isOpen={deleteModalOpen}
