@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { technicalNumber as number } from '../../lib/formatters/technicalNumber';
+import { parseConsumptionKwhInput } from '../../lib/formatters/parseConsumptionKwhInput';
 import {
   buildMonthlyConsumptionSeries,
   calculateLoadMonthlyConsumptionKwh,
@@ -118,6 +119,8 @@ function Field({
   step = '0.01',
   helper,
   type = 'number',
+  inputMode,
+  onBlur,
 }: {
   label: string;
   value: string;
@@ -128,6 +131,8 @@ function Field({
   step?: string;
   helper?: string;
   type?: 'number' | 'text';
+  inputMode?: 'decimal' | 'numeric';
+  onBlur?: () => void;
 }) {
   return (
     <label className="space-y-2">
@@ -139,7 +144,9 @@ function Field({
           min={type === 'number' ? min : undefined}
           max={type === 'number' ? max : undefined}
           step={type === 'number' ? step : undefined}
+          inputMode={inputMode}
           onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
           className={suffix ? 'pr-20' : undefined}
         />
         {suffix && (
@@ -174,6 +181,7 @@ export function ProfessionalSizingCalculator() {
 
   const [consumptionMode, setConsumptionMode] = useState<ConsumptionMode>('history');
   const [directAverageConsumption, setDirectAverageConsumption] = useState('');
+  const [committedDirectAverageConsumption, setCommittedDirectAverageConsumption] = useState('');
   const [monthlyConsumption, setMonthlyConsumption] = useState<string[]>(
     () => Array.from({ length: 12 }, () => ''),
   );
@@ -203,6 +211,7 @@ export function ProfessionalSizingCalculator() {
     setSelectedClientId(state.selectedClientId);
     setConsumptionMode(state.consumptionMode as ConsumptionMode);
     setDirectAverageConsumption(state.directAverageConsumption);
+    setCommittedDirectAverageConsumption(state.directAverageConsumption);
     setMonthlyConsumption(state.monthlyConsumption.length === 12
       ? state.monthlyConsumption
       : Array.from({ length: 12 }, (_, index) => state.monthlyConsumption[index] || ''));
@@ -300,10 +309,10 @@ export function ProfessionalSizingCalculator() {
 
   const consumptionModeInput = useMemo(() => ({
     mode: consumptionMode,
-    directAverageMonthlyKwh: parseNumber(directAverageConsumption),
-    monthlyHistoryKwh: monthlyConsumption.map(parseNumber),
+    directAverageMonthlyKwh: parseConsumptionKwhInput(committedDirectAverageConsumption),
+    monthlyHistoryKwh: monthlyConsumption.map(parseConsumptionKwhInput),
     loads: loadSurvey.map(toLoadInput),
-  }), [consumptionMode, directAverageConsumption, loadSurvey, monthlyConsumption]);
+  }), [committedDirectAverageConsumption, consumptionMode, loadSurvey, monthlyConsumption]);
 
   const consumptionResolution = useMemo(() => {
     try {
@@ -868,17 +877,27 @@ export function ProfessionalSizingCalculator() {
                       <Field
                         label="Consumo médio mensal"
                         value={directAverageConsumption}
-                        onChange={setDirectAverageConsumption}
+                        onChange={(value) => {
+                          setDirectAverageConsumption(value);
+                          setCommittedDirectAverageConsumption('');
+                        }}
+                        onBlur={() => setCommittedDirectAverageConsumption(directAverageConsumption)}
+                        type="text"
+                        inputMode="decimal"
                         suffix="kWh/mês"
                         min={0.01}
-                        helper="Use a média já calculada a partir da conta de energia ou de outro estudo confiável."
+                        helper="Aceita 1200, 1.200 ou 1.200,50. O cálculo é atualizado quando você sai do campo."
                       />
                       {selectedClient?.avg_consumption_kwh && selectedClient.avg_consumption_kwh > 0 && (
                         <Button
                           type="button"
                           variant="outline"
                           className="mt-3"
-                          onClick={() => setDirectAverageConsumption(String(selectedClient.avg_consumption_kwh))}
+                          onClick={() => {
+                            const clientAverage = String(selectedClient.avg_consumption_kwh);
+                            setDirectAverageConsumption(clientAverage);
+                            setCommittedDirectAverageConsumption(clientAverage);
+                          }}
                         >
                           Usar média cadastrada do cliente: {number.format(selectedClient.avg_consumption_kwh)} kWh
                         </Button>
