@@ -1071,7 +1071,7 @@ export function ProfessionalSizingCalculator() {
                     <Summary label="Consumo compensável" value={`${number.format(result.compensableMonthlyConsumptionKwh)} kWh/mês`} />
                     <Summary label="Geração adicional" value={`${number.format(result.generationIncreasePercent)}%`} />
                     <Summary label="Meta de geração" value={`${number.format(result.targetMonthlyGenerationKwh)} kWh/mês`} />
-                    <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
+                    <Summary label="Potência necessária" value={`${number.formatTruncated(result.requiredPowerKwp, 2)} kWp`} highlight />
                   </div>
                 )}
 
@@ -1113,7 +1113,7 @@ export function ProfessionalSizingCalculator() {
                   {result && moduleQuantity != null && (
                     <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <Summary label="Quantidade de módulos" value={`${moduleQuantity} módulos`} highlight />
-                      <Summary label="Potência instalada" value={`${number.format((moduleQuantity * parseNumber(modulePowerW)) / 1000)} kWp`} />
+                      <Summary label="Potência instalada" value={`${number.formatTruncated((moduleQuantity * parseNumber(modulePowerW)) / 1000, 2)} kWp`} />
                       {moduleSizing.result && (
                         <>
                           <Summary label="Área por módulo" value={`${number.format(moduleSizing.result.moduleAreaM2)} m²`} />
@@ -1199,7 +1199,7 @@ export function ProfessionalSizingCalculator() {
                       <option value="">Selecione um kit cadastrado</option>
                       {kits.map((kit) => (
                         <option key={kit.id} value={kit.id}>
-                          {kit.name} — {number.format(kit.kit_power_kwp)} kWp
+                          {kit.name} — {number.formatTruncated(kit.kit_power_kwp, 2)} kWp
                         </option>
                       ))}
                     </Select>
@@ -1214,11 +1214,11 @@ export function ProfessionalSizingCalculator() {
                           <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Kit selecionado</p>
                           <h3 className="mt-2 text-lg font-bold text-brand-dark">{selectedKit.name}</h3>
                           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                            <Detail label="Potência do kit" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />
+                            <Detail label="Potência do kit" value={`${number.formatTruncated(selectedKit.kit_power_kwp, 2)} kWp`} />
                             <Detail label="Módulos" value={`${selectedKit.module_quantity} × ${number.format(selectedKit.module_power_w)} W`} />
                             <Detail label="Módulo" value={[selectedKit.module_brand, selectedKit.module_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Inversor" value={[selectedKit.inverter_brand, selectedKit.inverter_model].filter(Boolean).join(' ') || 'Não informado'} />
-                            <Detail label="Potência AC do inversor" value={selectedKit.inverter_power_kw && selectedKit.inverter_power_kw > 0 ? `${number.format(selectedKit.inverter_power_kw)} kW` : 'Não informada'} />
+                            <Detail label="Potência AC do inversor" value={selectedKit.inverter_power_kw && selectedKit.inverter_power_kw > 0 ? `${number.formatTruncated(selectedKit.inverter_power_kw, 2)} kW` : 'Não informada'} />
                           </dl>
                         </CardContent>
                       </Card>
@@ -1236,7 +1236,7 @@ export function ProfessionalSizingCalculator() {
                                 {result.selectedKitIsAdequate ? 'Kit atende à potência calculada' : 'Kit abaixo da potência calculada'}
                               </p>
                               <p className="mt-1 text-sm leading-6 text-slate-200">
-                                Necessário: {number.format(result.requiredPowerKwp)} kWp. Selecionado: {number.format(selectedKit.kit_power_kwp)} kWp.
+                                Necessário: {number.formatTruncated(result.requiredPowerKwp, 2)} kWp. Selecionado: {number.formatTruncated(selectedKit.kit_power_kwp, 2)} kWp.
                               </p>
                             </div>
                           </div>
@@ -1267,8 +1267,8 @@ export function ProfessionalSizingCalculator() {
                           </div>
                         </div>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <Summary label="Potência DC dos módulos" value={`${number.format(selectedKitOversizing.dcPowerKwp)} kWp`} />
-                          <Summary label="Potência AC do inversor" value={`${number.format(selectedKitOversizing.acPowerKw)} kW`} />
+                          <Summary label="Potência DC dos módulos" value={`${number.formatTruncated(selectedKitOversizing.dcPowerKwp, 2)} kWp`} />
+                          <Summary label="Potência AC do inversor" value={`${number.formatTruncated(selectedKitOversizing.acPowerKw, 2)} kW`} />
                           <Summary label="Relação DC/AC" value={number.format(selectedKitOversizing.dcAcRatio)} />
                           <Summary label="Oversizing" value={`${number.format(selectedKitOversizing.oversizingPercent)}%`} highlight />
                         </div>
@@ -1284,8 +1284,8 @@ export function ProfessionalSizingCalculator() {
                     )}
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
-                      <Summary label="Potência do kit" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />
+                      <Summary label="Potência necessária" value={`${number.formatTruncated(result.requiredPowerKwp, 2)} kWp`} />
+                      <Summary label="Potência do kit" value={`${number.formatTruncated(selectedKit.kit_power_kwp, 2)} kWp`} />
                       <Summary label="Geração mensal estimada" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh`} />
                       <Summary label="Cobertura da meta" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} highlight />
                     </div>
@@ -1334,7 +1334,7 @@ export function ProfessionalSizingCalculator() {
                   <>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <Summary label="Kit selecionado" value={selectedKit.name} />
-                      <Summary label="Potência do kit" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />
+                      <Summary label="Potência do kit" value={`${number.formatTruncated(selectedKit.kit_power_kwp, 2)} kWp`} />
                       <Summary label="Investimento final" value={`R$ ${number.format(paybackResult.totalInvestment)}`} />
                       <Summary label="Payback" value={`${number.format(paybackResult.paybackYears)} anos`} highlight />
                     </div>
@@ -1363,7 +1363,7 @@ export function ProfessionalSizingCalculator() {
                         <CardContent className="p-5">
                           <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Resultado técnico</p>
                           <dl className="mt-4 space-y-3 text-sm">
-                            <PreviewRow label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
+                            <PreviewRow label="Potência necessária" value={`${number.formatTruncated(result.requiredPowerKwp, 2)} kWp`} />
                             <PreviewRow label="Geração estimada" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh/mês`} />
                             <PreviewRow label="Cobertura da meta" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />
                             {selectedKitOversizing && (
@@ -1541,7 +1541,7 @@ function SizingPreview({
                 ? `${result.targetDailyGenerationKwh.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh/dia`
                 : 'Aguardando HSP'}
             />
-            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />
+            <PreviewRow label="Potência necessária" value={result ? `${number.formatTruncated(result.requiredPowerKwp, 2)} kWp` : 'Aguardando HSP'} highlight />
             {moduleQuantity != null && <PreviewRow label="Quantidade de módulos" value={`${moduleQuantity} módulos`} />}
             {moduleSizing && (
               <>
@@ -1558,7 +1558,7 @@ function SizingPreview({
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Kit selecionado</p>
               <p className="mt-1 font-bold text-brand-dark">{selectedKit.name}</p>
-              <p className="mt-1 text-sm text-slate-500">{number.format(selectedKit.kit_power_kwp)} kWp</p>
+              <p className="mt-1 text-sm text-slate-500">{number.formatTruncated(selectedKit.kit_power_kwp, 2)} kWp</p>
             </div>
             <PreviewRow label="Geração estimada" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh/mês`} />
             <PreviewRow label="Cobertura" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />
