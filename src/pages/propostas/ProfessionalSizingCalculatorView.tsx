@@ -1309,7 +1309,7 @@ export function ProfessionalSizingCalculator() {
                 </Button>
               ) : (
                 <Button type="button" onClick={() => void completeSizing()} className="gap-2" disabled={isSavingDraft}>
-                  Concluir dimensionamento <CheckCircle2 className="h-4 w-4" />
+                  {isEditMode ? 'Salvar alterações' : 'Concluir dimensionamento'} <CheckCircle2 className="h-4 w-4" />
                 </Button>
               )}
             </div>
