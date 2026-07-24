@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, Eye, Plus, Search, Trash2 } from 'lucide-react';
 import { proposalService } from '../../services/proposalService';
 import { Proposal } from '../../types/proposal';
 import { Button } from '../../components/ui/Button';
@@ -11,6 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { formatDate } from '../../lib/utils';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 import { PENDING_PROPOSAL_STATUSES } from '../../lib/proposals/status';
+import { getProposalContinuePath, isActiveProposalFlowDraft } from '../../lib/proposals/flow';
 
 export function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -73,7 +74,7 @@ export function ProposalList() {
   };
 
   const statusLabel = (status: string) => ({
-    draft: 'Pendente', pending: 'Pendente', sent: 'Enviada', viewed: 'Visualizada',
+    draft: 'Rascunho', pending: 'Pendente', sent: 'Enviada', viewed: 'Visualizada',
     accepted: 'Aprovada', approved: 'Aprovada', rejected: 'Recusada', expired: 'Expirada',
   }[status] || status);
 
@@ -82,7 +83,7 @@ export function ProposalList() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-brand-dark">Propostas</h1>
-          <p className="text-sm text-slate-500">Dimensione um sistema com seus kits cadastrados e consulte propostas existentes.</p>
+          <p className="text-sm text-slate-500">Dimensione um sistema com seus kits cadastrados e continue rascunhos salvos.</p>
         </div>
         <Button className="gap-2" onClick={() => navigate('/propostas/nova')}>
           <Plus className="h-4 w-4" /> Novo dimensionamento
@@ -97,6 +98,7 @@ export function ProposalList() {
           </div>
           <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full md:w-48">
             <option value="">Todos os status</option>
+            <option value="draft">Rascunho</option>
             <option value="pending_like">Pendente</option>
             <option value="sent">Enviada</option>
             <option value="viewed">Visualizada</option>
@@ -117,20 +119,29 @@ export function ProposalList() {
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Carregando propostas...</td></tr>
               ) : filteredProposals.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhuma proposta encontrada.</td></tr>
-              ) : filteredProposals.map((proposal) => (
-                <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50">
-                  <td className="px-4 py-3"><p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p><p className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</p></td>
-                  <td className="px-4 py-3 text-brand-dark">{proposal.client?.name || '-'}</td>
-                  <td className="px-4 py-3"><span className="rounded-full border border-brand-border px-2.5 py-0.5 text-xs">{statusLabel(proposal.status)}</span></td>
-                  <td className="px-4 py-3 text-slate-500">{formatDate(proposal.created_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/propostas/${proposal.id}`)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" title="Excluir" className="text-red-500" onClick={() => { setProposalToDelete({ id: proposal.id, title: proposal.title }); setDeleteModalOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              ) : filteredProposals.map((proposal) => {
+                const isFlowDraft = isActiveProposalFlowDraft(proposal);
+                return (
+                  <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50">
+                    <td className="px-4 py-3"><p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p><p className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</p></td>
+                    <td className="px-4 py-3 text-brand-dark">{proposal.client?.name || '-'}</td>
+                    <td className="px-4 py-3"><span className="rounded-full border border-brand-border px-2.5 py-0.5 text-xs">{statusLabel(proposal.status)}</span></td>
+                    <td className="px-4 py-3 text-slate-500">{formatDate(proposal.updated_at || proposal.created_at)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        {isFlowDraft ? (
+                          <Button className="gap-2" onClick={() => navigate(getProposalContinuePath(proposal.id))}>
+                            Continuar <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" title="Visualizar" onClick={() => navigate(`/propostas/${proposal.id}`)}><Eye className="h-4 w-4" /></Button>
+                        )}
+                        <Button variant="ghost" size="icon" title="Excluir" className="text-red-500" onClick={() => { setProposalToDelete({ id: proposal.id, title: proposal.title }); setDeleteModalOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
