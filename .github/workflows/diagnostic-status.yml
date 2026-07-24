@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,31 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Aplicar correção temporária de contraste
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          if [ -f .github/scripts/apply-kit-selection-contrast.py ]; then
-            python3 .github/scripts/apply-kit-selection-contrast.py
-          fi
-
-      - name: Commitar correção de contraste
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/kit-selection-contrast.test.ts
-          if git diff --cached --quiet; then
-            echo "Nenhuma correção de contraste pendente."
-          else
-            git commit -m "fix: melhorar contraste na seleção do kit"
-            git push origin HEAD:main
-          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
