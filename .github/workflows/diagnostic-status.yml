@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,29 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Restaurar potência com três casas decimais
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          git show 15052bff279ff08e312e65bee209366eeaffad2d:src/lib/formatters/technicalNumber.ts > src/lib/formatters/technicalNumber.ts
-          git show 15052bff279ff08e312e65bee209366eeaffad2d:src/pages/propostas/ProfessionalSizingCalculatorView.tsx > src/pages/propostas/ProfessionalSizingCalculatorView.tsx
-          rm -f tests/power-display-truncation.test.ts
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('tests/technical-number.test.ts')
-          source = path.read_text(encoding='utf-8')
-          anchor = "  assert.equal(technicalNumber.format(4.407), '4,407');"
-          addition = "  assert.equal(technicalNumber.format(4.556), '4,556');"
-          if addition not in source:
-              if anchor not in source:
-                  raise SystemExit('Trecho de teste técnico não encontrado.')
-              source = source.replace(anchor, f"{anchor}\n{addition}")
-              path.write_text(source, encoding='utf-8')
-          PY
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -144,20 +121,6 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
-
-      - name: Commitar reversão validada
-        if: github.event_name == 'push' && steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/formatters/technicalNumber.ts src/pages/propostas/ProfessionalSizingCalculatorView.tsx tests/technical-number.test.ts tests/power-display-truncation.test.ts
-          if git diff --cached --quiet; then
-            echo "Nenhuma alteração necessária."
-            exit 0
-          fi
-          git commit -m "revert: restaurar potência com três casas decimais"
-          git push origin main
 
       - name: Registrar conclusão informativa
         if: always()
