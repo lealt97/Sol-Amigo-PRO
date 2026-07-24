@@ -70,7 +70,7 @@ test('a quantidade de módulos e área do telhado ocupa a aba 4 separada', async
     /currentStep === 2[\s\S]*HSP, rendimento e meta de geração[\s\S]*currentStep === 3[\s\S]*Quantidade de módulos e área do telhado[\s\S]*currentStep === 4[\s\S]*Seleção do kit cadastrado/,
   );
   assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*const moduleFields = \[/);
-  assert.match(calculator, /if \(currentStep === 4 && !selectedKit\)/);
+  assert.match(calculator, /if \(currentStep === 4\) \{[\s\S]*if \(!selectedKit\)[\s\S]*above_manufacturer_limit/);
 });
 
 test('a foto do telhado é exibida e persistida dentro da aba 4', async () => {
