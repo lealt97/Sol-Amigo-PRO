@@ -48,8 +48,11 @@ jobs:
             echo "=== TYPECHECK ==="
             tail -n 80 /tmp/typecheck.log
             echo
-            echo "=== TESTS ==="
-            tail -n 120 /tmp/test.log
+            echo "=== TEST FAILURES ==="
+            grep -n -B 8 -A 30 '^not ok' /tmp/test.log || true
+            echo
+            echo "=== TEST SUMMARY ==="
+            tail -n 30 /tmp/test.log
             echo
             echo "=== BUILD ==="
             tail -n 80 /tmp/build.log
