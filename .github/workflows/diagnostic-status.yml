@@ -1,79 +1,129 @@
-name: Aplicar energia diária no resumo
+name: Diagnóstico de build
 
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/diagnostic-status.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  statuses: write
+
+concurrency:
+  group: diagnostic-status-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  patch:
+  diagnose:
+    name: Diagnosticar TypeScript, testes e build
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    timeout-minutes: 20
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Atualizar resumo do dimensionamento
+      - name: Instalar dependências
+        id: install
+        continue-on-error: true
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
+          set -o pipefail
+          npm ci 2>&1 | tee install.log
 
-          calculator_path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
-          source = calculator_path.read_text(encoding='utf-8')
-          old = '''            <PreviewRow label="HSP" value={Number.isFinite(parseNumber(hspDaily)) ? `${number.format(parseNumber(hspDaily))} h/dia` : 'Não informada'} />
-            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />'''
-          new = '''            <PreviewRow label="HSP" value={Number.isFinite(parseNumber(hspDaily)) ? `${number.format(parseNumber(hspDaily))} h/dia` : 'Não informada'} />
-            <PreviewRow
-              label="Energia de geração"
-              value={result
-                ? `${result.targetDailyGenerationKwh.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh/dia`
-                : 'Aguardando HSP'}
-            />
-            <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />'''
-          if old not in source:
-              raise SystemExit('Trecho esperado não encontrado no resumo.')
-          calculator_path.write_text(source.replace(old, new, 1), encoding='utf-8')
-
-          test_path = Path('tests/generation-input-only.test.ts')
-          tests = test_path.read_text(encoding='utf-8')
-          marker = "  assert.doesNotMatch(calculator, /setGenerationIncreasePercent\\(String\\(percentage\\)\\)/);\n"
-          assertions = '''  assert.match(calculator, /label="Energia de geração"/);
-  assert.match(calculator, /result\.targetDailyGenerationKwh\.toLocaleString/);
-  assert.match(
-    calculator,
-    /label="HSP"[\\s\\S]*label="Energia de geração"[\\s\\S]*label="Potência necessária"/,
-  );
-'''
-          if 'result\\.targetDailyGenerationKwh' not in tests:
-              if marker not in tests:
-                  raise SystemExit('Marcador do teste não encontrado.')
-              test_path.write_text(tests.replace(marker, marker + assertions, 1), encoding='utf-8')
-
-          one_time = Path('.github/workflows/one-time-add-daily-generation-summary.yml')
-          if one_time.exists():
-              one_time.unlink()
-          PY
-
-      - name: Validar
+      - name: Publicar diagnóstico da instalação
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.install.outcome }}
+        shell: bash
         run: |
-          npm ci
-          npm run typecheck
-          npm run test
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / npm ci" \
+            --outcome "$OUTCOME" \
+            --log install.log
 
-      - name: Publicar na main
+      - name: Verificar TypeScript
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "feat: exibir energia diária no resumo do dimensionamento"
-          git push origin HEAD:main
+          set -o pipefail
+          npm run typecheck 2>&1 | tee typecheck.log
+
+      - name: Publicar diagnóstico do TypeScript
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.typecheck.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / TypeScript" \
+            --outcome "$OUTCOME" \
+            --log typecheck.log
+
+      - name: Executar testes
+        id: tests
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test 2>&1 | tee tests.log
+
+      - name: Publicar diagnóstico dos testes
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Testes" \
+            --outcome "$OUTCOME" \
+            --log tests.log
+
+      - name: Gerar build de produção
+        id: build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:app 2>&1 | tee build.log
+
+      - name: Publicar diagnóstico do build
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.build.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Build" \
+            --outcome "$OUTCOME" \
+            --log build.log
+
+      - name: Registrar conclusão informativa
+        if: always()
+        shell: bash
+        run: |
+          echo "Este workflow publica diagnósticos por etapa. O gate obrigatório permanece no workflow Qualidade."
