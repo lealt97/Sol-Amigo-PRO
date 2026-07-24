@@ -9,7 +9,17 @@ const storageKeyForClient = (clientId: string | null) => (
   `sol-amigo:roof-photo:${clientId || 'draft'}`
 );
 
-export function RoofPhotoUpload({ clientId }: { clientId: string | null }) {
+type RoofPhotoUploadProps = {
+  clientId: string | null;
+  initialStorageReference?: string | null;
+  onReferenceChange?: (reference: string | null) => void;
+};
+
+export function RoofPhotoUpload({
+  clientId,
+  initialStorageReference = null,
+  onReferenceChange,
+}: RoofPhotoUploadProps) {
   const inputId = useId();
   const { user } = useAuth();
   const storageKey = useMemo(() => storageKeyForClient(clientId), [clientId]);
@@ -20,7 +30,7 @@ export function RoofPhotoUpload({ clientId }: { clientId: string | null }) {
 
   useEffect(() => {
     let active = true;
-    const savedReference = sessionStorage.getItem(storageKey);
+    const savedReference = initialStorageReference || sessionStorage.getItem(storageKey);
     setStorageReference(savedReference);
     setPreviewUrl(null);
     setError(null);
@@ -41,7 +51,7 @@ export function RoofPhotoUpload({ clientId }: { clientId: string | null }) {
     return () => {
       active = false;
     };
-  }, [storageKey]);
+  }, [initialStorageReference, storageKey]);
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -68,6 +78,7 @@ export function RoofPhotoUpload({ clientId }: { clientId: string | null }) {
       sessionStorage.setItem(storageKey, newReference);
       setStorageReference(newReference);
       setPreviewUrl(signedUrl);
+      onReferenceChange?.(newReference);
       toast.success('Foto do telhado adicionada.');
 
       if (previousReference && previousReference !== newReference) {
@@ -90,6 +101,7 @@ export function RoofPhotoUpload({ clientId }: { clientId: string | null }) {
     if (!storageReference) {
       setPreviewUrl(null);
       sessionStorage.removeItem(storageKey);
+      onReferenceChange?.(null);
       return;
     }
 
@@ -106,6 +118,7 @@ export function RoofPhotoUpload({ clientId }: { clientId: string | null }) {
       sessionStorage.removeItem(storageKey);
       setStorageReference(null);
       setPreviewUrl(null);
+      onReferenceChange?.(null);
       toast.success('Foto do telhado removida.');
     } catch (removeError) {
       const message = removeError instanceof Error
