@@ -36,6 +36,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          python3 .github/scripts/patch-oversizing-removal.py
           python3 .github/scripts/remove-closed-kit-oversizing.py 2>&1 | tee apply.log
 
       - name: Publicar diagnóstico da remoção
@@ -92,6 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          rm -f .github/scripts/remove-closed-kit-oversizing.py .github/scripts/patch-oversizing-removal.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
