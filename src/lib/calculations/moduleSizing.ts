@@ -1,6 +1,7 @@
 export type ModuleSizingInput = {
   requiredPowerKwp: number;
   modulePowerW: number;
+  moduleQuantity?: number | null;
   moduleWidthM: number;
   moduleHeightM: number;
   roofAreaM2: number;
@@ -35,7 +36,11 @@ export function calculateModuleQuantity(requiredPowerKwp: number, modulePowerW: 
 }
 
 export function calculateModuleSizing(input: ModuleSizingInput): ModuleSizingResult {
-  const moduleQuantity = calculateModuleQuantity(input.requiredPowerKwp, input.modulePowerW);
+  assertPositive(input.modulePowerW, 'Potência do módulo');
+  const moduleQuantity = input.moduleQuantity == null
+    ? calculateModuleQuantity(input.requiredPowerKwp, input.modulePowerW)
+    : Math.round(input.moduleQuantity);
+  assertPositive(moduleQuantity, 'Quantidade de módulos');
   assertPositive(input.moduleWidthM, 'Largura do módulo');
   assertPositive(input.moduleHeightM, 'Altura do módulo');
   assertPositive(input.roofAreaM2, 'Área do telhado');
