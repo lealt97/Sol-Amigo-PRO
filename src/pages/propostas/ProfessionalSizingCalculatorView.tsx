@@ -54,6 +54,7 @@ import { clientService } from '../../services/clientService';
 import { proposalService, type ProposalFlowSummary } from '../../services/proposalService';
 import { solarKitService } from '../../services/solarKitService';
 import type { Client } from '../../types/client';
+import type { Proposal } from '../../types/proposal';
 import {
   PROPOSAL_DRAFT_VERSION,
   isProposalDraftState,
@@ -65,6 +66,7 @@ import {
   buildSolarKitSnapshot,
   type SolarKit,
 } from '../../types/solarKit';
+import { ProposalDeliveryPanel } from '../../components/proposals/ProposalDeliveryPanel';
 import { PaybackStep } from './PaybackStep';
 import { RoofPhotoUpload } from './RoofPhotoUpload';
 
@@ -81,6 +83,7 @@ const STEPS = [
   { id: 'kit', title: 'Kit solar' },
   { id: 'payback', title: 'Payback' },
   { id: 'result', title: 'Resultado' },
+  { id: 'delivery', title: 'Gerar e enviar' },
 ] as const;
 
 const parseNumber = (value: string) => {
@@ -215,6 +218,7 @@ export function ProfessionalSizingCalculator() {
   const [paybackResult, setPaybackResult] = useState<PaybackResult | null>(null);
   const [paybackForm, setPaybackForm] = useState<ProposalDraftPaybackForm | null>(null);
   const [roofPhotoReference, setRoofPhotoReference] = useState<string | null>(null);
+  const [completedProposal, setCompletedProposal] = useState<Proposal | null>(null);
 
   const selectedElectricalStandard = getElectricalStandard(electricalStandardId);
   const connectionType = selectedElectricalStandard.connectionType;
@@ -249,6 +253,7 @@ export function ProfessionalSizingCalculator() {
     setSelectedKitId(state.selectedKitId);
     setPaybackForm(state.paybackForm);
     setPaybackResult(null);
+    setCompletedProposal(null);
   }
 
   useEffect(() => {
@@ -664,14 +669,13 @@ export function ProfessionalSizingCalculator() {
         },
       };
 
-      if (isEditMode) {
-        await proposalService.saveCompletedProposal(saveInput);
-        toast.success('Proposta atualizada com sucesso.');
-      } else {
-        await proposalService.completeFlowDraft(saveInput);
-        toast.success('Proposta concluída e salva.');
-      }
-      navigate(`/propostas/${draftId}`, { replace: true });
+      const savedProposal = isEditMode
+        ? await proposalService.saveCompletedProposal(saveInput)
+        : await proposalService.completeFlowDraft(saveInput);
+      const proposalWithRelations = await proposalService.getProposalById(savedProposal.id);
+      setCompletedProposal(proposalWithRelations);
+      setCurrentStep(STEPS.length - 1);
+      toast.success(isEditMode ? 'Proposta atualizada. Agora escolha o modelo e envie.' : 'Proposta concluída. Agora gere e envie o PDF.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível concluir a proposta.');
     } finally {
@@ -1405,6 +1409,14 @@ export function ProfessionalSizingCalculator() {
               </section>
             )}
 
+            {currentStep === STEPS.length - 1 && (
+              completedProposal ? (
+                <ProposalDeliveryPanel proposal={completedProposal} onProposalChange={setCompletedProposal} />
+              ) : (
+                <ErrorState message="Conclua e salve a proposta antes de gerar o PDF e o link público." />
+              )
+            )}
+
             <div className="mt-8 flex justify-between border-t border-brand-border pt-6">
               <Button
                 type="button"
@@ -1416,13 +1428,17 @@ export function ProfessionalSizingCalculator() {
                 <ArrowLeft className="h-4 w-4" /> Anterior
               </Button>
 
-              {currentStep < STEPS.length - 1 ? (
+              {currentStep < STEPS.length - 2 ? (
                 <Button type="button" onClick={() => void goNext()} className="gap-2" disabled={isSavingDraft}>
                   Próximo <ArrowRight className="h-4 w-4" />
                 </Button>
-              ) : (
+              ) : currentStep === STEPS.length - 2 ? (
                 <Button type="button" onClick={() => void completeSizing()} className="gap-2" disabled={isSavingDraft}>
-                  {isEditMode ? 'Salvar alterações' : 'Concluir dimensionamento'} <CheckCircle2 className="h-4 w-4" />
+                  {isEditMode ? 'Salvar e preparar envio' : 'Concluir e preparar envio'} <CheckCircle2 className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="button" variant="outline" onClick={() => navigate(`/propostas/${draftId}`)} className="gap-2">
+                  Ver detalhes da proposta <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
             </div>
