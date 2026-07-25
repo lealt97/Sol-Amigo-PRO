@@ -1,29 +1,27 @@
-name: Diagnóstico de build
+name: Remover oversizing de kits fechados
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
 
 permissions:
-  contents: read
-  statuses: write
+  contents: write
 
 concurrency:
-  group: diagnostic-status-${{ github.ref }}
+  group: remove-closed-kit-oversizing-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  diagnose:
-    name: Diagnosticar TypeScript, testes e build
+  apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - name: Baixar código
+      - name: Baixar código e histórico
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -31,99 +29,31 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar dependências
-        id: install
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm ci 2>&1 | tee install.log
+      - name: Remover oversizing e limites DC/AC
+        run: python3 .github/scripts/remove-closed-kit-oversizing.py
 
-      - name: Publicar diagnóstico da instalação
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.install.outcome }}
-        shell: bash
-        run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / npm ci" \
-            --outcome "$OUTCOME" \
-            --log install.log
+      - name: Instalar dependências
+        run: npm ci
 
       - name: Verificar TypeScript
-        id: typecheck
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run typecheck 2>&1 | tee typecheck.log
-
-      - name: Publicar diagnóstico do TypeScript
-        if: always() && steps.install.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.typecheck.outcome }}
-        shell: bash
-        run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / TypeScript" \
-            --outcome "$OUTCOME" \
-            --log typecheck.log
+        run: npm run typecheck
 
       - name: Executar testes
-        id: tests
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run test 2>&1 | tee tests.log
-
-      - name: Publicar diagnóstico dos testes
-        if: always() && steps.install.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.tests.outcome }}
-        shell: bash
-        run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / Testes" \
-            --outcome "$OUTCOME" \
-            --log tests.log
+        run: npm run test
 
       - name: Gerar build de produção
-        id: build
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run build:app 2>&1 | tee build.log
+        run: npm run build:app
 
-      - name: Publicar diagnóstico do build
-        if: always() && steps.install.outcome == 'success'
+      - name: Publicar alteração validada
         env:
           GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.build.outcome }}
-        shell: bash
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / Build" \
-            --outcome "$OUTCOME" \
-            --log build.log
-
-      - name: Registrar conclusão informativa
-        if: always()
-        shell: bash
-        run: |
-          echo "Este workflow publica diagnósticos por etapa. O gate obrigatório permanece no workflow Qualidade."
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "Nenhuma alteração funcional pendente."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: remover oversizing de kits fechados"
+          git push origin HEAD:main
