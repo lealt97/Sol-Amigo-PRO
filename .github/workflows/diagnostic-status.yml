@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write
 
 concurrency:
   group: remove-closed-kit-oversizing-${{ github.ref }}
@@ -30,30 +31,78 @@ jobs:
           cache: npm
 
       - name: Remover oversizing e limites DC/AC
-        run: python3 .github/scripts/remove-closed-kit-oversizing.py
+        id: apply_change
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 .github/scripts/remove-closed-kit-oversizing.py 2>&1 | tee apply.log
+
+      - name: Publicar diagnóstico da remoção
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.apply_change.outcome }}
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Remoção do oversizing" \
+            --outcome "$OUTCOME" \
+            --log apply.log
 
       - name: Instalar dependências
-        run: npm ci
+        id: install
+        if: steps.apply_change.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee install.log
 
       - name: Verificar TypeScript
-        run: npm run typecheck
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee typecheck.log
 
       - name: Executar testes
-        run: npm run test
+        id: tests
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test 2>&1 | tee tests.log
 
       - name: Gerar build de produção
-        run: npm run build:app
+        id: build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:app 2>&1 | tee build.log
 
       - name: Publicar alteração validada
+        if: steps.apply_change.outcome == 'success' && steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "Nenhuma alteração funcional pendente."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "refactor: remover oversizing de kits fechados"
           git push origin HEAD:main
+
+      - name: Falhar quando alguma validação não passar
+        if: always()
+        run: |
+          test "${{ steps.apply_change.outcome }}" = success
+          test "${{ steps.install.outcome }}" = success
+          test "${{ steps.typecheck.outcome }}" = success
+          test "${{ steps.tests.outcome }}" = success
+          test "${{ steps.build.outcome }}" = success
