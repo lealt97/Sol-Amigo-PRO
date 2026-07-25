@@ -65,7 +65,8 @@ test('edição usa o mesmo Wizard sem transformar a proposta em rascunho', async
   assert.match(wizard, /const isEditMode = location\.pathname\.endsWith\('\/editar'\)/);
   assert.match(wizard, /proposalService\.getEditableProposalById/);
   assert.match(wizard, /proposalService\.saveCompletedProposal/);
-  assert.match(wizard, /isEditMode \? 'Salvar alterações' : 'Concluir dimensionamento'/);
+  assert.match(wizard, /isEditMode \? 'Salvar e preparar envio' : 'Concluir e preparar envio'/);
+  assert.match(wizard, /setCurrentStep\(STEPS\.length - 1\)/);
   assert.match(service, /saveCompletedProposal[\s\S]*flow_completed: true/);
   assert.doesNotMatch(service, /saveCompletedProposal[\s\S]{0,500}status: 'draft'/);
 });
