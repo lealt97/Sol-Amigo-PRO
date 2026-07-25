@@ -6,7 +6,6 @@ export interface SolarSystemCalculation {
   panel_power_w: number | null;
   yield_factor: number;
   generation_target_percent: number;
-  oversizing: number;
   monthly_consumption_kwh: number | null;
   projected_consumption_kwh: number | null;
   required_power_kwp: number | null;
@@ -35,7 +34,6 @@ export interface SolarCalculationInput {
   panel_power_w: number;
   yield_factor: number; // e.g. 0.80
   generation_target_percent: number; // e.g. 100
-  oversizing: number; // e.g. 1.20
   monthly_consumption_kwh?: number;
   current_bill_value?: number;
   energy_tariff?: number;

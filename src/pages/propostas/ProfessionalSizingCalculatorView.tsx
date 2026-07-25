@@ -41,8 +41,6 @@ import {
   calculateModuleSizing,
   type ModuleSizingResult,
 } from '../../lib/calculations/moduleSizing';
-import { calculateDcAcOversizing } from '../../lib/calculations/oversizing';
-import { evaluateInverterDcLimits } from '../../lib/calculations/inverterDcLimits';
 import { calculateElectricalCompatibility } from '../../lib/calculations/electricalCompatibility';
 import {
   ELECTRICAL_STANDARD_OPTIONS,
@@ -330,32 +328,6 @@ export function ProfessionalSizingCalculator() {
     [kits, selectedKitId],
   );
 
-  const selectedKitOversizing = useMemo(() => {
-    const inverterPowerKw = selectedKit?.inverter_power_kw;
-    if (!selectedKit || inverterPowerKw == null || inverterPowerKw <= 0) return null;
-
-    try {
-      return calculateDcAcOversizing(selectedKit.kit_power_kwp, inverterPowerKw);
-    } catch {
-      return null;
-    }
-  }, [selectedKit]);
-
-  const selectedKitInverterDcLimit = useMemo(() => {
-    if (!selectedKit) return null;
-
-    try {
-      return evaluateInverterDcLimits({
-        dcPowerKwp: selectedKit.kit_power_kwp,
-        acPowerKw: selectedKit.inverter_power_kw ?? null,
-        maxPvInputPowerKwp: selectedKit.inverter_max_pv_power_kwp ?? null,
-        maxDcAcRatio: selectedKit.inverter_max_dc_ac_ratio ?? null,
-      });
-    } catch {
-      return null;
-    }
-  }, [selectedKit]);
-
   const selectedKitElectricalCompatibility = useMemo(() => {
     if (!selectedKit) return null;
 
@@ -535,15 +507,9 @@ export function ProfessionalSizingCalculator() {
       }
     }
 
-    if (currentStep === 4) {
-      if (!selectedKit) {
-        toast.error('Selecione um kit on-grid cadastrado.');
-        return false;
-      }
-      if (selectedKitInverterDcLimit?.status === 'above_manufacturer_limit') {
-        toast.error('O kit ultrapassa o limite DC cadastrado para o inversor.');
-        return false;
-      }
+    if (currentStep === 4 && !selectedKit) {
+      toast.error('Selecione um kit on-grid cadastrado.');
+      return false;
     }
 
     if (currentStep === 5 && !paybackResult) {
@@ -1278,8 +1244,6 @@ export function ProfessionalSizingCalculator() {
                             <Detail label="Módulo" value={[selectedKit.module_brand, selectedKit.module_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Inversor" value={[selectedKit.inverter_brand, selectedKit.inverter_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Potência AC do inversor" value={selectedKit.inverter_power_kw && selectedKit.inverter_power_kw > 0 ? `${number.format(selectedKit.inverter_power_kw)} kW` : 'Não informada'} />
-                            <Detail label="Potência FV máxima" value={selectedKit.inverter_max_pv_power_kwp ? `${number.format(selectedKit.inverter_max_pv_power_kwp)} kWp` : 'Não informada'} />
-                            <Detail label="Relação DC/AC máxima" value={selectedKit.inverter_max_dc_ac_ratio ? number.format(selectedKit.inverter_max_dc_ac_ratio) : 'Não informada'} />
                             <Detail label="Ligação atendida pelo kit" value={selectedKit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[selectedKit.grid_connection_type] : 'Não informada'} />
                             <Detail label="Tensão nominal do kit" value={selectedKit.grid_voltage_v ? `${number.format(selectedKit.grid_voltage_v)} V` : 'Não informada'} />
                           </dl>
@@ -1335,63 +1299,6 @@ export function ProfessionalSizingCalculator() {
                       </div>
                     )}
 
-                    {selectedKitInverterDcLimit && (
-                      <div className={`rounded-xl border p-5 ${
-                        selectedKitInverterDcLimit.status === 'within_manufacturer_limit'
-                          ? 'border-emerald-400/50 bg-emerald-500/10'
-                          : selectedKitInverterDcLimit.status === 'above_manufacturer_limit'
-                            ? 'border-red-400/50 bg-red-500/10'
-                            : 'border-slate-400/40 bg-slate-500/10'
-                      }`}>
-                        <div className="flex items-start gap-3">
-                          {selectedKitInverterDcLimit.status === 'within_manufacturer_limit' ? (
-                            <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-300" />
-                          ) : selectedKitInverterDcLimit.status === 'above_manufacturer_limit' ? (
-                            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-red-300" />
-                          ) : (
-                            <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-slate-300" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Limite técnico do inversor</p>
-                            <h3 className="mt-1 text-lg font-bold text-brand-dark">{selectedKitInverterDcLimit.statusLabel}</h3>
-                            <p className="mt-1 text-sm leading-6 text-slate-200">{selectedKitInverterDcLimit.guidance}</p>
-                          </div>
-                        </div>
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <Summary label="Potência DC do kit" value={`${number.format(selectedKitInverterDcLimit.dcPowerKwp)} kWp`} />
-                          <Summary label="Potência FV máxima" value={selectedKitInverterDcLimit.maxPvInputPowerKwp == null ? 'Não informada' : `${number.format(selectedKitInverterDcLimit.maxPvInputPowerKwp)} kWp`} />
-                          <Summary label="Máximo pela relação DC/AC" value={selectedKitInverterDcLimit.maxByRatioKwp == null ? 'Não calculado' : `${number.format(selectedKitInverterDcLimit.maxByRatioKwp)} kWp`} />
-                          <Summary label="Limite efetivo" value={selectedKitInverterDcLimit.effectiveMaxDcPowerKwp == null ? 'Pendente' : `${number.format(selectedKitInverterDcLimit.effectiveMaxDcPowerKwp)} kWp`} highlight={selectedKitInverterDcLimit.status !== 'documentation_pending'} />
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedKitOversizing ? (
-                      <div className="rounded-xl border border-brand-light/30 bg-brand-blue/10 p-5">
-                        <div className="flex items-start gap-3">
-                          <Gauge className="mt-0.5 h-6 w-6 shrink-0 text-brand-light" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-wider text-brand-light">Relação DC/AC informativa</p>
-                            <h3 className="mt-1 text-lg font-bold text-brand-dark">Oversizing calculado</h3>
-                            <p className="mt-1 text-sm leading-6 text-slate-200">A referência de 1,20 é apenas comparativa e não define a compatibilidade do inversor. O status técnico é determinado pelos limites específicos cadastrados a partir do datasheet.</p>
-                          </div>
-                        </div>
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <Summary label="Potência DC dos módulos" value={`${number.format(selectedKitOversizing.dcPowerKwp)} kWp`} />
-                          <Summary label="Potência AC do inversor" value={`${number.format(selectedKitOversizing.acPowerKw)} kW`} />
-                          <Summary label="Relação DC/AC" value={number.format(selectedKitOversizing.dcAcRatio)} />
-                          <Summary label="Oversizing" value={`${number.format(selectedKitOversizing.oversizingPercent)}%`} highlight />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-3 rounded-xl border border-amber-400/50 bg-amber-500/10 p-5 text-amber-100">
-                        <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0" />
-                        <div>
-                          <p className="font-bold">Potência AC do inversor não informada</p>
-                          <p className="mt-1 text-sm leading-6">Cadastre a potência do inversor no catálogo do kit para calcular a relação DC/AC e o oversizing.</p>
-                        </div>
-                      </div>
-                    )}
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
@@ -1476,12 +1383,6 @@ export function ProfessionalSizingCalculator() {
                             <PreviewRow label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
                             <PreviewRow label="Geração estimada" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh/mês`} />
                             <PreviewRow label="Cobertura da meta" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />
-                            {selectedKitOversizing && (
-                              <>
-                                <PreviewRow label="Relação DC/AC" value={number.format(selectedKitOversizing.dcAcRatio)} />
-                                <PreviewRow label="Oversizing" value={`${number.format(selectedKitOversizing.oversizingPercent)}%`} />
-                              </>
-                            )}
                           </dl>
                         </CardContent>
                       </Card>

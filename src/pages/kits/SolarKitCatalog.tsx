@@ -27,8 +27,6 @@ type SolarKitFormState = {
   inverter_brand: string;
   inverter_model: string;
   inverter_power_kw: string;
-  inverter_max_pv_power_kwp: string;
-  inverter_max_dc_ac_ratio: string;
   grid_connection_type: SolarKitConnectionType | '';
   grid_voltage_v: string;
   structure_type: string;
@@ -57,8 +55,6 @@ const EMPTY_FORM: SolarKitFormState = {
   inverter_brand: '',
   inverter_model: '',
   inverter_power_kw: '',
-  inverter_max_pv_power_kwp: '',
-  inverter_max_dc_ac_ratio: '',
   grid_connection_type: '',
   grid_voltage_v: '',
   structure_type: '',
@@ -98,8 +94,6 @@ const toFormState = (kit: SolarKit): SolarKitFormState => ({
   inverter_brand: kit.inverter_brand || '',
   inverter_model: kit.inverter_model || '',
   inverter_power_kw: kit.inverter_power_kw ? String(kit.inverter_power_kw) : '',
-  inverter_max_pv_power_kwp: kit.inverter_max_pv_power_kwp ? String(kit.inverter_max_pv_power_kwp) : '',
-  inverter_max_dc_ac_ratio: kit.inverter_max_dc_ac_ratio ? String(kit.inverter_max_dc_ac_ratio) : '',
   grid_connection_type: kit.grid_connection_type || '',
   grid_voltage_v: kit.grid_voltage_v ? String(kit.grid_voltage_v) : '',
   structure_type: kit.structure_type || '',
@@ -128,8 +122,6 @@ const toPayload = (form: SolarKitFormState): SolarKitFormValues => ({
   inverter_brand: form.inverter_brand || null,
   inverter_model: form.inverter_model || null,
   inverter_power_kw: parseOptionalNumber(form.inverter_power_kw),
-  inverter_max_pv_power_kwp: parseOptionalNumber(form.inverter_max_pv_power_kwp),
-  inverter_max_dc_ac_ratio: parseOptionalNumber(form.inverter_max_dc_ac_ratio),
   grid_connection_type: form.grid_connection_type || null,
   grid_voltage_v: parseOptionalNumber(form.grid_voltage_v),
   structure_type: form.structure_type || null,
@@ -186,8 +178,6 @@ export function SolarKitCatalog() {
         kit.module_model,
         kit.inverter_brand,
         kit.inverter_model,
-        kit.inverter_max_pv_power_kwp ? `${kit.inverter_max_pv_power_kwp} kWp FV máx.` : null,
-        kit.inverter_max_dc_ac_ratio ? `DC/AC máx. ${kit.inverter_max_dc_ac_ratio}` : null,
         kit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type] : null,
         kit.grid_voltage_v ? `${kit.grid_voltage_v} V` : null,
         kit.battery_brand,
@@ -234,8 +224,6 @@ export function SolarKitCatalog() {
     if (parseNumber(form.module_quantity) <= 0) return 'Informe a quantidade de módulos.';
     if (!form.grid_connection_type) return 'Informe o tipo de ligação atendida pelo kit.';
     if ((parseOptionalNumber(form.grid_voltage_v) ?? 0) <= 0) return 'Informe a tensão nominal do kit em volts.';
-    if (form.inverter_max_pv_power_kwp && (parseOptionalNumber(form.inverter_max_pv_power_kwp) ?? 0) <= 0) return 'A potência FV máxima do inversor deve ser maior que zero.';
-    if (form.inverter_max_dc_ac_ratio && (parseOptionalNumber(form.inverter_max_dc_ac_ratio) ?? 0) <= 0) return 'A relação DC/AC máxima do inversor deve ser maior que zero.';
     if (hasStorage && parseOptionalNumber(form.battery_capacity_kwh) === null) return 'Informe a capacidade da bateria em kWh para kits híbridos/off-grid.';
     if (parseNumber(form.cost_price) < 0) return 'O custo do kit não pode ser negativo.';
     return null;
@@ -388,12 +376,10 @@ export function SolarKitCatalog() {
               <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
                 <h3 className="mb-1 text-sm font-semibold text-brand-dark">Inversor e conexão elétrica</h3>
                 <p className="mb-4 text-xs leading-5 text-slate-500">Cadastre a configuração para a qual o conjunto foi montado pelo fornecedor.</p>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Marca</label><Input value={form.inverter_brand} onChange={(event) => updateField('inverter_brand', event.target.value)} placeholder="Ex: Deye" /></div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Modelo</label><Input value={form.inverter_model} onChange={(event) => updateField('inverter_model', event.target.value)} placeholder="Ex: SUN-5K-SG04LP1" /></div>
-                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência AC kW</label><Input type="number" min="0" step="0.01" value={form.inverter_power_kw} onChange={(event) => updateField('inverter_power_kw', event.target.value)} placeholder="5" /></div>
-                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência FV máxima kWp</label><Input type="number" min="0" step="0.01" value={form.inverter_max_pv_power_kwp} onChange={(event) => updateField('inverter_max_pv_power_kwp', event.target.value)} placeholder="Ex: 7,5" /></div>
-                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Relação DC/AC máxima</label><Input type="number" min="0" step="0.01" value={form.inverter_max_dc_ac_ratio} onChange={(event) => updateField('inverter_max_dc_ac_ratio', event.target.value)} placeholder="Ex: 1,50" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência kW</label><Input type="number" min="0" step="0.01" value={form.inverter_power_kw} onChange={(event) => updateField('inverter_power_kw', event.target.value)} placeholder="5" /></div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-brand-dark">Ligação atendida *</label>
                     <select value={form.grid_connection_type} onChange={(event) => updateField('grid_connection_type', event.target.value as SolarKitConnectionType)} className="flex h-10 w-full rounded-md border border-brand-border bg-gray-50 px-3 py-2 text-sm text-brand-dark outline-none ring-offset-brand-gray transition-colors focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2">
@@ -404,7 +390,6 @@ export function SolarKitCatalog() {
                     </select>
                   </div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Tensão nominal V *</label><Input type="number" min="1" step="1" value={form.grid_voltage_v} onChange={(event) => updateField('grid_voltage_v', event.target.value)} placeholder="Ex: 220" /></div>
-                  <div className="rounded-lg border border-brand-border bg-gray-50 px-4 py-3 text-xs leading-5 text-slate-500">Informe pelo menos um limite do datasheet quando disponível. Se ambos forem cadastrados, o sistema respeita o mais restritivo.</div>
                 </div>
               </div>
 
@@ -456,7 +441,7 @@ export function SolarKitCatalog() {
         <div className="flex flex-col gap-4 border-b border-brand-border bg-gray-50 p-4 md:flex-row md:items-center md:justify-between">
           <div className="relative w-full md:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <Input className="pl-9" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por kit, fornecedor, módulo, inversor, limites, ligação, tensão ou bateria..." />
+            <Input className="pl-9" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por kit, fornecedor, módulo, inversor, ligação, tensão ou bateria..." />
           </div>
           <div className="text-xs text-slate-500">
             Custo médio cadastrado: <span className="font-semibold text-brand-dark">{formatCurrency(averageCost)}</span> · Potência total: <span className="font-semibold text-brand-dark">{totalPowerKwp.toFixed(2)} kWp</span>
@@ -489,10 +474,6 @@ export function SolarKitCatalog() {
                     <td className="px-4 py-3 text-brand-dark">
                       <div className="font-semibold">{kit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type] : 'Ligação não informada'}</div>
                       <div className="text-[11px] text-slate-500">{kit.grid_voltage_v ? `${kit.grid_voltage_v} V` : 'Tensão não informada'}</div>
-                      <div className="mt-1 text-[11px] text-slate-500">
-                        {kit.inverter_max_pv_power_kwp ? `FV máx. ${kit.inverter_max_pv_power_kwp} kWp` : 'Potência FV máxima não informada'}
-                        {kit.inverter_max_dc_ac_ratio ? ` · DC/AC máx. ${kit.inverter_max_dc_ac_ratio}` : ''}
-                      </div>
                     </td>
                     <td className="px-4 py-3 text-brand-dark">
                       {kit.system_type === 'hybrid' || kit.system_type === 'off_grid' ? (

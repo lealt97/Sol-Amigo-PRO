@@ -16,8 +16,6 @@ export type NormalizedSolarKitValues = {
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
-  inverter_max_pv_power_kwp: number | null;
-  inverter_max_dc_ac_ratio: number | null;
   grid_connection_type: SolarKitConnectionType | null;
   grid_voltage_v: number | null;
   structure_type: string | null;
@@ -94,8 +92,6 @@ export function normalizeSolarKitPayload(
     inverter_brand: normalizeText(kit.inverter_brand),
     inverter_model: normalizeText(kit.inverter_model),
     inverter_power_kw: normalizeOptionalNumber(kit.inverter_power_kw),
-    inverter_max_pv_power_kwp: normalizeOptionalNumber(kit.inverter_max_pv_power_kwp),
-    inverter_max_dc_ac_ratio: normalizeOptionalNumber(kit.inverter_max_dc_ac_ratio),
     grid_connection_type: normalizeSolarKitConnectionType(kit.grid_connection_type),
     grid_voltage_v: normalizeOptionalNumber(kit.grid_voltage_v),
     structure_type: normalizeText(kit.structure_type),
@@ -138,8 +134,6 @@ export function solarKitToFormValues(kit: SolarKit): SolarKitFormValues {
     inverter_brand: kit.inverter_brand,
     inverter_model: kit.inverter_model,
     inverter_power_kw: kit.inverter_power_kw,
-    inverter_max_pv_power_kwp: kit.inverter_max_pv_power_kwp ?? null,
-    inverter_max_dc_ac_ratio: kit.inverter_max_dc_ac_ratio ?? null,
     grid_connection_type: normalizeSolarKitConnectionType(kit.grid_connection_type),
     grid_voltage_v: kit.grid_voltage_v ?? null,
     structure_type: kit.structure_type,
@@ -171,8 +165,6 @@ export function filterSolarKits(kits: SolarKit[], searchTerm: string) {
       kit.module_model,
       kit.inverter_brand,
       kit.inverter_model,
-      kit.inverter_max_pv_power_kwp,
-      kit.inverter_max_dc_ac_ratio,
       kit.grid_connection_type,
       kit.grid_voltage_v,
       kit.battery_brand,

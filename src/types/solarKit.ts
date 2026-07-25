@@ -27,8 +27,6 @@ export interface SolarKit {
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
-  inverter_max_pv_power_kwp?: number | null;
-  inverter_max_dc_ac_ratio?: number | null;
   grid_connection_type?: SolarKitConnectionType | null;
   grid_voltage_v?: number | null;
   structure_type: string | null;
@@ -60,8 +58,6 @@ export interface SolarKitFormValues {
   inverter_brand?: string | null;
   inverter_model?: string | null;
   inverter_power_kw?: number | null;
-  inverter_max_pv_power_kwp?: number | null;
-  inverter_max_dc_ac_ratio?: number | null;
   grid_connection_type?: SolarKitConnectionType | null;
   grid_voltage_v?: number | null;
   structure_type?: string | null;
@@ -91,8 +87,6 @@ export interface SolarKitSnapshot {
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
-  inverter_max_pv_power_kwp: number | null;
-  inverter_max_dc_ac_ratio: number | null;
   grid_connection_type: SolarKitConnectionType | null;
   grid_voltage_v: number | null;
   structure_type: string | null;
@@ -122,8 +116,6 @@ export function buildSolarKitSnapshot(kit: SolarKit): SolarKitSnapshot {
     inverter_brand: kit.inverter_brand,
     inverter_model: kit.inverter_model,
     inverter_power_kw: kit.inverter_power_kw,
-    inverter_max_pv_power_kwp: kit.inverter_max_pv_power_kwp ?? null,
-    inverter_max_dc_ac_ratio: kit.inverter_max_dc_ac_ratio ?? null,
     grid_connection_type: kit.grid_connection_type ?? null,
     grid_voltage_v: kit.grid_voltage_v ?? null,
     structure_type: kit.structure_type,

@@ -24,8 +24,6 @@ const baseForm: SolarKitFormValues = {
   inverter_brand: 'Inversores SA',
   inverter_model: 'INV-5K',
   inverter_power_kw: 5,
-  inverter_max_pv_power_kwp: 7.5,
-  inverter_max_dc_ac_ratio: 1.5,
   grid_connection_type: 'biphase',
   grid_voltage_v: 220,
   structure_type: 'Telhado cerâmico',
@@ -57,8 +55,6 @@ function makeKit(overrides: Partial<SolarKit> = {}): SolarKit {
     inverter_brand: 'Inversores SA',
     inverter_model: 'INV-5K',
     inverter_power_kw: 5,
-    inverter_max_pv_power_kwp: 7.5,
-    inverter_max_dc_ac_ratio: 1.5,
     grid_connection_type: 'biphase',
     grid_voltage_v: 220,
     structure_type: 'Telhado cerâmico',
@@ -126,8 +122,6 @@ test('normaliza textos, números e remove bateria de kits on-grid', () => {
   assert.equal(normalized.module_quantity, 10);
   assert.equal(normalized.grid_connection_type, 'biphase');
   assert.equal(normalized.grid_voltage_v, 220);
-  assert.equal(normalized.inverter_max_pv_power_kwp, 7.5);
-  assert.equal(normalized.inverter_max_dc_ac_ratio, 1.5);
   assert.equal(normalized.battery_brand, null);
   assert.equal(normalized.battery_capacity_kwh, null);
   assert.equal(normalized.autonomy_hours, null);
@@ -286,8 +280,6 @@ test('cria snapshot imutável com os dados comerciais e técnicos do kit', () =>
   assert.equal(snapshot.system_type, 'hybrid');
   assert.equal(snapshot.grid_connection_type, 'biphase');
   assert.equal(snapshot.grid_voltage_v, 220);
-  assert.equal(snapshot.inverter_max_pv_power_kwp, 7.5);
-  assert.equal(snapshot.inverter_max_dc_ac_ratio, 1.5);
   assert.equal(snapshot.battery_capacity_kwh, 10);
   assert.equal(snapshot.cost_price, 12000);
   assert.equal('user_id' in snapshot, false);
