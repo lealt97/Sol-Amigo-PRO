@@ -12,11 +12,12 @@ test('rota de criação recebe a calculadora por kit e edição permanece vazia'
   assert.doesNotMatch(app, /ProposalWizard/);
 });
 
-test('documento PDF mantém somente a página de capa', async () => {
+test('documento PDF mantém somente a página de capa sem sobreposição duplicada', async () => {
   const document = await read('src/components/pdf/ProposalDocument.tsx');
 
   assert.match(document, /<CoverPage proposal=\{proposal\} \/>/);
-  assert.match(document, /<DynamicCoverOverlay proposal=\{proposal\} \/>/);
+  assert.match(document, /<Image src=\{coverImage\} style=\{styles\.coverImage\} \/>/);
+  assert.doesNotMatch(document, /DynamicCoverOverlay/);
   assert.equal((document.match(/<Page\b/g) || []).length, 1);
   assert.doesNotMatch(document, /PageSection/);
   assert.doesNotMatch(document, /IntroLetterSection|ExecutiveSummary|EnergyDiagnosisSection|SolarSolutionSection|EquipmentSection|GenerationSection|FinancialSection|TermsSection|WarrantyAndNextStepsSection|AcceptanceSection|PaybackSection/);
