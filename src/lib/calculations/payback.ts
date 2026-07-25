@@ -1,4 +1,5 @@
 export type PaybackStatus = 'excellent' | 'very_good' | 'good' | 'regular' | 'unfeasible';
+export type BillReferenceStatus = 'not_informed' | 'consistent' | 'review';
 
 export type PaybackAdditionalCost = {
   description: string;
@@ -9,6 +10,8 @@ export type PaybackInput = {
   kitCost: number;
   marginPercentage: number;
   tariffCentsPerKwh: number;
+  averageMonthlyBillAmount?: number | null;
+  monthlyAvailabilityConsumptionKwh?: number;
   pisPercent: number;
   cofinsPercent: number;
   icmsPercent: number;
@@ -33,6 +36,12 @@ export type PaybackResult = {
   totalInvestment: number;
   totalTariffsPercent: number;
   effectiveTariffPerKwh: number;
+  estimatedEnergyBillAmount: number;
+  averageMonthlyBillAmount: number | null;
+  estimatedResidualBillAmount: number | null;
+  estimatedBillReductionPercent: number | null;
+  billReferenceDifferencePercent: number | null;
+  billReferenceStatus: BillReferenceStatus;
   compensatedEnergyKwhPerMonth: number;
   monthlySavings: number;
   annualSavings: number;
@@ -84,6 +93,12 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
   }
 
   assertPositive(input.tariffCentsPerKwh, 'Tarifa de energia');
+  const averageMonthlyBillAmount = input.averageMonthlyBillAmount ?? null;
+  if (averageMonthlyBillAmount != null) {
+    assertPositive(averageMonthlyBillAmount, 'Valor médio mensal da fatura');
+  }
+  const monthlyAvailabilityConsumptionKwh = input.monthlyAvailabilityConsumptionKwh ?? 0;
+  assertNonNegative(monthlyAvailabilityConsumptionKwh, 'Custo de disponibilidade');
   assertNonNegative(input.pisPercent, 'PIS');
   assertNonNegative(input.cofinsPercent, 'COFINS');
   assertNonNegative(input.icmsPercent, 'ICMS');
@@ -111,6 +126,28 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     input.monthlyGenerationKwh,
   );
   const monthlySavings = compensatedEnergyKwhPerMonth * effectiveTariffPerKwh;
+  const estimatedEnergyBillAmount = (
+    input.monthlyCompensableConsumptionKwh + monthlyAvailabilityConsumptionKwh
+  ) * effectiveTariffPerKwh;
+  const minimumResidualBillAmount = monthlyAvailabilityConsumptionKwh * effectiveTariffPerKwh;
+  const estimatedResidualBillAmount = averageMonthlyBillAmount == null
+    ? null
+    : Math.min(
+        averageMonthlyBillAmount,
+        Math.max(averageMonthlyBillAmount - monthlySavings, minimumResidualBillAmount),
+      );
+  const estimatedBillReductionPercent = averageMonthlyBillAmount == null || estimatedResidualBillAmount == null
+    ? null
+    : ((averageMonthlyBillAmount - estimatedResidualBillAmount) / averageMonthlyBillAmount) * 100;
+  const billReferenceDifferencePercent = averageMonthlyBillAmount == null
+    ? null
+    : (Math.abs(averageMonthlyBillAmount - estimatedEnergyBillAmount)
+      / Math.max(averageMonthlyBillAmount, estimatedEnergyBillAmount)) * 100;
+  const billReferenceStatus: BillReferenceStatus = billReferenceDifferencePercent == null
+    ? 'not_informed'
+    : billReferenceDifferencePercent <= 20
+      ? 'consistent'
+      : 'review';
   const annualSavings = monthlySavings * 12;
   const paybackYears = annualSavings > 0 ? totalInvestment / annualSavings : Number.POSITIVE_INFINITY;
   const status = classifyPayback(paybackYears);
@@ -129,6 +166,12 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     totalInvestment: round(totalInvestment),
     totalTariffsPercent: round(totalTariffsPercent),
     effectiveTariffPerKwh: round(effectiveTariffPerKwh, 4),
+    estimatedEnergyBillAmount: round(estimatedEnergyBillAmount),
+    averageMonthlyBillAmount: averageMonthlyBillAmount == null ? null : round(averageMonthlyBillAmount),
+    estimatedResidualBillAmount: estimatedResidualBillAmount == null ? null : round(estimatedResidualBillAmount),
+    estimatedBillReductionPercent: estimatedBillReductionPercent == null ? null : round(estimatedBillReductionPercent),
+    billReferenceDifferencePercent: billReferenceDifferencePercent == null ? null : round(billReferenceDifferencePercent),
+    billReferenceStatus,
     compensatedEnergyKwhPerMonth: round(compensatedEnergyKwhPerMonth),
     monthlySavings: round(monthlySavings),
     annualSavings: round(annualSavings),

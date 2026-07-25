@@ -5,9 +5,11 @@ tests=skipped
 build=skipped
 
 ===== implementation.log =====
+.github/workflows/one-off-average-monthly-bill.yml:371: SyntaxWarning: invalid escape sequence '\$'
+  monthlyGenerationKwh: 400,
 Traceback (most recent call last):
-  File "<stdin>", line 11, in <module>
-  File ".github/workflows/one-off-average-monthly-bill.yml", line 1
-    name: One-off average monthly bill
-             ^
-IndentationError: unexpected indent
+  File "<stdin>", line 12, in <module>
+  File ".github/workflows/one-off-average-monthly-bill.yml", line 168, in <module>
+    const inputClassName = [prefix ? 'pl-10' : '', suffix ? 'pr-24' : '']
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: PaybackStep: bloco PaybackField não encontrado de forma única

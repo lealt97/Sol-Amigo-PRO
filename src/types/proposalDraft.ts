@@ -22,6 +22,7 @@ export type ProposalDraftAdditionalCost = {
 
 export type ProposalDraftPaybackForm = {
   tariffCentsPerKwh: string;
+  averageMonthlyBillAmount?: string;
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;

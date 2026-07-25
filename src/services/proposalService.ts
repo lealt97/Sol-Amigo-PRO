@@ -20,6 +20,7 @@ export type ProposalFlowSummary = Partial<Pick<Proposal,
   | 'monthly_consumption_kwh'
   | 'estimated_daily_consumption'
   | 'energy_tariff'
+  | 'bill_amount'
   | 'roof_area_m2'
   | 'roof_image_url'
   | 'module_width_m'
