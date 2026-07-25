@@ -1,28 +1,29 @@
-name: Aplicar entrega da proposta
+name: Diagnóstico de build
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  statuses: write
 
 concurrency:
-  group: apply-proposal-delivery-${{ github.ref }}
+  group: diagnostic-status-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  apply:
-    name: Aplicar, validar e publicar
+  diagnose:
+    name: Diagnosticar TypeScript, testes e build
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -30,66 +31,99 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Aplicar, validar e registrar resultado
+      - name: Instalar dependências
+        id: install
+        continue-on-error: true
         shell: bash
         run: |
-          set +e
-          : > proposal-delivery.log
+          set -o pipefail
+          npm ci 2>&1 | tee install.log
 
-          echo "== Aplicar integração ==" | tee -a proposal-delivery.log
-          python3 .github/scripts/implement-proposal-delivery.py 2>&1 | tee -a proposal-delivery.log
-          STATUS=${PIPESTATUS[0]}
+      - name: Publicar diagnóstico da instalação
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.install.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / npm ci" \
+            --outcome "$OUTCOME" \
+            --log install.log
 
-          if [ "$STATUS" -eq 0 ]; then
-            python3 .github/scripts/fix-proposal-delivery.py 2>&1 | tee -a proposal-delivery.log
-            STATUS=${PIPESTATUS[0]}
-          fi
+      - name: Verificar TypeScript
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee typecheck.log
 
-          if [ "$STATUS" -eq 0 ]; then
-            echo "== Instalar QR Code ==" | tee -a proposal-delivery.log
-            npm install qrcode@1.5.4 --save 2>&1 | tee -a proposal-delivery.log
-            STATUS=${PIPESTATUS[0]}
-          fi
+      - name: Publicar diagnóstico do TypeScript
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.typecheck.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / TypeScript" \
+            --outcome "$OUTCOME" \
+            --log typecheck.log
 
-          if [ "$STATUS" -eq 0 ]; then
-            npm install @types/qrcode@1.5.5 --save-dev 2>&1 | tee -a proposal-delivery.log
-            STATUS=${PIPESTATUS[0]}
-          fi
+      - name: Executar testes
+        id: tests
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test 2>&1 | tee tests.log
 
-          if [ "$STATUS" -eq 0 ]; then
-            echo "== TypeScript ==" | tee -a proposal-delivery.log
-            npm run typecheck 2>&1 | tee -a proposal-delivery.log
-            STATUS=${PIPESTATUS[0]}
-          fi
+      - name: Publicar diagnóstico dos testes
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Testes" \
+            --outcome "$OUTCOME" \
+            --log tests.log
 
-          if [ "$STATUS" -eq 0 ]; then
-            echo "== Testes ==" | tee -a proposal-delivery.log
-            npm run test 2>&1 | tee -a proposal-delivery.log
-            STATUS=${PIPESTATUS[0]}
-          fi
+      - name: Gerar build de produção
+        id: build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:app 2>&1 | tee build.log
 
-          if [ "$STATUS" -eq 0 ]; then
-            echo "== Build ==" | tee -a proposal-delivery.log
-            npm run build:app 2>&1 | tee -a proposal-delivery.log
-            STATUS=${PIPESTATUS[0]}
-          fi
+      - name: Publicar diagnóstico do build
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.build.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Build" \
+            --outcome "$OUTCOME" \
+            --log build.log
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if [ "$STATUS" -ne 0 ]; then
-            mkdir -p .github/diagnostics
-            cp proposal-delivery.log .github/diagnostics/proposal-delivery.log
-            git add .github/diagnostics/proposal-delivery.log
-            git commit -m "chore: registrar falha na entrega da proposta" || true
-            git push origin HEAD:main || true
-            exit "$STATUS"
-          fi
-
-          git add package.json package-lock.json src tests
-          if git diff --cached --quiet; then
-            echo "Nenhuma alteração para publicar."
-            exit 0
-          fi
-          git commit -m "feat: adicionar entrega de proposta com PDF e WhatsApp"
-          git push origin HEAD:main
+      - name: Registrar conclusão informativa
+        if: always()
+        shell: bash
+        run: |
+          echo "Este workflow publica diagnósticos por etapa. O gate obrigatório permanece no workflow Qualidade."
