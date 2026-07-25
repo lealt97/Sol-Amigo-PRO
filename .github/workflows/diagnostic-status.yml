@@ -31,7 +31,9 @@ jobs:
           cache: npm
 
       - name: Aplicar integração
-        run: python3 .github/scripts/implement-proposal-delivery.py
+        run: |
+          python3 .github/scripts/implement-proposal-delivery.py
+          python3 .github/scripts/fix-proposal-delivery.py
 
       - name: Adicionar gerador de QR Code
         run: |
