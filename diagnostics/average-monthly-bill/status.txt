@@ -1,0 +1,13 @@
+implement=failure
+install=skipped
+typecheck=skipped
+tests=skipped
+build=skipped
+
+===== implementation.log =====
+Traceback (most recent call last):
+  File "<stdin>", line 11, in <module>
+  File ".github/workflows/one-off-average-monthly-bill.yml", line 1
+    name: One-off average monthly bill
+             ^
+IndentationError: unexpected indent
