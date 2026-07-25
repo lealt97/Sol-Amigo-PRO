@@ -45,12 +45,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.apply_change.outcome }}
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Remoção do oversizing" \
-            --outcome "$OUTCOME" \
-            --log apply.log
+          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Remoção do oversizing" --outcome "$OUTCOME" --log apply.log
 
       - name: Instalar dependências
         id: install
@@ -61,6 +56,14 @@ jobs:
           set -o pipefail
           npm ci 2>&1 | tee install.log
 
+      - name: Publicar instalação
+        if: always() && steps.apply_change.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.install.outcome }}
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / npm ci" --outcome "$OUTCOME" --log install.log
+
       - name: Verificar TypeScript
         id: typecheck
         if: steps.install.outcome == 'success'
@@ -69,6 +72,14 @@ jobs:
         run: |
           set -o pipefail
           npm run typecheck 2>&1 | tee typecheck.log
+
+      - name: Publicar TypeScript
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.typecheck.outcome }}
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / TypeScript" --outcome "$OUTCOME" --log typecheck.log
 
       - name: Executar testes
         id: tests
@@ -79,6 +90,14 @@ jobs:
           set -o pipefail
           npm run test 2>&1 | tee tests.log
 
+      - name: Publicar testes
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / Testes" --outcome "$OUTCOME" --log tests.log
+
       - name: Gerar build de produção
         id: build
         if: steps.install.outcome == 'success'
@@ -87,6 +106,14 @@ jobs:
         run: |
           set -o pipefail
           npm run build:app 2>&1 | tee build.log
+
+      - name: Publicar build
+        if: always() && steps.install.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / Build" --outcome "$OUTCOME" --log build.log
 
       - name: Publicar alteração validada
         if: steps.apply_change.outcome == 'success' && steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
