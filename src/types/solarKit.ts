@@ -24,6 +24,8 @@ export interface SolarKit {
   module_model: string | null;
   module_power_w: number;
   module_quantity: number;
+  module_height_m?: number | null;
+  module_width_m?: number | null;
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
@@ -55,6 +57,8 @@ export interface SolarKitFormValues {
   module_model?: string | null;
   module_power_w: number;
   module_quantity: number;
+  module_height_m?: number | null;
+  module_width_m?: number | null;
   inverter_brand?: string | null;
   inverter_model?: string | null;
   inverter_power_kw?: number | null;
@@ -84,6 +88,8 @@ export interface SolarKitSnapshot {
   module_model: string | null;
   module_power_w: number;
   module_quantity: number;
+  module_height_m?: number | null;
+  module_width_m?: number | null;
   inverter_brand: string | null;
   inverter_model: string | null;
   inverter_power_kw: number | null;
@@ -113,6 +119,8 @@ export function buildSolarKitSnapshot(kit: SolarKit): SolarKitSnapshot {
     module_model: kit.module_model,
     module_power_w: kit.module_power_w,
     module_quantity: kit.module_quantity,
+    module_height_m: kit.module_height_m ?? null,
+    module_width_m: kit.module_width_m ?? null,
     inverter_brand: kit.inverter_brand,
     inverter_model: kit.inverter_model,
     inverter_power_kw: kit.inverter_power_kw,
