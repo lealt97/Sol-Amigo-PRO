@@ -48,3 +48,21 @@ test('rejeita potência e dimensões inválidas', () => {
     /Potência do módulo/,
   );
 });
+
+test('usa a quantidade real do kit para calcular a ocupação do telhado', () => {
+  const result = calculateModuleSizing({
+    requiredPowerKwp: 4.556,
+    modulePowerW: 550,
+    moduleQuantity: 10,
+    moduleHeightM: 2.278,
+    moduleWidthM: 1.134,
+    roofAreaM2: 30,
+  });
+
+  assert.equal(result.moduleQuantity, 10);
+  assert.equal(result.installedPowerKwp, 5.5);
+  assert.equal(result.moduleAreaM2, 2.583);
+  assert.equal(result.totalModuleAreaM2, 25.83);
+  assert.equal(result.availableAreaBalanceM2, 4.17);
+  assert.equal(result.modulesFitRoof, true);
+});
