@@ -27,7 +27,7 @@ test('motor de cores cria papéis semânticos para gráficos', async () => {
   }
 
   assert.match(source, /chartPositive: normalizedSeed\.primary/);
-  assert.match(source, /chartNegative: normalizedSeed\.warning/);
+  assert.match(source, /chartNegative: isLight \? '#DC2626' : '#F87171'/);
   assert.match(source, /const activeTheme = buildPlatformTheme\(theme\?\.seed \|\| DEFAULT_PLATFORM_THEME_SEED\)/);
   assert.match(source, /setCssVar\('--color-chart-grid', palette\.chartGrid\)/);
   assert.match(source, /setCssVar\('--color-chart-tooltip-bg', palette\.chartTooltipBg\)/);
