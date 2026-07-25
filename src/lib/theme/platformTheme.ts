@@ -174,7 +174,7 @@ export const buildPlatformTheme = (seed: Partial<PlatformThemeSeed> = {}): Platf
     gray800: isLight ? '#1E293B' : '#F1F5F9',
     gray900: isLight ? '#0F172A' : '#F8FAFC',
     chartPositive: normalizedSeed.primary,
-    chartNegative: normalizedSeed.warning,
+    chartNegative: isLight ? '#DC2626' : '#F87171',
     chartGrid: mix(normalizedSeed.background, normalizedSeed.accent, isLight ? 0.2 : 0.28),
     chartAxis: mix(normalizedSeed.background, normalizedSeed.accent, isLight ? 0.5 : 0.62),
     chartZero: mix(normalizedSeed.background, getReadableText(normalizedSeed.background), isLight ? 0.42 : 0.5),
