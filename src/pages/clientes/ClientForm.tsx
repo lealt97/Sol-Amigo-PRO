@@ -3,13 +3,14 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { clientSchema, ClientFormValues } from '../../lib/validations/client.schema';
+import { formatBrazilianPhoneInput } from '../../lib/formatters/phone';
 import { clientService } from '../../services/clientService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { Textarea } from '../../components/ui/Textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../components/ui/Card';
+import { Card, CardContent, CardFooter } from '../../components/ui/Card';
 import { ArrowLeft } from 'lucide-react';
 
 export function ClientForm() {
@@ -38,7 +39,7 @@ export function ClientForm() {
           name: client.name,
           document: client.document || '',
           email: client.email || '',
-          phone: client.phone || '',
+          phone: formatBrazilianPhoneInput(client.phone || ''),
           cep: client.cep || '',
           address: client.address || '',
           number: client.number || '',
@@ -62,7 +63,6 @@ export function ClientForm() {
     if (!user) return;
     setError(null);
     try {
-      // Formata os dados antes de enviar
       const formattedData = {
         ...data,
         avg_consumption_kwh: data.avg_consumption_kwh ? Number(data.avg_consumption_kwh) : undefined,
@@ -128,7 +128,7 @@ export function ClientForm() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">WhatsApp</Label>
-                <Input id="phone" placeholder="(00) 00000-0000" {...register('phone')} />
+                <Input id="phone" type="tel" placeholder="(00) 00000-0000" autoComplete="tel" {...register('phone')} />
                 {errors.phone && <p className="text-sm text-red-600">{errors.phone.message}</p>}
               </div>
             </div>
@@ -172,11 +172,11 @@ export function ClientForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="avg_consumption_kwh">Consumo Médio (kWh/mês)</Label>
-                  <Input 
-                    id="avg_consumption_kwh" 
-                    type="number" 
-                    placeholder="Ex: 500" 
-                    {...register('avg_consumption_kwh')} 
+                  <Input
+                    id="avg_consumption_kwh"
+                    type="number"
+                    placeholder="Ex: 500"
+                    {...register('avg_consumption_kwh')}
                   />
                   {errors.avg_consumption_kwh && <p className="text-sm text-red-600">{errors.avg_consumption_kwh.message}</p>}
                 </div>
