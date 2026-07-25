@@ -1,0 +1,463 @@
+name: One-off average monthly bill
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-off-average-monthly-bill.yml
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Implementar fatura média mensal
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path: str, content: str) -> None:
+              Path(path).write_text(content, encoding='utf-8')
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              content = read(path)
+              count = content.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{path}: esperado 1 trecho, encontrado {count}: {old[:100]!r}')
+              write(path, content.replace(old, new, 1))
+
+          # Estado persistido do wizard, compatível com rascunhos antigos.
+          replace_once(
+              'src/types/proposalDraft.ts',
+              "export type ProposalDraftPaybackForm = {\n  tariffCentsPerKwh: string;\n  pisPercent: string;",
+              "export type ProposalDraftPaybackForm = {\n  tariffCentsPerKwh: string;\n  averageMonthlyBillAmount?: string;\n  pisPercent: string;",
+          )
+
+          # Persistência do resumo final na coluna bill_amount já existente.
+          replace_once(
+              'src/services/proposalService.ts',
+              "  | 'energy_tariff'\n  | 'roof_area_m2'",
+              "  | 'energy_tariff'\n  | 'bill_amount'\n  | 'roof_area_m2'",
+          )
+
+          # Motor de payback e comparação comercial da fatura.
+          path = 'src/lib/calculations/payback.ts'
+          content = read(path)
+          content = content.replace(
+              "export type PaybackStatus = 'excellent' | 'very_good' | 'good' | 'regular' | 'unfeasible';\n",
+              "export type PaybackStatus = 'excellent' | 'very_good' | 'good' | 'regular' | 'unfeasible';\nexport type BillReferenceStatus = 'not_informed' | 'consistent' | 'review';\n",
+              1,
+          )
+          content = content.replace(
+              "  tariffCentsPerKwh: number;\n  pisPercent: number;",
+              "  tariffCentsPerKwh: number;\n  averageMonthlyBillAmount?: number | null;\n  monthlyAvailabilityConsumptionKwh?: number;\n  pisPercent: number;",
+              1,
+          )
+          content = content.replace(
+              "  effectiveTariffPerKwh: number;\n  compensatedEnergyKwhPerMonth: number;",
+              "  effectiveTariffPerKwh: number;\n  estimatedEnergyBillAmount: number;\n  averageMonthlyBillAmount: number | null;\n  estimatedResidualBillAmount: number | null;\n  estimatedBillReductionPercent: number | null;\n  billReferenceDifferencePercent: number | null;\n  billReferenceStatus: BillReferenceStatus;\n  compensatedEnergyKwhPerMonth: number;",
+              1,
+          )
+          content = content.replace(
+              "  assertPositive(input.tariffCentsPerKwh, 'Tarifa de energia');\n  assertNonNegative(input.pisPercent, 'PIS');",
+              "  assertPositive(input.tariffCentsPerKwh, 'Tarifa de energia');\n  const averageMonthlyBillAmount = input.averageMonthlyBillAmount ?? null;\n  if (averageMonthlyBillAmount != null) {\n    assertPositive(averageMonthlyBillAmount, 'Valor médio mensal da fatura');\n  }\n  const monthlyAvailabilityConsumptionKwh = input.monthlyAvailabilityConsumptionKwh ?? 0;\n  assertNonNegative(monthlyAvailabilityConsumptionKwh, 'Custo de disponibilidade');\n  assertNonNegative(input.pisPercent, 'PIS');",
+              1,
+          )
+          content = content.replace(
+              "  const monthlySavings = compensatedEnergyKwhPerMonth * effectiveTariffPerKwh;\n  const annualSavings = monthlySavings * 12;",
+              "  const monthlySavings = compensatedEnergyKwhPerMonth * effectiveTariffPerKwh;\n  const estimatedEnergyBillAmount = (\n    input.monthlyCompensableConsumptionKwh + monthlyAvailabilityConsumptionKwh\n  ) * effectiveTariffPerKwh;\n  const minimumResidualBillAmount = monthlyAvailabilityConsumptionKwh * effectiveTariffPerKwh;\n  const estimatedResidualBillAmount = averageMonthlyBillAmount == null\n    ? null\n    : Math.min(\n        averageMonthlyBillAmount,\n        Math.max(averageMonthlyBillAmount - monthlySavings, minimumResidualBillAmount),\n      );\n  const estimatedBillReductionPercent = averageMonthlyBillAmount == null || estimatedResidualBillAmount == null\n    ? null\n    : ((averageMonthlyBillAmount - estimatedResidualBillAmount) / averageMonthlyBillAmount) * 100;\n  const billReferenceDifferencePercent = averageMonthlyBillAmount == null\n    ? null\n    : (Math.abs(averageMonthlyBillAmount - estimatedEnergyBillAmount)\n      / Math.max(averageMonthlyBillAmount, estimatedEnergyBillAmount)) * 100;\n  const billReferenceStatus: BillReferenceStatus = billReferenceDifferencePercent == null\n    ? 'not_informed'\n    : billReferenceDifferencePercent <= 20\n      ? 'consistent'\n      : 'review';\n  const annualSavings = monthlySavings * 12;",
+              1,
+          )
+          content = content.replace(
+              "    effectiveTariffPerKwh: round(effectiveTariffPerKwh, 4),\n    compensatedEnergyKwhPerMonth: round(compensatedEnergyKwhPerMonth),",
+              "    effectiveTariffPerKwh: round(effectiveTariffPerKwh, 4),\n    estimatedEnergyBillAmount: round(estimatedEnergyBillAmount),\n    averageMonthlyBillAmount: averageMonthlyBillAmount == null ? null : round(averageMonthlyBillAmount),\n    estimatedResidualBillAmount: estimatedResidualBillAmount == null ? null : round(estimatedResidualBillAmount),\n    estimatedBillReductionPercent: estimatedBillReductionPercent == null ? null : round(estimatedBillReductionPercent),\n    billReferenceDifferencePercent: billReferenceDifferencePercent == null ? null : round(billReferenceDifferencePercent),\n    billReferenceStatus,\n    compensatedEnergyKwhPerMonth: round(compensatedEnergyKwhPerMonth),",
+              1,
+          )
+          write(path, content)
+
+          # Formulário e apresentação do payback.
+          path = 'src/pages/propostas/PaybackStep.tsx'
+          content = read(path)
+          content = content.replace(
+              "const createDefaultForm = (margin = 20): PaybackFormState => ({\n  tariffCentsPerKwh: '100',\n  pisPercent: '0',",
+              "const createDefaultForm = (margin = 20): PaybackFormState => ({\n  tariffCentsPerKwh: '100',\n  averageMonthlyBillAmount: '',\n  pisPercent: '0',",
+              1,
+          )
+          content = content.replace(
+              "  additionalCosts: [],\n});\n\nconst parseNumber",
+              "  additionalCosts: [],\n});\n\nconst normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => ({\n  ...form,\n  averageMonthlyBillAmount: form.averageMonthlyBillAmount ?? '',\n});\n\nconst parseNumber",
+              1,
+          )
+          old_field = '''function PaybackField({
+  label,
+  value,
+  onChange,
+  suffix,
+  helper,
+  min = 0,
+  max,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  suffix: string;
+  helper?: string;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-semibold text-brand-dark">{label}</span>
+      <div className="relative">
+        <Input
+          type="number"
+          min={min}
+          max={max}
+          step="0.01"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="pr-24"
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
+          {suffix}
+        </span>
+      </div>
+      {helper && <p className="text-xs leading-5 text-slate-500">{helper}</p>}
+    </label>
+  );
+}'''
+          new_field = '''function PaybackField({
+  label,
+  value,
+  onChange,
+  prefix,
+  suffix,
+  helper,
+  min = 0,
+  max,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  prefix?: string;
+  suffix?: string;
+  helper?: string;
+  min?: number;
+  max?: number;
+}) {
+  const inputClassName = [prefix ? 'pl-10' : '', suffix ? 'pr-24' : '']
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-semibold text-brand-dark">{label}</span>
+      <div className="relative">
+        <Input
+          type="number"
+          min={min}
+          max={max}
+          step="0.01"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={inputClassName || undefined}
+        />
+        {prefix && (
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">
+            {prefix}
+          </span>
+        )}
+        {suffix && (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
+            {suffix}
+          </span>
+        )}
+      </div>
+      {helper && <p className="text-xs leading-5 text-slate-500">{helper}</p>}
+    </label>
+  );
+}'''
+          if content.count(old_field) != 1:
+              raise RuntimeError('PaybackStep: bloco PaybackField não encontrado de forma única')
+          content = content.replace(old_field, new_field, 1)
+          content = content.replace(
+              "  const [form, setForm] = useState<PaybackFormState>(() => initialForm || createDefaultForm());",
+              "  const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm()));",
+              1,
+          )
+          content = content.replace("if (active) setForm(initialForm);", "if (active) setForm(normalizeForm(initialForm));", 1)
+          content = content.replace("if (active) setForm(parsed);", "if (active) setForm(normalizeForm(parsed));", 1)
+          content = content.replace(
+              "          tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),\n          pisPercent: parseNumber(form.pisPercent),",
+              "          tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),\n          averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()\n            ? parseNumber(form.averageMonthlyBillAmount)\n            : null,\n          monthlyAvailabilityConsumptionKwh: CONNECTION_AVAILABILITY_KWH[connectionType],\n          pisPercent: parseNumber(form.pisPercent),",
+              1,
+          )
+          content = content.replace(
+              '''          <PaybackField
+            label="Tarifa de energia"
+            value={form.tariffCentsPerKwh}
+            onChange={(value) => updateField('tariffCentsPerKwh', value)}
+            suffix="centavos/kWh"
+            min={0.01}
+          />
+          <PaybackField label="PIS"''',
+              '''          <PaybackField
+            label="Tarifa de energia"
+            value={form.tariffCentsPerKwh}
+            onChange={(value) => updateField('tariffCentsPerKwh', value)}
+            suffix="centavos/kWh"
+            min={0.01}
+          />
+          <PaybackField
+            label="Valor médio mensal da fatura"
+            value={form.averageMonthlyBillAmount ?? ''}
+            onChange={(value) => updateField('averageMonthlyBillAmount', value)}
+            prefix="R$"
+            min={0.01}
+            helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
+          />
+          <PaybackField label="PIS"''',
+              1,
+          )
+          comparison = '''
+
+          {result.averageMonthlyBillAmount != null
+            && result.estimatedResidualBillAmount != null
+            && result.estimatedBillReductionPercent != null && (
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+              <div>
+                <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
+                </p>
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
+                <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
+                <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
+                <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
+              </div>
+
+              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
+                result.billReferenceStatus === 'review'
+                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}>
+                {result.billReferenceStatus === 'review'
+                  ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                  : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
+                <div>
+                  <p className="font-bold">
+                    {result.billReferenceStatus === 'review'
+                      ? 'Revise a tarifa ou os dados da fatura'
+                      : 'Fatura coerente com o consumo e a tarifa'}
+                  </p>
+                  <p className="mt-1 text-xs leading-5">
+                    A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
+                    A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
+              </p>
+            </div>
+          )}'''
+          target = '''          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <PaybackSummary label="Investimento final" value={currency.format(result.totalInvestment)} highlight />
+            <PaybackSummary label="Lucro estimado" value={currency.format(result.profitAmount)} />
+            <PaybackSummary label="Economia mensal" value={currency.format(result.monthlySavings)} />
+            <PaybackSummary label="Economia anual" value={currency.format(result.annualSavings)} />
+          </div>'''
+          if content.count(target) != 1:
+              raise RuntimeError('PaybackStep: grade de resumos não encontrada')
+          content = content.replace(target, target + comparison, 1)
+          write(path, content)
+
+          # Integração no wizard e no resumo final da proposta.
+          path = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx'
+          content = read(path)
+          content = content.replace(
+              "    const tariff = paybackForm ? parseOptionalNumber(paybackForm.tariffCentsPerKwh) : null;\n\n    return {",
+              "    const tariff = paybackForm ? parseOptionalNumber(paybackForm.tariffCentsPerKwh) : null;\n    const billAmount = paybackForm?.averageMonthlyBillAmount\n      ? parseOptionalNumber(paybackForm.averageMonthlyBillAmount)\n      : null;\n\n    return {",
+              1,
+          )
+          content = content.replace(
+              "      energy_tariff: tariff == null ? null : tariff / 100,\n      roof_area_m2:",
+              "      energy_tariff: tariff == null ? null : tariff / 100,\n      bill_amount: billAmount,\n      roof_area_m2:",
+              1,
+          )
+          content = content.replace(
+              '''                            <PreviewRow label="Custo direto" value={`R$ ${number.format(paybackResult.directCost)}`} />
+                            <PreviewRow label="Lucro estimado" value={`R$ ${number.format(paybackResult.profitAmount)}`} />
+                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />''',
+              '''                            <PreviewRow label="Custo direto" value={`R$ ${number.format(paybackResult.directCost)}`} />
+                            <PreviewRow label="Lucro estimado" value={`R$ ${number.format(paybackResult.profitAmount)}`} />
+                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />
+                            {paybackResult.averageMonthlyBillAmount != null && (
+                              <>
+                                <PreviewRow label="Fatura média atual" value={`R$ ${number.format(paybackResult.averageMonthlyBillAmount)}`} />
+                                <PreviewRow label="Fatura residual estimada" value={`R$ ${number.format(paybackResult.estimatedResidualBillAmount ?? 0)}`} />
+                                <PreviewRow label="Redução estimada da fatura" value={`${number.format(paybackResult.estimatedBillReductionPercent ?? 0)}%`} />
+                              </>
+                            )}''',
+              1,
+          )
+          write(path, content)
+
+          # Testes do motor financeiro.
+          path = 'tests/payback.test.ts'
+          content = read(path)
+          content += '''
+
+test('compara a fatura média com a tarifa e calcula a fatura residual', () => {
+  const result = calculatePayback({
+    kitCost: 10_000,
+    marginPercentage: 0,
+    tariffCentsPerKwh: 100,
+    averageMonthlyBillAmount: 610,
+    monthlyAvailabilityConsumptionKwh: 30,
+    pisPercent: 0,
+    cofinsPercent: 0,
+    icmsPercent: 0,
+    otherTariffsPercent: 0,
+    monthlyCompensableConsumptionKwh: 470,
+    monthlyGenerationKwh: 400,
+    additionalCosts: [],
+  });
+
+  assert.equal(result.estimatedEnergyBillAmount, 500);
+  assert.equal(result.averageMonthlyBillAmount, 610);
+  assert.equal(result.estimatedResidualBillAmount, 210);
+  assert.equal(result.estimatedBillReductionPercent, 65.57);
+  assert.equal(result.billReferenceDifferencePercent, 18.03);
+  assert.equal(result.billReferenceStatus, 'consistent');
+});
+
+test('sinaliza revisão quando a fatura diverge mais de vinte por cento', () => {
+  const result = calculatePayback({
+    kitCost: 10_000,
+    marginPercentage: 0,
+    tariffCentsPerKwh: 100,
+    averageMonthlyBillAmount: 800,
+    monthlyAvailabilityConsumptionKwh: 30,
+    pisPercent: 0,
+    cofinsPercent: 0,
+    icmsPercent: 0,
+    otherTariffsPercent: 0,
+    monthlyCompensableConsumptionKwh: 470,
+    monthlyGenerationKwh: 400,
+    additionalCosts: [],
+  });
+
+  assert.equal(result.estimatedResidualBillAmount, 400);
+  assert.equal(result.estimatedBillReductionPercent, 50);
+  assert.equal(result.billReferenceDifferencePercent, 37.5);
+  assert.equal(result.billReferenceStatus, 'review');
+});
+
+test('mantém a comparação opcional quando a fatura não é informada', () => {
+  const result = calculatePayback({
+    kitCost: 10_000,
+    marginPercentage: 0,
+    tariffCentsPerKwh: 100,
+    pisPercent: 0,
+    cofinsPercent: 0,
+    icmsPercent: 0,
+    otherTariffsPercent: 0,
+    monthlyCompensableConsumptionKwh: 300,
+    monthlyGenerationKwh: 300,
+    additionalCosts: [],
+  });
+
+  assert.equal(result.averageMonthlyBillAmount, null);
+  assert.equal(result.estimatedResidualBillAmount, null);
+  assert.equal(result.estimatedBillReductionPercent, null);
+  assert.equal(result.billReferenceStatus, 'not_informed');
+});
+'''
+          write(path, content)
+
+          # Teste de integração textual para impedir regressões no fluxo.
+          write('tests/average-monthly-bill-flow.test.ts', '''import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const PAYBACK_STEP = 'src/pages/propostas/PaybackStep.tsx';
+const CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
+const DRAFT = 'src/types/proposalDraft.ts';
+const SERVICE = 'src/services/proposalService.ts';
+
+test('o payback aceita fatura média opcional e exibe comparação comercial', async () => {
+  const source = await readFile(PAYBACK_STEP, 'utf8');
+
+  assert.match(source, /label="Valor médio mensal da fatura"/);
+  assert.match(source, /prefix="R\$"/);
+  assert.match(source, /Comparação da fatura/);
+  assert.match(source, /Fatura residual estimada/);
+  assert.match(source, /Redução estimada/);
+  assert.match(source, /Revise a tarifa ou os dados da fatura/);
+  assert.match(source, /A tarifa continua sendo a base técnica do payback/);
+});
+
+test('a fatura é persistida no rascunho e na proposta final', async () => {
+  const [draft, calculator, service] = await Promise.all([
+    readFile(DRAFT, 'utf8'),
+    readFile(CALCULATOR, 'utf8'),
+    readFile(SERVICE, 'utf8'),
+  ]);
+
+  assert.match(draft, /averageMonthlyBillAmount\?: string/);
+  assert.match(calculator, /bill_amount: billAmount/);
+  assert.match(calculator, /Fatura média atual/);
+  assert.match(calculator, /Fatura residual estimada/);
+  assert.match(service, /\| 'bill_amount'/);
+});
+''')
+
+          # O próprio workflow é temporário e sai no mesmo commit funcional.
+          Path('.github/workflows/one-off-average-monthly-bill.yml').unlink()
+          PY
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar TypeScript
+        run: npm run typecheck
+
+      - name: Executar testes
+        run: npm run test
+
+      - name: Gerar build
+        run: npm run build:app
+
+      - name: Commit direto na main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(payback): adicionar comparação com fatura média mensal"
+          git push origin HEAD:main
