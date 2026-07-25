@@ -30,30 +30,62 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Aplicar integração
-        run: |
-          python3 .github/scripts/implement-proposal-delivery.py
-          python3 .github/scripts/fix-proposal-delivery.py
-
-      - name: Adicionar gerador de QR Code
-        run: |
-          npm install qrcode@1.5.4 --save
-          npm install @types/qrcode@1.5.5 --save-dev
-
-      - name: Verificar TypeScript
-        run: npm run typecheck
-
-      - name: Executar testes
-        run: npm run test
-
-      - name: Gerar build de produção
-        run: npm run build:app
-
-      - name: Publicar alterações no main
+      - name: Aplicar, validar e registrar resultado
         shell: bash
         run: |
+          set +e
+          : > proposal-delivery.log
+
+          echo "== Aplicar integração ==" | tee -a proposal-delivery.log
+          python3 .github/scripts/implement-proposal-delivery.py 2>&1 | tee -a proposal-delivery.log
+          STATUS=${PIPESTATUS[0]}
+
+          if [ "$STATUS" -eq 0 ]; then
+            python3 .github/scripts/fix-proposal-delivery.py 2>&1 | tee -a proposal-delivery.log
+            STATUS=${PIPESTATUS[0]}
+          fi
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "== Instalar QR Code ==" | tee -a proposal-delivery.log
+            npm install qrcode@1.5.4 --save 2>&1 | tee -a proposal-delivery.log
+            STATUS=${PIPESTATUS[0]}
+          fi
+
+          if [ "$STATUS" -eq 0 ]; then
+            npm install @types/qrcode@1.5.5 --save-dev 2>&1 | tee -a proposal-delivery.log
+            STATUS=${PIPESTATUS[0]}
+          fi
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "== TypeScript ==" | tee -a proposal-delivery.log
+            npm run typecheck 2>&1 | tee -a proposal-delivery.log
+            STATUS=${PIPESTATUS[0]}
+          fi
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "== Testes ==" | tee -a proposal-delivery.log
+            npm run test 2>&1 | tee -a proposal-delivery.log
+            STATUS=${PIPESTATUS[0]}
+          fi
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "== Build ==" | tee -a proposal-delivery.log
+            npm run build:app 2>&1 | tee -a proposal-delivery.log
+            STATUS=${PIPESTATUS[0]}
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$STATUS" -ne 0 ]; then
+            mkdir -p .github/diagnostics
+            cp proposal-delivery.log .github/diagnostics/proposal-delivery.log
+            git add .github/diagnostics/proposal-delivery.log
+            git commit -m "chore: registrar falha na entrega da proposta" || true
+            git push origin HEAD:main || true
+            exit "$STATUS"
+          fi
+
           git add package.json package-lock.json src tests
           if git diff --cached --quiet; then
             echo "Nenhuma alteração para publicar."
