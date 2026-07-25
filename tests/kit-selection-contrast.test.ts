@@ -18,8 +18,8 @@ test('seleção do kit usa superfícies e textos com contraste no tema escuro', 
   assert.match(section, /bg-emerald-500\/10/);
   assert.match(section, /bg-amber-500\/10/);
   assert.match(section, /text-slate-200/);
-  assert.match(section, /text-amber-100/);
   assert.match(section, /text-brand-light/);
+  assert.doesNotMatch(section, /Configuração DC\/AC|Relação DC\/AC|oversizing/i);
   assert.doesNotMatch(section, /bg-emerald-50\b/);
   assert.doesNotMatch(section, /bg-amber-50\b/);
   assert.doesNotMatch(section, /text-slate-600/);
