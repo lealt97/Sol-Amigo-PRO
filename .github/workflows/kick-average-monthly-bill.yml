@@ -33,15 +33,16 @@ jobs:
           set -o pipefail
           python3 <<'PY' 2>&1 | tee implementation.log
           from pathlib import Path
-          import textwrap
 
           workflow_path = Path('.github/workflows/one-off-average-monthly-bill.yml')
-          source = workflow_path.read_text(encoding='utf-8')
-          marker_start = "          python3 <<'PY'\n"
-          marker_end = "\n          PY\n"
-          start = source.index(marker_start) + len(marker_start)
-          end = source.index(marker_end, start)
-          implementation = textwrap.dedent(source[start:end])
+          lines = workflow_path.read_text(encoding='utf-8').splitlines()
+          start = next(index for index, line in enumerate(lines) if line.strip() == "python3 <<'PY'") + 1
+          end = next(index for index in range(start, len(lines)) if lines[index].strip() == 'PY')
+          implementation_lines = [
+              line[10:] if line.startswith('          ') else line
+              for line in lines[start:end]
+          ]
+          implementation = '\n'.join(implementation_lines) + '\n'
           exec(compile(implementation, str(workflow_path), 'exec'))
           PY
 
