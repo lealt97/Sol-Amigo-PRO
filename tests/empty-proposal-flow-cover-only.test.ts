@@ -23,6 +23,17 @@ test('documento PDF mantém somente a página de capa sem sobreposição duplica
   assert.doesNotMatch(document, /IntroLetterSection|ExecutiveSummary|EnergyDiagnosisSection|SolarSolutionSection|EquipmentSection|GenerationSection|FinancialSection|TermsSection|WarrantyAndNextStepsSection|AcceptanceSection|PaybackSection/);
 });
 
+test('textos dinâmicos da capa recebem ampliação controlada', async () => {
+  const coverEngine = await read('src/lib/pdf/utils/coverSvgEngine.ts');
+
+  assert.match(coverEngine, /clientName: \{ scale: 1\.35, maxSize: 24 \}/);
+  assert.match(coverEngine, /powerKwp: \{ scale: 1\.35, maxSize: 32 \}/);
+  assert.match(coverEngine, /cityState: \{ scale: 1\.3, maxSize: 20 \}/);
+  assert.match(coverEngine, /date: \{ scale: 1\.2, maxSize: 17 \}/);
+  assert.match(coverEngine, /validityText: \{ scale: 1\.2, maxSize: 14 \}/);
+  assert.match(coverEngine, /return enlargeDynamicCoverTexts\(svg\)/);
+});
+
 test('gerador aceita PDF de uma página sem alterar o sistema de capas', async () => {
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const app = await read('src/App.tsx');
