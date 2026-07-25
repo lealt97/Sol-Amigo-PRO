@@ -62,8 +62,21 @@ calculator, count = ui_pattern.subn(
 )
 if count != 1:
     raise SystemExit(f'Bloco visual de oversizing não removido corretamente: {count}.')
-
 calculator_path.write_text(calculator, encoding='utf-8')
+
+legacy_types_path = repo / 'src/types/solar.ts'
+legacy_types = legacy_types_path.read_text(encoding='utf-8')
+for line in [
+    '  oversizing: number;\n',
+    '  oversizing: number; // e.g. 1.20\n',
+]:
+    legacy_types = legacy_types.replace(line, '')
+legacy_types_path.write_text(legacy_types, encoding='utf-8')
+
+schema_path = repo / 'supabase-schema.sql'
+schema = schema_path.read_text(encoding='utf-8')
+schema = schema.replace('  oversizing NUMERIC DEFAULT 1.20,\n', '')
+schema_path.write_text(schema, encoding='utf-8')
 
 electrical_test_path = repo / 'tests/electrical-compatibility.test.ts'
 electrical_test = electrical_test_path.read_text(encoding='utf-8')
@@ -82,13 +95,15 @@ import test from 'node:test';
 const CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 const CATALOG = 'src/pages/kits/SolarKitCatalog.tsx';
 const TYPES = 'src/types/solarKit.ts';
+const LEGACY_TYPES = 'src/types/solar.ts';
 const OPERATIONS = 'src/lib/kits/solarKitOperations.ts';
 
 test('kit fechado é avaliado sem regra de oversizing ou limite DC/AC', async () => {
-  const [calculator, catalog, types, operations] = await Promise.all([
+  const [calculator, catalog, types, legacyTypes, operations] = await Promise.all([
     readFile(CALCULATOR, 'utf8'),
     readFile(CATALOG, 'utf8'),
     readFile(TYPES, 'utf8'),
+    readFile(LEGACY_TYPES, 'utf8'),
     readFile(OPERATIONS, 'utf8'),
   ]);
 
@@ -98,6 +113,7 @@ test('kit fechado é avaliado sem regra de oversizing ou limite DC/AC', async ()
   assert.doesNotMatch(calculator, /oversizing|Relação DC\/AC|Configuração DC\/AC/i);
   assert.doesNotMatch(catalog, /Potência FV máxima kWp|Relação DC\/AC máxima|inverter_max_/);
   assert.doesNotMatch(types, /inverter_max_pv_power_kwp|inverter_max_dc_ac_ratio/);
+  assert.doesNotMatch(legacyTypes, /oversizing/i);
   assert.doesNotMatch(operations, /inverter_max_pv_power_kwp|inverter_max_dc_ac_ratio/);
   assert.equal(existsSync('src/lib/calculations/oversizing.ts'), false);
   assert.equal(existsSync('src/lib/calculations/inverterDcLimits.ts'), false);
@@ -105,11 +121,12 @@ test('kit fechado é avaliado sem regra de oversizing ou limite DC/AC', async ()
 """
 (repo / 'tests/closed-kit-without-oversizing.test.ts').write_text(regression_test, encoding='utf-8')
 
-# A aplicação não deve mais ter lógica ou textos de oversizing em código executável.
-for root in ['src']:
-    for path in (repo / root).rglob('*'):
-        if not path.is_file() or path.suffix not in {'.ts', '.tsx'}:
-            continue
-        text = path.read_text(encoding='utf-8')
-        if re.search(r'oversizing|calculateDcAcOversizing|evaluateInverterDcLimits|inverter_max_dc_ac_ratio|inverter_max_pv_power_kwp', text, re.IGNORECASE):
-            raise SystemExit(f'Referência residual de oversizing encontrada em {path}.')
+residuals = []
+for path in (repo / 'src').rglob('*'):
+    if not path.is_file() or path.suffix not in {'.ts', '.tsx'}:
+        continue
+    for line_number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), start=1):
+        if re.search(r'oversizing|calculateDcAcOversizing|evaluateInverterDcLimits|inverter_max_dc_ac_ratio|inverter_max_pv_power_kwp', line, re.IGNORECASE):
+            residuals.append(f'{path}:{line_number}: {line.strip()}')
+if residuals:
+    raise SystemExit('Referências residuais de oversizing:\n' + '\n'.join(residuals))
