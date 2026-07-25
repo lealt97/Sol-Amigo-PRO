@@ -37,7 +37,6 @@ import {
   type ProfessionalSizingResult,
 } from '../../lib/calculations/professionalSizing';
 import {
-  calculateModuleQuantity,
   calculateModuleSizing,
   type ModuleSizingResult,
 } from '../../lib/calculations/moduleSizing';
@@ -79,7 +78,7 @@ const STEPS = [
   { id: 'client', title: 'Cliente' },
   { id: 'consumption', title: 'Consumo' },
   { id: 'irradiation', title: 'HSP e meta de geração' },
-  { id: 'modules', title: 'Quantidade de módulos e área do telhado' },
+  { id: 'modules', title: 'Área do telhado M²' },
   { id: 'kit', title: 'Kit solar' },
   { id: 'payback', title: 'Payback' },
   { id: 'result', title: 'Resultado' },
@@ -206,6 +205,8 @@ export function ProfessionalSizingCalculator() {
   const [performanceRatioPercent, setPerformanceRatioPercent] = useState('80');
   const [generationIncreasePercent, setGenerationIncreasePercent] = useState('0');
 
+  // Mantidos no rascunho para compatibilidade com propostas antigas.
+  // Os valores atuais são sincronizados automaticamente com o kit selecionado.
   const [modulePowerW, setModulePowerW] = useState('275');
   const [moduleWidthM, setModuleWidthM] = useState('');
   const [moduleHeightM, setModuleHeightM] = useState('');
@@ -332,6 +333,13 @@ export function ProfessionalSizingCalculator() {
     () => kits.find((kit) => kit.id === selectedKitId) ?? null,
     [kits, selectedKitId],
   );
+
+  useEffect(() => {
+    if (!selectedKit) return;
+    setModulePowerW(String(selectedKit.module_power_w || ''));
+    setModuleHeightM(selectedKit.module_height_m ? String(selectedKit.module_height_m) : '');
+    setModuleWidthM(selectedKit.module_width_m ? String(selectedKit.module_width_m) : '');
+  }, [selectedKit]);
 
   const selectedKitElectricalCompatibility = useMemo(() => {
     if (!selectedKit) return null;
@@ -492,29 +500,25 @@ export function ProfessionalSizingCalculator() {
     }
 
     if (currentStep === 3) {
-      const moduleFields = [
-        { value: parseNumber(modulePowerW), message: 'Informe a potência do módulo em Wp.' },
-        { value: parseNumber(moduleWidthM), message: 'Informe a largura do módulo em metros.' },
-        { value: parseNumber(moduleHeightM), message: 'Informe a altura do módulo em metros.' },
-      ];
-      const invalidModuleField = moduleFields.find((field) => !Number.isFinite(field.value) || field.value <= 0);
-      if (invalidModuleField) {
-        toast.error(invalidModuleField.message);
+      const parsedRoofArea = parseNumber(roofAreaM2);
+      if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
+        toast.error('Informe a área do telhado em m² com um valor maior que zero.');
         return false;
-      }
-
-      if (roofAreaM2.trim()) {
-        const parsedRoofArea = parseNumber(roofAreaM2);
-        if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
-          toast.error('Quando informada, a área do telhado deve ser maior que zero.');
-          return false;
-        }
       }
     }
 
-    if (currentStep === 4 && !selectedKit) {
-      toast.error('Selecione um kit on-grid cadastrado.');
-      return false;
+    if (currentStep === 4) {
+      if (!selectedKit) {
+        toast.error('Selecione um kit on-grid cadastrado.');
+        return false;
+      }
+
+      const kitModuleHeight = Number(selectedKit.module_height_m);
+      const kitModuleWidth = Number(selectedKit.module_width_m);
+      if (!Number.isFinite(kitModuleHeight) || kitModuleHeight <= 0 || !Number.isFinite(kitModuleWidth) || kitModuleWidth <= 0) {
+        toast.error('Edite o kit selecionado e informe as dimensões A × L dos módulos fotovoltaicos.');
+        return false;
+      }
     }
 
     if (currentStep === 5 && !paybackResult) {
@@ -568,8 +572,8 @@ export function ProfessionalSizingCalculator() {
       energy_tariff: tariff == null ? null : tariff / 100,
       roof_area_m2: parseOptionalNumber(roofAreaM2),
       roof_image_url: roofPhotoReference,
-      module_width_m: parseOptionalNumber(moduleWidthM),
-      module_height_m: parseOptionalNumber(moduleHeightM),
+      module_width_m: selectedKit?.module_width_m ?? parseOptionalNumber(moduleWidthM),
+      module_height_m: selectedKit?.module_height_m ?? parseOptionalNumber(moduleHeightM),
       selected_solar_kit_id: selectedKit?.id ?? null,
       solar_kit_snapshot: selectedKit ? buildSolarKitSnapshot(selectedKit) : null,
       kit_cost: selectedKit?.cost_price ?? null,
@@ -684,44 +688,28 @@ export function ProfessionalSizingCalculator() {
   };
 
   const result = calculation.result;
-  const moduleQuantity = useMemo(() => {
-    const parsedModulePower = parseNumber(modulePowerW);
-    if (!result || !Number.isFinite(parsedModulePower) || parsedModulePower <= 0) return null;
-
-    try {
-      return calculateModuleQuantity(result.requiredPowerKwp, parsedModulePower);
-    } catch {
-      return null;
-    }
-  }, [modulePowerW, result]);
-
   const moduleSizing = useMemo<{ result: ModuleSizingResult | null; error: string | null }>(() => {
-    if (!result) return { result: null, error: null };
-
-    const moduleValues = {
-      modulePowerW: parseNumber(modulePowerW),
-      moduleWidthM: parseNumber(moduleWidthM),
-      moduleHeightM: parseNumber(moduleHeightM),
-    };
-
-    if (Object.values(moduleValues).some((value) => !Number.isFinite(value) || value <= 0)) {
-      return { result: null, error: null };
-    }
-
-    if (!roofAreaM2.trim()) {
-      return { result: null, error: null };
-    }
+    if (!result || !selectedKit || !roofAreaM2.trim()) return { result: null, error: null };
 
     const parsedRoofArea = parseNumber(roofAreaM2);
     if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
-      return { result: null, error: 'Quando informada, a área do telhado deve ser maior que zero.' };
+      return { result: null, error: 'A área do telhado deve ser maior que zero.' };
+    }
+
+    const kitModuleHeight = Number(selectedKit.module_height_m);
+    const kitModuleWidth = Number(selectedKit.module_width_m);
+    if (!Number.isFinite(kitModuleHeight) || kitModuleHeight <= 0 || !Number.isFinite(kitModuleWidth) || kitModuleWidth <= 0) {
+      return { result: null, error: 'O kit selecionado não possui as dimensões A × L dos módulos. Edite o cadastro do kit.' };
     }
 
     try {
       return {
         result: calculateModuleSizing({
           requiredPowerKwp: result.requiredPowerKwp,
-          ...moduleValues,
+          modulePowerW: selectedKit.module_power_w,
+          moduleQuantity: selectedKit.module_quantity,
+          moduleWidthM: kitModuleWidth,
+          moduleHeightM: kitModuleHeight,
           roofAreaM2: parsedRoofArea,
         }),
         error: null,
@@ -732,7 +720,7 @@ export function ProfessionalSizingCalculator() {
         error: error instanceof Error ? error.message : 'Não foi possível calcular a ocupação do telhado.',
       };
     }
-  }, [moduleHeightM, modulePowerW, moduleWidthM, result, roofAreaM2]);
+  }, [result, roofAreaM2, selectedKit]);
 
   const hasCalculation = Boolean(result);
 
@@ -768,9 +756,9 @@ export function ProfessionalSizingCalculator() {
                 ? 'Alterações salvas no registro finalizado'
                 : draftId
                   ? 'Rascunho salvo automaticamente'
-                : hasCalculation
-                  ? 'Cálculo atualizado automaticamente'
-                  : 'Preencha os dados para calcular'}
+                  : hasCalculation
+                    ? 'Cálculo atualizado automaticamente'
+                    : 'Preencha os dados para calcular'}
           </span>
         </div>
       </div>
@@ -820,22 +808,22 @@ export function ProfessionalSizingCalculator() {
                   </p>
                 </div>
 
-                 <label className="block max-w-xl space-y-2">
-                   <span className="text-sm font-semibold text-brand-dark">Nome da proposta *</span>
-                   <Input
-                     type="text"
-                     value={proposalTitle}
-                     maxLength={120}
-                     placeholder="Ex.: Sistema fotovoltaico — Residência Silva"
-                     onChange={(event) => setProposalTitle(event.target.value)}
-                   />
-                   <span className="flex justify-between gap-4 text-xs text-slate-500">
-                     <span>Este nome identifica a proposta na listagem e pode ser alterado depois.</span>
-                     <span className="shrink-0">{proposalTitle.length}/120</span>
-                   </span>
-                 </label>
+                <label className="block max-w-xl space-y-2">
+                  <span className="text-sm font-semibold text-brand-dark">Nome da proposta *</span>
+                  <Input
+                    type="text"
+                    value={proposalTitle}
+                    maxLength={120}
+                    placeholder="Ex.: Sistema fotovoltaico — Residência Silva"
+                    onChange={(event) => setProposalTitle(event.target.value)}
+                  />
+                  <span className="flex justify-between gap-4 text-xs text-slate-500">
+                    <span>Este nome identifica a proposta na listagem e pode ser alterado depois.</span>
+                    <span className="shrink-0">{proposalTitle.length}/120</span>
+                  </span>
+                </label>
 
-                 {isLoadingClients ? (
+                {isLoadingClients ? (
                   <LoadingState label="Carregando clientes..." />
                 ) : clientsError ? (
                   <ErrorState message={clientsError} />
@@ -1103,86 +1091,30 @@ export function ProfessionalSizingCalculator() {
                     <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} highlight />
                   </div>
                 )}
-
               </section>
             )}
 
             {currentStep === 3 && (
               <section className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-brand-dark">Quantidade de módulos e área do telhado</h2>
+                  <h2 className="text-lg font-bold text-brand-dark">Área do telhado M²</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Informe a potência e as dimensões do módulo, além da área útil disponível no telhado.
+                    Informe a área útil disponível. As dimensões A × L dos módulos serão carregadas automaticamente do kit selecionado na próxima etapa.
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="max-w-md">
                     <Field
-                      label="Potência do módulo"
-                      value={modulePowerW}
-                      onChange={setModulePowerW}
-                      suffix="Wp"
-                      min={1}
-                      step="1"
-                    />
-                    <Field label="Largura do módulo" value={moduleWidthM} onChange={setModuleWidthM} suffix="m" min={0.01} step="0.001" />
-                    <Field label="Altura do módulo" value={moduleHeightM} onChange={setModuleHeightM} suffix="m" min={0.01} step="0.001" />
-                    <Field
-                      label="Área do telhado (opcional)"
+                      label="Área do telhado"
                       value={roofAreaM2}
                       onChange={setRoofAreaM2}
                       suffix="m²"
                       min={0.01}
                       step="0.01"
-                      helper="Preencha somente quando quiser validar se os módulos cabem na área útil disponível."
+                      helper="Informe somente a área útil disponível para instalação dos módulos."
                     />
                   </div>
-
-                  {result && moduleQuantity != null && (
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <Summary label="Quantidade de módulos" value={`${moduleQuantity} módulos`} highlight />
-                      <Summary label="Potência instalada" value={`${number.format((moduleQuantity * parseNumber(modulePowerW)) / 1000)} kWp`} />
-                      {moduleSizing.result && (
-                        <>
-                          <Summary label="Área por módulo" value={`${number.format(moduleSizing.result.moduleAreaM2)} m²`} />
-                          <Summary label="Área total dos módulos" value={`${number.format(moduleSizing.result.totalModuleAreaM2)} m²`} />
-                          <Summary label="Área útil do telhado" value={`${number.format(moduleSizing.result.roofAreaM2)} m²`} />
-                          <Summary label="Saldo de área" value={`${number.format(moduleSizing.result.availableAreaBalanceM2)} m²`} />
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {moduleSizing.error && (
-                    <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                      {moduleSizing.error}
-                    </div>
-                  )}
-
-                  {moduleSizing.result && (
-                    <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
-                      moduleSizing.result.modulesFitRoof
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-red-200 bg-red-50 text-red-700'
-                    }`}>
-                      {moduleSizing.result.modulesFitRoof ? (
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-                      )}
-                      <div>
-                        <p className="font-bold">
-                          {moduleSizing.result.modulesFitRoof
-                            ? 'Os módulos cabem na área útil do telhado'
-                            : 'Os módulos não cabem na área útil do telhado'}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 opacity-80">
-                          Estimativa por área. Recuos, obstáculos, orientação e espaçamento devem ser verificados no projeto executivo.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <RoofPhotoUpload
@@ -1198,7 +1130,7 @@ export function ProfessionalSizingCalculator() {
                 <div>
                   <h2 className="text-lg font-bold text-brand-dark">Seleção do kit cadastrado</h2>
                   <p className="mt-1 text-sm text-slate-300">
-                    Escolha um kit on-grid ativo. Os módulos e o inversor já pertencem ao cadastro do kit.
+                    Escolha um kit on-grid ativo. Quantidade, potência e dimensões A × L dos módulos são carregadas do cadastro.
                   </p>
                 </div>
 
@@ -1228,7 +1160,7 @@ export function ProfessionalSizingCalculator() {
                       <option value="">Selecione um kit cadastrado</option>
                       {kits.map((kit) => (
                         <option key={kit.id} value={kit.id}>
-                          {kit.name} — {number.format(kit.kit_power_kwp)} kWp{kit.grid_connection_type ? ` — ${SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type]}` : ''}{kit.grid_voltage_v ? ` ${kit.grid_voltage_v} V` : ''}
+                          {kit.name} — {number.format(kit.kit_power_kwp)} kWp{kit.grid_connection_type ? ` — ${SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type]}` : ''}{kit.grid_voltage_v ? ` ${kit.grid_voltage_v} V` : ''}{!kit.module_height_m || !kit.module_width_m ? ' — dimensões pendentes' : ''}
                         </option>
                       ))}
                     </Select>
@@ -1245,6 +1177,7 @@ export function ProfessionalSizingCalculator() {
                           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                             <Detail label="Potência do kit" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />
                             <Detail label="Módulos" value={`${selectedKit.module_quantity} × ${number.format(selectedKit.module_power_w)} W`} />
+                            <Detail label="Dimensões A × L" value={selectedKit.module_height_m && selectedKit.module_width_m ? `${number.format(selectedKit.module_height_m)} × ${number.format(selectedKit.module_width_m)} m` : 'Não informadas'} />
                             <Detail label="Módulo" value={[selectedKit.module_brand, selectedKit.module_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Inversor" value={[selectedKit.inverter_brand, selectedKit.inverter_model].filter(Boolean).join(' ') || 'Não informado'} />
                             <Detail label="Potência AC do inversor" value={selectedKit.inverter_power_kw && selectedKit.inverter_power_kw > 0 ? `${number.format(selectedKit.inverter_power_kw)} kW` : 'Não informada'} />
@@ -1275,7 +1208,6 @@ export function ProfessionalSizingCalculator() {
                       </Card>
                     </div>
 
-
                     {selectedKitElectricalCompatibility && (
                       <div className={`rounded-xl border p-5 ${
                         selectedKitElectricalCompatibility.status === 'compatible'
@@ -1303,6 +1235,44 @@ export function ProfessionalSizingCalculator() {
                       </div>
                     )}
 
+                    {moduleSizing.error && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        {moduleSizing.error}
+                      </div>
+                    )}
+
+                    {moduleSizing.result && (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <Summary label="Quantidade de módulos do kit" value={`${moduleSizing.result.moduleQuantity} módulos`} />
+                          <Summary label="Área por módulo" value={`${number.format(moduleSizing.result.moduleAreaM2)} m²`} />
+                          <Summary label="Área total dos módulos" value={`${number.format(moduleSizing.result.totalModuleAreaM2)} m²`} />
+                          <Summary label="Área útil do telhado" value={`${number.format(moduleSizing.result.roofAreaM2)} m²`} highlight />
+                        </div>
+
+                        <div className={`flex items-start gap-3 rounded-xl border p-4 ${
+                          moduleSizing.result.modulesFitRoof
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-red-200 bg-red-50 text-red-700'
+                        }`}>
+                          {moduleSizing.result.modulesFitRoof ? (
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                          )}
+                          <div>
+                            <p className="font-bold">
+                              {moduleSizing.result.modulesFitRoof
+                                ? 'Os módulos do kit cabem na área útil do telhado'
+                                : 'Os módulos do kit não cabem na área útil do telhado'}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 opacity-80">
+                              Saldo estimado: {number.format(moduleSizing.result.availableAreaBalanceM2)} m². Recuos, obstáculos, orientação e espaçamento devem ser verificados no projeto executivo.
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <Summary label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
@@ -1453,7 +1423,6 @@ export function ProfessionalSizingCalculator() {
             selectedKit={selectedKit}
             hspDaily={hspDaily}
             generationIncreasePercent={generationIncreasePercent}
-            moduleQuantity={moduleQuantity}
             moduleSizing={moduleSizing.result}
           />
         </div>
@@ -1501,7 +1470,6 @@ function SizingPreview({
   selectedKit,
   hspDaily,
   generationIncreasePercent,
-  moduleQuantity,
   moduleSizing,
 }: {
   selectedClient: Client | null;
@@ -1516,7 +1484,6 @@ function SizingPreview({
   selectedKit: SolarKit | null;
   hspDaily: string;
   generationIncreasePercent: string;
-  moduleQuantity: number | null;
   moduleSizing: ModuleSizingResult | null;
 }) {
   return (
@@ -1569,7 +1536,7 @@ function SizingPreview({
                 : 'Aguardando HSP'}
             />
             <PreviewRow label="Potência necessária" value={result ? `${number.format(result.requiredPowerKwp)} kWp` : 'Aguardando HSP'} highlight />
-            {moduleQuantity != null && <PreviewRow label="Quantidade de módulos" value={`${moduleQuantity} módulos`} />}
+            {selectedKit && <PreviewRow label="Quantidade de módulos do kit" value={`${selectedKit.module_quantity} módulos`} />}
             {moduleSizing && (
               <>
                 <PreviewRow label="Área dos módulos" value={`${number.format(moduleSizing.totalModuleAreaM2)} m²`} />
@@ -1600,7 +1567,7 @@ function SizingPreview({
         )}
 
         <p className="border-t border-brand-border pt-4 text-xs leading-5 text-slate-500">
-          Os módulos e o inversor são definidos pelo kit cadastrado pelo usuário.
+          Quantidade, potência, dimensões dos módulos e inversor são definidos pelo kit cadastrado pelo usuário.
         </p>
       </CardContent>
     </Card>
