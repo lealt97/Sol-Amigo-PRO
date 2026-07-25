@@ -118,16 +118,24 @@ test('texto curto conserva o tamanho máximo configurado', () => {
   assert.deepEqual(layout.lines, ['Ana Souza']);
 });
 
-test('capa padrão e sobreposição personalizada usam o ajuste compartilhado de texto', async () => {
-  const files = [
-    'src/components/pdf/sections/CoverPage.tsx',
-    'src/components/pdf/sections/DynamicCoverOverlay.tsx',
-  ];
+test('capa padrão e motor SVG usam ajustes próprios de texto sem sobreposição fixa', async () => {
+  const coverSource = await readFile(
+    path.join(process.cwd(), 'src/components/pdf/sections/CoverPage.tsx'),
+    'utf8',
+  );
+  const svgTextSource = await readFile(
+    path.join(process.cwd(), 'src/features/design-pdf/engines/textEngine.ts'),
+    'utf8',
+  );
+  const documentSource = await readFile(
+    path.join(process.cwd(), 'src/components/pdf/ProposalDocument.tsx'),
+    'utf8',
+  );
 
-  for (const file of files) {
-    const source = await readFile(path.join(process.cwd(), file), 'utf8');
-    assert.match(source, /fitTextWithinBox/);
-  }
+  assert.match(coverSource, /fitTextWithinBox/);
+  assert.match(svgTextSource, /calculateFontSize/);
+  assert.match(svgTextSource, /data-bind/);
+  assert.doesNotMatch(documentSource, /DynamicCoverOverlay/);
 
   const generationSource = await readFile(
     path.join(process.cwd(), 'src/lib/pdf/generateProposalPdf.tsx'),
