@@ -40,37 +40,34 @@ test('o resumo identifica dinamicamente o tipo de ligação na disponibilidade',
   assert.match(calculatorEntry, /addEventListener\('change', synchronize\)/);
 });
 
-test('o fluxo calcula quantidade de módulos, áreas e status do telhado', async () => {
+test('a aba do telhado recebe apenas a área e usa as dimensões cadastradas no kit', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
 
-  assert.match(calculator, /calculateModuleQuantity/);
-  assert.match(calculator, /calculateModuleSizing/);
-  assert.match(calculator, /label="Potência do módulo"/);
-  assert.match(calculator, /label="Largura do módulo"/);
-  assert.match(calculator, /label="Altura do módulo"/);
-  assert.match(calculator, /label="Área do telhado \(opcional\)"/);
-  assert.doesNotMatch(calculator, /label="Largura útil do telhado"/);
-  assert.doesNotMatch(calculator, /label="Altura útil do telhado"/);
-  assert.doesNotMatch(calculator, /Com 275 Wp e potência necessária de 4,556 kWp/);
-  assert.match(calculator, /Quantidade de módulos e área do telhado/);
-  assert.match(calculator, /modulesFitRoof/);
-  assert.match(calculator, /Os módulos cabem na área útil do telhado/);
-  assert.match(calculator, /Os módulos não cabem na área útil do telhado/);
+  assert.match(calculator, /Área do telhado M²/);
+  assert.match(calculator, /label="Área do telhado"/);
+  assert.doesNotMatch(calculator, /label="Potência do módulo"/);
+  assert.doesNotMatch(calculator, /label="Largura do módulo"/);
+  assert.doesNotMatch(calculator, /label="Altura do módulo"/);
+  assert.match(calculator, /selectedKit\.module_height_m/);
+  assert.match(calculator, /selectedKit\.module_width_m/);
+  assert.match(calculator, /moduleQuantity: selectedKit\.module_quantity/);
+  assert.match(calculator, /Os módulos do kit cabem na área útil do telhado/);
+  assert.match(calculator, /Os módulos do kit não cabem na área útil do telhado/);
 });
 
-test('a quantidade de módulos e área do telhado ocupa a aba 4 separada', async () => {
+test('a área do telhado permanece na aba 4 antes da seleção do kit', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
 
   assert.match(
     calculator,
-    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Quantidade de módulos e área do telhado'[\s\S]*id: 'kit'/,
+    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Área do telhado M²'[\s\S]*id: 'kit'/,
   );
   assert.match(
     calculator,
-    /currentStep === 2[\s\S]*HSP, rendimento e meta de geração[\s\S]*currentStep === 3[\s\S]*Quantidade de módulos e área do telhado[\s\S]*currentStep === 4[\s\S]*Seleção do kit cadastrado/,
+    /currentStep === 3[\s\S]*Área do telhado M²[\s\S]*currentStep === 4[\s\S]*Seleção do kit cadastrado/,
   );
-  assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*const moduleFields = \[/);
-  assert.match(calculator, /if \(currentStep === 4 && !selectedKit\)/);
+  assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*parseNumber\(roofAreaM2\)/);
+  assert.match(calculator, /if \(currentStep === 4\) \{[\s\S]*dimensões A × L/);
 });
 
 test('a foto do telhado é exibida e persistida dentro da aba 4', async () => {
