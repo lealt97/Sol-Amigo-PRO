@@ -3,7 +3,6 @@ import { Document, Page, StyleSheet, Image } from '@react-pdf/renderer';
 import { Proposal } from '../../types/proposal';
 import { PdfTheme } from '../../types/pdfModels';
 import { CoverPage } from './sections/CoverPage';
-import { DynamicCoverOverlay } from './sections/DynamicCoverOverlay';
 import { PdfThemeProvider } from './pdfTheme';
 
 const styles = StyleSheet.create({
@@ -32,10 +31,7 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({ proposal, co
       <PdfThemeProvider theme={pdfTheme}>
         <Page size="A4" style={styles.page} wrap={false}>
           {coverImage ? (
-            <>
-              <Image src={coverImage} style={styles.coverImage} />
-              <DynamicCoverOverlay proposal={proposal} />
-            </>
+            <Image src={coverImage} style={styles.coverImage} />
           ) : (
             <CoverPage proposal={proposal} />
           )}
