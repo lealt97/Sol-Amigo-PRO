@@ -1,0 +1,68 @@
+name: Kick average monthly bill implementation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/kick-average-monthly-bill.yml
+
+permissions:
+  contents: write
+
+jobs:
+  kick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Executar implementação preparada
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow_path = Path('.github/workflows/one-off-average-monthly-bill.yml')
+          source = workflow_path.read_text(encoding='utf-8')
+          marker_start = "          python3 <<'PY'\n"
+          marker_end = "\n          PY\n"
+          start = source.index(marker_start) + len(marker_start)
+          end = source.index(marker_end, start)
+          implementation = textwrap.dedent(source[start:end])
+          exec(compile(implementation, str(workflow_path), 'exec'))
+
+          kick_path = Path('.github/workflows/kick-average-monthly-bill.yml')
+          if kick_path.exists():
+              kick_path.unlink()
+          PY
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar TypeScript
+        run: npm run typecheck
+
+      - name: Executar testes
+        run: npm run test
+
+      - name: Gerar build
+        run: npm run build:app
+
+      - name: Commit direto na main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(payback): adicionar comparação com fatura média mensal"
+          git push origin HEAD:main
