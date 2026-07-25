@@ -24,6 +24,8 @@ type SolarKitFormState = {
   module_model: string;
   module_power_w: string;
   module_quantity: string;
+  module_height_m: string;
+  module_width_m: string;
   inverter_brand: string;
   inverter_model: string;
   inverter_power_kw: string;
@@ -52,6 +54,8 @@ const EMPTY_FORM: SolarKitFormState = {
   module_model: '',
   module_power_w: '',
   module_quantity: '',
+  module_height_m: '',
+  module_width_m: '',
   inverter_brand: '',
   inverter_model: '',
   inverter_power_kw: '',
@@ -91,6 +95,8 @@ const toFormState = (kit: SolarKit): SolarKitFormState => ({
   module_model: kit.module_model || '',
   module_power_w: String(kit.module_power_w || ''),
   module_quantity: String(kit.module_quantity || ''),
+  module_height_m: kit.module_height_m ? String(kit.module_height_m) : '',
+  module_width_m: kit.module_width_m ? String(kit.module_width_m) : '',
   inverter_brand: kit.inverter_brand || '',
   inverter_model: kit.inverter_model || '',
   inverter_power_kw: kit.inverter_power_kw ? String(kit.inverter_power_kw) : '',
@@ -119,6 +125,8 @@ const toPayload = (form: SolarKitFormState): SolarKitFormValues => ({
   module_model: form.module_model || null,
   module_power_w: parseNumber(form.module_power_w),
   module_quantity: Math.round(parseNumber(form.module_quantity)),
+  module_height_m: parseOptionalNumber(form.module_height_m),
+  module_width_m: parseOptionalNumber(form.module_width_m),
   inverter_brand: form.inverter_brand || null,
   inverter_model: form.inverter_model || null,
   inverter_power_kw: parseOptionalNumber(form.inverter_power_kw),
@@ -222,6 +230,8 @@ export function SolarKitCatalog() {
     if (!form.name.trim()) return 'Informe o nome do kit.';
     if (parseNumber(form.module_power_w) <= 0) return 'Informe a potência do módulo em W.';
     if (parseNumber(form.module_quantity) <= 0) return 'Informe a quantidade de módulos.';
+    if ((parseOptionalNumber(form.module_height_m) ?? 0) <= 0) return 'Informe a altura A do módulo em metros.';
+    if ((parseOptionalNumber(form.module_width_m) ?? 0) <= 0) return 'Informe a largura L do módulo em metros.';
     if (!form.grid_connection_type) return 'Informe o tipo de ligação atendida pelo kit.';
     if ((parseOptionalNumber(form.grid_voltage_v) ?? 0) <= 0) return 'Informe a tensão nominal do kit em volts.';
     if (hasStorage && parseOptionalNumber(form.battery_capacity_kwh) === null) return 'Informe a capacidade da bateria em kWh para kits híbridos/off-grid.';
@@ -364,12 +374,15 @@ export function SolarKitCatalog() {
               </div>
 
               <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
-                <h3 className="mb-4 text-sm font-semibold text-brand-dark">Módulos Fotovoltaicos</h3>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <h3 className="mb-1 text-sm font-semibold text-brand-dark">Módulos Fotovoltaicos</h3>
+                <p className="mb-4 text-xs leading-5 text-slate-500">As dimensões A × L são usadas para calcular a área ocupada pelo kit no telhado.</p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Marca</label><Input value={form.module_brand} onChange={(event) => updateField('module_brand', event.target.value)} placeholder="Ex: Canadian" /></div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Modelo</label><Input value={form.module_model} onChange={(event) => updateField('module_model', event.target.value)} placeholder="Ex: HiKu6" /></div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência W *</label><Input type="number" min="0" step="1" value={form.module_power_w} onChange={(event) => updateField('module_power_w', event.target.value)} placeholder="550" /></div>
                   <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Quantidade *</label><Input type="number" min="0" step="1" value={form.module_quantity} onChange={(event) => updateField('module_quantity', event.target.value)} placeholder="12" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Altura (A) m *</label><Input type="number" min="0.01" step="0.001" value={form.module_height_m} onChange={(event) => updateField('module_height_m', event.target.value)} placeholder="2,278" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Largura (L) m *</label><Input type="number" min="0.01" step="0.001" value={form.module_width_m} onChange={(event) => updateField('module_width_m', event.target.value)} placeholder="1,134" /></div>
                 </div>
               </div>
 
@@ -470,7 +483,11 @@ export function SolarKitCatalog() {
                   <tr key={kit.id} className="border-b border-brand-border hover:bg-gray-50">
                     <td className="px-4 py-3"><div className="font-semibold text-brand-dark">{kit.name}</div><div className="text-[11px] text-slate-500">{kit.supplier || 'Fornecedor não informado'}</div></td>
                     <td className="px-4 py-3"><span className="rounded-full border border-brand-border bg-gray-50 px-2 py-1 text-[11px] font-semibold text-brand-dark">{SOLAR_SYSTEM_TYPE_LABELS[kit.system_type || 'on_grid']}</span></td>
-                    <td className="px-4 py-3 text-brand-dark"><div className="font-semibold">{Number(kit.kit_power_kwp || 0).toFixed(2)} kWp</div><div className="text-[11px] text-slate-500">{kit.module_quantity} × {kit.module_power_w} W</div></td>
+                    <td className="px-4 py-3 text-brand-dark">
+                      <div className="font-semibold">{Number(kit.kit_power_kwp || 0).toFixed(2)} kWp</div>
+                      <div className="text-[11px] text-slate-500">{kit.module_quantity} × {kit.module_power_w} W</div>
+                      <div className="text-[11px] text-slate-500">{kit.module_height_m && kit.module_width_m ? `A ${kit.module_height_m} × L ${kit.module_width_m} m` : 'Dimensões A × L pendentes'}</div>
+                    </td>
                     <td className="px-4 py-3 text-brand-dark">
                       <div className="font-semibold">{kit.grid_connection_type ? SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type] : 'Ligação não informada'}</div>
                       <div className="text-[11px] text-slate-500">{kit.grid_voltage_v ? `${kit.grid_voltage_v} V` : 'Tensão não informada'}</div>
