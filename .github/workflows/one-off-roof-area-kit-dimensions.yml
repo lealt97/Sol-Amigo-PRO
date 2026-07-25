@@ -1,0 +1,564 @@
+name: One-off roof area and kit module dimensions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-off-roof-area-kit-dimensions.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Apply refactor
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path: str, content: str) -> None:
+              Path(path).parent.mkdir(parents=True, exist_ok=True)
+              Path(path).write_text(content, encoding='utf-8')
+
+          def replace_once(content: str, old: str, new: str, label: str) -> str:
+              count = content.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: esperado 1 trecho, encontrado {count}')
+              return content.replace(old, new, 1)
+
+          def replace_regex_once(content: str, pattern: str, replacement: str, label: str) -> str:
+              updated, count = re.subn(pattern, replacement, content, count=1, flags=re.S)
+              if count != 1:
+                  raise RuntimeError(f'{label}: esperado 1 trecho por regex, encontrado {count}')
+              return updated
+
+          # Tipos e snapshot do kit.
+          path = 'src/types/solarKit.ts'
+          content = read(path)
+          dimensions = (
+              '  module_power_w: number;\n'
+              '  module_quantity: number;\n'
+              '  module_height_m?: number | null;\n'
+              '  module_width_m?: number | null;\n'
+          )
+          original = '  module_power_w: number;\n  module_quantity: number;\n'
+          if content.count(original) != 3:
+              raise RuntimeError(f'solarKit types: esperado 3 blocos de módulo, encontrado {content.count(original)}')
+          content = content.replace(original, dimensions)
+          content = replace_once(
+              content,
+              '    module_power_w: kit.module_power_w,\n    module_quantity: kit.module_quantity,\n    inverter_brand: kit.inverter_brand,',
+              '    module_power_w: kit.module_power_w,\n    module_quantity: kit.module_quantity,\n    module_height_m: kit.module_height_m ?? null,\n    module_width_m: kit.module_width_m ?? null,\n    inverter_brand: kit.inverter_brand,',
+              'snapshot das dimensões do módulo',
+          )
+          write(path, content)
+
+          # Normalização e persistência dos campos A x L.
+          path = 'src/lib/kits/solarKitOperations.ts'
+          content = read(path)
+          content = replace_once(
+              content,
+              '  module_power_w: number;\n  module_quantity: number;\n  inverter_brand: string | null;',
+              '  module_power_w: number;\n  module_quantity: number;\n  module_height_m: number | null;\n  module_width_m: number | null;\n  inverter_brand: string | null;',
+              'tipo normalizado das dimensões',
+          )
+          content = replace_once(
+              content,
+              '    module_power_w: normalizeRequiredNumber(kit.module_power_w),\n    module_quantity: Math.round(normalizeRequiredNumber(kit.module_quantity)),\n    inverter_brand: normalizeText(kit.inverter_brand),',
+              '    module_power_w: normalizeRequiredNumber(kit.module_power_w),\n    module_quantity: Math.round(normalizeRequiredNumber(kit.module_quantity)),\n    module_height_m: normalizeOptionalNumber(kit.module_height_m),\n    module_width_m: normalizeOptionalNumber(kit.module_width_m),\n    inverter_brand: normalizeText(kit.inverter_brand),',
+              'normalização das dimensões',
+          )
+          content = replace_once(
+              content,
+              '    module_power_w: kit.module_power_w,\n    module_quantity: kit.module_quantity,\n    inverter_brand: kit.inverter_brand,',
+              '    module_power_w: kit.module_power_w,\n    module_quantity: kit.module_quantity,\n    module_height_m: kit.module_height_m ?? null,\n    module_width_m: kit.module_width_m ?? null,\n    inverter_brand: kit.inverter_brand,',
+              'form values das dimensões',
+          )
+          write(path, content)
+
+          # Cadastro de kits.
+          path = 'src/pages/kits/SolarKitCatalog.tsx'
+          content = read(path)
+          content = replace_once(
+              content,
+              '  module_power_w: string;\n  module_quantity: string;\n  inverter_brand: string;',
+              '  module_power_w: string;\n  module_quantity: string;\n  module_height_m: string;\n  module_width_m: string;\n  inverter_brand: string;',
+              'estado do formulário de dimensões',
+          )
+          content = replace_once(
+              content,
+              "  module_power_w: '',\n  module_quantity: '',\n  inverter_brand: '',",
+              "  module_power_w: '',\n  module_quantity: '',\n  module_height_m: '',\n  module_width_m: '',\n  inverter_brand: '',",
+              'estado vazio das dimensões',
+          )
+          content = replace_once(
+              content,
+              "  module_power_w: String(kit.module_power_w || ''),\n  module_quantity: String(kit.module_quantity || ''),\n  inverter_brand: kit.inverter_brand || '',",
+              "  module_power_w: String(kit.module_power_w || ''),\n  module_quantity: String(kit.module_quantity || ''),\n  module_height_m: kit.module_height_m ? String(kit.module_height_m) : '',\n  module_width_m: kit.module_width_m ? String(kit.module_width_m) : '',\n  inverter_brand: kit.inverter_brand || '',",
+              'hidratação das dimensões no catálogo',
+          )
+          content = replace_once(
+              content,
+              '  module_power_w: parseNumber(form.module_power_w),\n  module_quantity: Math.round(parseNumber(form.module_quantity)),\n  inverter_brand: form.inverter_brand || null,',
+              '  module_power_w: parseNumber(form.module_power_w),\n  module_quantity: Math.round(parseNumber(form.module_quantity)),\n  module_height_m: parseOptionalNumber(form.module_height_m),\n  module_width_m: parseOptionalNumber(form.module_width_m),\n  inverter_brand: form.inverter_brand || null,',
+              'payload das dimensões no catálogo',
+          )
+          content = replace_once(
+              content,
+              "    if (parseNumber(form.module_quantity) <= 0) return 'Informe a quantidade de módulos.';\n    if (!form.grid_connection_type) return 'Informe o tipo de ligação atendida pelo kit.';",
+              "    if (parseNumber(form.module_quantity) <= 0) return 'Informe a quantidade de módulos.';\n    if ((parseOptionalNumber(form.module_height_m) ?? 0) <= 0) return 'Informe a altura A do módulo em metros.';\n    if ((parseOptionalNumber(form.module_width_m) ?? 0) <= 0) return 'Informe a largura L do módulo em metros.';\n    if (!form.grid_connection_type) return 'Informe o tipo de ligação atendida pelo kit.';",
+              'validação das dimensões no catálogo',
+          )
+          content = replace_once(
+              content,
+              '''              <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                <h3 className="mb-4 text-sm font-semibold text-brand-dark">Módulos Fotovoltaicos</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Marca</label><Input value={form.module_brand} onChange={(event) => updateField('module_brand', event.target.value)} placeholder="Ex: Canadian" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Modelo</label><Input value={form.module_model} onChange={(event) => updateField('module_model', event.target.value)} placeholder="Ex: HiKu6" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência W *</label><Input type="number" min="0" step="1" value={form.module_power_w} onChange={(event) => updateField('module_power_w', event.target.value)} placeholder="550" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Quantidade *</label><Input type="number" min="0" step="1" value={form.module_quantity} onChange={(event) => updateField('module_quantity', event.target.value)} placeholder="12" /></div>
+                </div>
+              </div>''',
+              '''              <div className="rounded-xl border border-brand-border bg-brand-surface p-4">
+                <h3 className="mb-1 text-sm font-semibold text-brand-dark">Módulos Fotovoltaicos</h3>
+                <p className="mb-4 text-xs leading-5 text-slate-500">As dimensões A × L são usadas para calcular a área ocupada pelo kit no telhado.</p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Marca</label><Input value={form.module_brand} onChange={(event) => updateField('module_brand', event.target.value)} placeholder="Ex: Canadian" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Modelo</label><Input value={form.module_model} onChange={(event) => updateField('module_model', event.target.value)} placeholder="Ex: HiKu6" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Potência W *</label><Input type="number" min="0" step="1" value={form.module_power_w} onChange={(event) => updateField('module_power_w', event.target.value)} placeholder="550" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Quantidade *</label><Input type="number" min="0" step="1" value={form.module_quantity} onChange={(event) => updateField('module_quantity', event.target.value)} placeholder="12" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Altura (A) m *</label><Input type="number" min="0.01" step="0.001" value={form.module_height_m} onChange={(event) => updateField('module_height_m', event.target.value)} placeholder="2,278" /></div>
+                  <div className="space-y-2"><label className="text-sm font-medium text-brand-dark">Largura (L) m *</label><Input type="number" min="0.01" step="0.001" value={form.module_width_m} onChange={(event) => updateField('module_width_m', event.target.value)} placeholder="1,134" /></div>
+                </div>
+              </div>''',
+              'campos A x L no catálogo',
+          )
+          content = replace_once(
+              content,
+              '<div className="text-[11px] text-slate-500">{kit.module_quantity} × {kit.module_power_w} W</div>',
+              '<div className="text-[11px] text-slate-500">{kit.module_quantity} × {kit.module_power_w} W</div><div className="text-[11px] text-slate-500">{kit.module_height_m && kit.module_width_m ? `A ${kit.module_height_m} × L ${kit.module_width_m} m` : \'Dimensões A × L pendentes\'}</div>',
+              'dimensões na listagem do catálogo',
+          )
+          write(path, content)
+
+          # O cálculo aceita a quantidade real cadastrada no kit.
+          path = 'src/lib/calculations/moduleSizing.ts'
+          content = read(path)
+          content = replace_once(
+              content,
+              '  modulePowerW: number;\n  moduleWidthM: number;',
+              '  modulePowerW: number;\n  moduleQuantity?: number | null;\n  moduleWidthM: number;',
+              'quantidade opcional do kit no input',
+          )
+          content = replace_once(
+              content,
+              '''export function calculateModuleSizing(input: ModuleSizingInput): ModuleSizingResult {
+  const moduleQuantity = calculateModuleQuantity(input.requiredPowerKwp, input.modulePowerW);
+  assertPositive(input.moduleWidthM, 'Largura do módulo');
+  assertPositive(input.moduleHeightM, 'Altura do módulo');
+  assertPositive(input.roofAreaM2, 'Área do telhado');''',
+              '''export function calculateModuleSizing(input: ModuleSizingInput): ModuleSizingResult {
+  assertPositive(input.modulePowerW, 'Potência do módulo');
+  const moduleQuantity = input.moduleQuantity == null
+    ? calculateModuleQuantity(input.requiredPowerKwp, input.modulePowerW)
+    : Math.round(input.moduleQuantity);
+  assertPositive(moduleQuantity, 'Quantidade de módulos');
+  assertPositive(input.moduleWidthM, 'Largura do módulo');
+  assertPositive(input.moduleHeightM, 'Altura do módulo');
+  assertPositive(input.roofAreaM2, 'Área do telhado');''',
+              'quantidade real do kit no cálculo',
+          )
+          write(path, content)
+
+          # Fluxo da proposta: aba 4 recebe só a área; dimensões vêm do kit.
+          path = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx'
+          content = read(path)
+          content = replace_once(
+              content,
+              '''import {
+  calculateModuleQuantity,
+  calculateModuleSizing,
+  type ModuleSizingResult,
+} from '../../lib/calculations/moduleSizing';''',
+              '''import {
+  calculateModuleSizing,
+  type ModuleSizingResult,
+} from '../../lib/calculations/moduleSizing';''',
+              'import do cálculo de módulos',
+          )
+          content = replace_once(
+              content,
+              "  { id: 'modules', title: 'Quantidade de módulos e área do telhado' },",
+              "  { id: 'modules', title: 'Área do telhado M²' },",
+              'nome da etapa do telhado',
+          )
+          content = replace_once(
+              content,
+              '''  const selectedKit = useMemo(
+    () => kits.find((kit) => kit.id === selectedKitId) ?? null,
+    [kits, selectedKitId],
+  );
+
+  const selectedKitElectricalCompatibility = useMemo(() => {''',
+              '''  const selectedKit = useMemo(
+    () => kits.find((kit) => kit.id === selectedKitId) ?? null,
+    [kits, selectedKitId],
+  );
+
+  useEffect(() => {
+    if (!selectedKit) return;
+    setModulePowerW(String(selectedKit.module_power_w || ''));
+    setModuleHeightM(selectedKit.module_height_m ? String(selectedKit.module_height_m) : '');
+    setModuleWidthM(selectedKit.module_width_m ? String(selectedKit.module_width_m) : '');
+  }, [selectedKit]);
+
+  const selectedKitElectricalCompatibility = useMemo(() => {''',
+              'sincronização do rascunho com o kit',
+          )
+          content = replace_regex_once(
+              content,
+              r'''    if \(currentStep === 3\) \{.*?    if \(currentStep === 4 && !selectedKit\) \{
+      toast\.error\('Selecione um kit on-grid cadastrado\.'\);
+      return false;
+    \}''',
+              '''    if (currentStep === 3) {
+      const parsedRoofArea = parseNumber(roofAreaM2);
+      if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
+        toast.error('Informe a área do telhado em m² com um valor maior que zero.');
+        return false;
+      }
+    }
+
+    if (currentStep === 4) {
+      if (!selectedKit) {
+        toast.error('Selecione um kit on-grid cadastrado.');
+        return false;
+      }
+
+      const kitModuleHeight = Number(selectedKit.module_height_m);
+      const kitModuleWidth = Number(selectedKit.module_width_m);
+      if (!Number.isFinite(kitModuleHeight) || kitModuleHeight <= 0 || !Number.isFinite(kitModuleWidth) || kitModuleWidth <= 0) {
+        toast.error('Edite o kit selecionado e informe as dimensões A × L dos módulos fotovoltaicos.');
+        return false;
+      }
+    }''',
+              'validação das etapas de telhado e kit',
+          )
+          content = replace_once(
+              content,
+              '      module_width_m: parseOptionalNumber(moduleWidthM),\n      module_height_m: parseOptionalNumber(moduleHeightM),',
+              '      module_width_m: selectedKit?.module_width_m ?? parseOptionalNumber(moduleWidthM),\n      module_height_m: selectedKit?.module_height_m ?? parseOptionalNumber(moduleHeightM),',
+              'resumo da proposta com dimensões do kit',
+          )
+          content = replace_regex_once(
+              content,
+              r'''  const result = calculation\.result;
+  const moduleQuantity = useMemo\(\(\) => \{.*?  \}, \[moduleHeightM, modulePowerW, moduleWidthM, result, roofAreaM2\]\);
+
+  const hasCalculation''',
+              '''  const result = calculation.result;
+  const moduleSizing = useMemo<{ result: ModuleSizingResult | null; error: string | null }>(() => {
+    if (!result || !selectedKit || !roofAreaM2.trim()) return { result: null, error: null };
+
+    const parsedRoofArea = parseNumber(roofAreaM2);
+    if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
+      return { result: null, error: 'A área do telhado deve ser maior que zero.' };
+    }
+
+    const kitModuleHeight = Number(selectedKit.module_height_m);
+    const kitModuleWidth = Number(selectedKit.module_width_m);
+    if (!Number.isFinite(kitModuleHeight) || kitModuleHeight <= 0 || !Number.isFinite(kitModuleWidth) || kitModuleWidth <= 0) {
+      return { result: null, error: 'O kit selecionado não possui as dimensões A × L dos módulos. Edite o cadastro do kit.' };
+    }
+
+    try {
+      return {
+        result: calculateModuleSizing({
+          requiredPowerKwp: result.requiredPowerKwp,
+          modulePowerW: selectedKit.module_power_w,
+          moduleQuantity: selectedKit.module_quantity,
+          moduleWidthM: kitModuleWidth,
+          moduleHeightM: kitModuleHeight,
+          roofAreaM2: parsedRoofArea,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        error: error instanceof Error ? error.message : 'Não foi possível calcular a ocupação do telhado.',
+      };
+    }
+  }, [result, roofAreaM2, selectedKit]);
+
+  const hasCalculation''',
+              'cálculo do telhado a partir do kit',
+          )
+          content = replace_regex_once(
+              content,
+              r'''            \{currentStep === 3 && \(.*?            \)\}
+
+            \{currentStep === 4 && \(''',
+              '''            {currentStep === 3 && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold text-brand-dark">Área do telhado M²</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Informe a área útil disponível. As dimensões A × L dos módulos serão carregadas automaticamente do kit selecionado na próxima etapa.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
+                  <div className="max-w-md">
+                    <Field
+                      label="Área do telhado"
+                      value={roofAreaM2}
+                      onChange={setRoofAreaM2}
+                      suffix="m²"
+                      min={0.01}
+                      step="0.01"
+                      helper="Informe somente a área útil disponível para instalação dos módulos."
+                    />
+                  </div>
+                </div>
+
+                <RoofPhotoUpload
+                  clientId={selectedClient?.id ?? null}
+                  initialStorageReference={roofPhotoReference}
+                  onReferenceChange={setRoofPhotoReference}
+                />
+              </section>
+            )}
+
+            {currentStep === 4 && (''',
+              'interface exclusiva da área do telhado',
+          )
+          content = replace_once(
+              content,
+              '''                            <Detail label="Módulos" value={`${selectedKit.module_quantity} × ${number.format(selectedKit.module_power_w)} W`} />
+                            <Detail label="Módulo" value={[selectedKit.module_brand, selectedKit.module_model].filter(Boolean).join(' ') || 'Não informado'} />''',
+              '''                            <Detail label="Módulos" value={`${selectedKit.module_quantity} × ${number.format(selectedKit.module_power_w)} W`} />
+                            <Detail label="Dimensões A × L" value={selectedKit.module_height_m && selectedKit.module_width_m ? `${number.format(selectedKit.module_height_m)} × ${number.format(selectedKit.module_width_m)} m` : 'Não informadas'} />
+                            <Detail label="Módulo" value={[selectedKit.module_brand, selectedKit.module_model].filter(Boolean).join(' ') || 'Não informado'} />''',
+              'dimensões nos detalhes do kit selecionado',
+          )
+          roof_block = '''                    {moduleSizing.error && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        {moduleSizing.error}
+                      </div>
+                    )}
+
+                    {moduleSizing.result && (
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <Summary label="Quantidade de módulos do kit" value={`${moduleSizing.result.moduleQuantity} módulos`} />
+                          <Summary label="Área por módulo" value={`${number.format(moduleSizing.result.moduleAreaM2)} m²`} />
+                          <Summary label="Área total dos módulos" value={`${number.format(moduleSizing.result.totalModuleAreaM2)} m²`} />
+                          <Summary label="Área útil do telhado" value={`${number.format(moduleSizing.result.roofAreaM2)} m²`} highlight />
+                        </div>
+
+                        <div className={`flex items-start gap-3 rounded-xl border p-4 ${
+                          moduleSizing.result.modulesFitRoof
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-red-200 bg-red-50 text-red-700'
+                        }`}>
+                          {moduleSizing.result.modulesFitRoof ? (
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                          )}
+                          <div>
+                            <p className="font-bold">
+                              {moduleSizing.result.modulesFitRoof
+                                ? 'Os módulos do kit cabem na área útil do telhado'
+                                : 'Os módulos do kit não cabem na área útil do telhado'}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 opacity-80">
+                              Saldo estimado: {number.format(moduleSizing.result.availableAreaBalanceM2)} m². Recuos, obstáculos, orientação e espaçamento devem ser verificados no projeto executivo.
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+'''
+          marker = '''                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      <Summary label="Potência necessária"'''
+          content = replace_once(content, marker, roof_block + marker, 'resultado da área dentro da etapa do kit')
+          write(path, content)
+
+          # Teste do cálculo com quantidade real do kit.
+          path = 'tests/module-sizing.test.ts'
+          content = read(path)
+          content += '''
+
+test('usa a quantidade real do kit para calcular a ocupação do telhado', () => {
+  const result = calculateModuleSizing({
+    requiredPowerKwp: 4.556,
+    modulePowerW: 550,
+    moduleQuantity: 10,
+    moduleHeightM: 2.278,
+    moduleWidthM: 1.134,
+    roofAreaM2: 30,
+  });
+
+  assert.equal(result.moduleQuantity, 10);
+  assert.equal(result.installedPowerKwp, 5.5);
+  assert.equal(result.moduleAreaM2, 2.583);
+  assert.equal(result.totalModuleAreaM2, 25.83);
+  assert.equal(result.availableAreaBalanceM2, 4.17);
+  assert.equal(result.modulesFitRoof, true);
+});
+'''
+          write(path, content)
+
+          # Atualiza os testes estáticos do fluxo.
+          path = 'tests/generation-input-only.test.ts'
+          content = read(path)
+          content = replace_regex_once(
+              content,
+              r'''test\('o fluxo calcula quantidade de módulos, áreas e status do telhado'.*?test\('a foto do telhado é exibida e persistida dentro da aba 4',''',
+              '''test('a aba do telhado recebe apenas a área e usa as dimensões cadastradas no kit', async () => {
+  const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+
+  assert.match(calculator, /Área do telhado M²/);
+  assert.match(calculator, /label="Área do telhado"/);
+  assert.doesNotMatch(calculator, /label="Potência do módulo"/);
+  assert.doesNotMatch(calculator, /label="Largura do módulo"/);
+  assert.doesNotMatch(calculator, /label="Altura do módulo"/);
+  assert.match(calculator, /selectedKit\.module_height_m/);
+  assert.match(calculator, /selectedKit\.module_width_m/);
+  assert.match(calculator, /moduleQuantity: selectedKit\.module_quantity/);
+  assert.match(calculator, /Os módulos do kit cabem na área útil do telhado/);
+  assert.match(calculator, /Os módulos do kit não cabem na área útil do telhado/);
+});
+
+test('a área do telhado permanece na aba 4 antes da seleção do kit', async () => {
+  const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
+
+  assert.match(
+    calculator,
+    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Área do telhado M²'[\s\S]*id: 'kit'/,
+  );
+  assert.match(
+    calculator,
+    /currentStep === 3[\s\S]*Área do telhado M²[\s\S]*currentStep === 4[\s\S]*Seleção do kit cadastrado/,
+  );
+  assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*parseNumber\(roofAreaM2\)/);
+  assert.match(calculator, /if \(currentStep === 4\) \{[\s\S]*dimensões A × L/);
+});
+
+test('a foto do telhado é exibida e persistida dentro da aba 4',''',
+              'testes estáticos da aba do telhado',
+          )
+          write(path, content)
+
+          # Testes do catálogo e persistência A x L.
+          test_path = 'tests/solar-kit-module-dimensions.test.ts'
+          write(test_path, '''import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+import { normalizeSolarKitPayload } from '../src/lib/kits/solarKitOperations';
+
+test('normaliza as dimensões A x L cadastradas no kit', () => {
+  const normalized = normalizeSolarKitPayload({
+    name: 'Kit 5,5 kWp',
+    module_power_w: 550,
+    module_quantity: 10,
+    module_height_m: 2.278,
+    module_width_m: 1.134,
+    cost_price: 12000,
+    active: true,
+  });
+
+  assert.equal(normalized.module_height_m, 2.278);
+  assert.equal(normalized.module_width_m, 1.134);
+});
+
+test('o catálogo exibe A x L dentro de Módulos Fotovoltaicos', async () => {
+  const catalog = await readFile('src/pages/kits/SolarKitCatalog.tsx', 'utf8');
+
+  assert.match(catalog, /Módulos Fotovoltaicos/);
+  assert.match(catalog, /Altura \(A\) m \*/);
+  assert.match(catalog, /Largura \(L\) m \*/);
+  assert.match(catalog, /module_height_m/);
+  assert.match(catalog, /module_width_m/);
+});
+
+test('a migração adiciona as dimensões dos módulos aos kits', async () => {
+  const migration = await readFile('supabase/migrations/20260725210000_add_module_dimensions_to_solar_kits.sql', 'utf8');
+
+  assert.match(migration, /module_height_m numeric/);
+  assert.match(migration, /module_width_m numeric/);
+  assert.match(migration, /module_height_m is null or module_height_m > 0/);
+  assert.match(migration, /module_width_m is null or module_width_m > 0/);
+});
+''')
+
+          # Migração de banco; registros antigos permanecem editáveis até receberem A x L.
+          migration_path = 'supabase/migrations/20260725210000_add_module_dimensions_to_solar_kits.sql'
+          write(migration_path, '''-- Dimensões físicas dos módulos fotovoltaicos cadastrados no kit.
+-- Campos inicialmente nulos para preservar kits existentes; o formulário exige A x L em novos cadastros e edições.
+
+alter table public.solar_kits
+  add column if not exists module_height_m numeric,
+  add column if not exists module_width_m numeric;
+
+alter table public.solar_kits
+  drop constraint if exists solar_kits_module_height_m_positive,
+  drop constraint if exists solar_kits_module_width_m_positive;
+
+alter table public.solar_kits
+  add constraint solar_kits_module_height_m_positive
+    check (module_height_m is null or module_height_m > 0),
+  add constraint solar_kits_module_width_m_positive
+    check (module_width_m is null or module_width_m > 0);
+
+comment on column public.solar_kits.module_height_m is
+  'Altura A do módulo fotovoltaico, em metros, usada no cálculo da ocupação do telhado.';
+
+comment on column public.solar_kits.module_width_m is
+  'Largura L do módulo fotovoltaico, em metros, usada no cálculo da ocupação do telhado.';
+''')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Commit directly to main
+        shell: bash
+        run: |
+          git config user.name "SolAmigo Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src tests supabase/migrations
+          git commit -m "feat(kits): mover dimensões dos módulos para o cadastro do kit"
+          git push origin HEAD:main
