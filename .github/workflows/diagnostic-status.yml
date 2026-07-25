@@ -1,28 +1,29 @@
-name: Remover oversizing de kits fechados
+name: Diagnóstico de build
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
-  group: remove-closed-kit-oversizing-${{ github.ref }}
+  group: diagnostic-status-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  apply:
-    if: github.actor != 'github-actions[bot]'
+  diagnose:
+    name: Diagnosticar TypeScript, testes e build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - name: Baixar código e histórico
+      - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -30,39 +31,27 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Remover oversizing e limites DC/AC
-        id: apply_change
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          python3 .github/scripts/patch-oversizing-removal.py
-          python3 .github/scripts/remove-closed-kit-oversizing.py 2>&1 | tee apply.log
-
-      - name: Publicar diagnóstico da remoção
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.apply_change.outcome }}
-        run: |
-          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Remoção do oversizing" --outcome "$OUTCOME" --log apply.log
-
       - name: Instalar dependências
         id: install
-        if: steps.apply_change.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
           set -o pipefail
           npm ci 2>&1 | tee install.log
 
-      - name: Publicar instalação
-        if: always() && steps.apply_change.outcome == 'success'
+      - name: Publicar diagnóstico da instalação
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.install.outcome }}
+        shell: bash
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / npm ci" --outcome "$OUTCOME" --log install.log
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / npm ci" \
+            --outcome "$OUTCOME" \
+            --log install.log
 
       - name: Verificar TypeScript
         id: typecheck
@@ -73,13 +62,19 @@ jobs:
           set -o pipefail
           npm run typecheck 2>&1 | tee typecheck.log
 
-      - name: Publicar TypeScript
+      - name: Publicar diagnóstico do TypeScript
         if: always() && steps.install.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.typecheck.outcome }}
+        shell: bash
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / TypeScript" --outcome "$OUTCOME" --log typecheck.log
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / TypeScript" \
+            --outcome "$OUTCOME" \
+            --log typecheck.log
 
       - name: Executar testes
         id: tests
@@ -90,13 +85,19 @@ jobs:
           set -o pipefail
           npm run test 2>&1 | tee tests.log
 
-      - name: Publicar testes
+      - name: Publicar diagnóstico dos testes
         if: always() && steps.install.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.tests.outcome }}
+        shell: bash
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / Testes" --outcome "$OUTCOME" --log tests.log
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Testes" \
+            --outcome "$OUTCOME" \
+            --log tests.log
 
       - name: Gerar build de produção
         id: build
@@ -107,31 +108,22 @@ jobs:
           set -o pipefail
           npm run build:app 2>&1 | tee build.log
 
-      - name: Publicar build
+      - name: Publicar diagnóstico do build
         if: always() && steps.install.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.build.outcome }}
+        shell: bash
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" --context "Sem oversizing / Build" --outcome "$OUTCOME" --log build.log
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Build" \
+            --outcome "$OUTCOME" \
+            --log build.log
 
-      - name: Publicar alteração validada
-        if: steps.apply_change.outcome == 'success' && steps.install.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rm -f .github/scripts/remove-closed-kit-oversizing.py .github/scripts/patch-oversizing-removal.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "refactor: remover oversizing de kits fechados"
-          git push origin HEAD:main
-
-      - name: Falhar quando alguma validação não passar
+      - name: Registrar conclusão informativa
         if: always()
+        shell: bash
         run: |
-          test "${{ steps.apply_change.outcome }}" = success
-          test "${{ steps.install.outcome }}" = success
-          test "${{ steps.typecheck.outcome }}" = success
-          test "${{ steps.tests.outcome }}" = success
-          test "${{ steps.build.outcome }}" = success
+          echo "Este workflow publica diagnósticos por etapa. O gate obrigatório permanece no workflow Qualidade."
