@@ -1,29 +1,28 @@
-name: Diagnóstico de build
+name: Aplicar entrega da proposta
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  statuses: write
+  contents: write
 
 concurrency:
-  group: diagnostic-status-${{ github.ref }}
+  group: apply-proposal-delivery-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  diagnose:
-    name: Diagnosticar TypeScript, testes e build
+  apply:
+    name: Aplicar, validar e publicar
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -31,99 +30,32 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Instalar dependências
-        id: install
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm ci 2>&1 | tee install.log
+      - name: Aplicar integração
+        run: python3 .github/scripts/implement-proposal-delivery.py
 
-      - name: Publicar diagnóstico da instalação
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.install.outcome }}
-        shell: bash
+      - name: Adicionar gerador de QR Code
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / npm ci" \
-            --outcome "$OUTCOME" \
-            --log install.log
+          npm install qrcode@1.5.4 --save
+          npm install @types/qrcode@1.5.5 --save-dev
 
       - name: Verificar TypeScript
-        id: typecheck
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run typecheck 2>&1 | tee typecheck.log
-
-      - name: Publicar diagnóstico do TypeScript
-        if: always() && steps.install.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.typecheck.outcome }}
-        shell: bash
-        run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / TypeScript" \
-            --outcome "$OUTCOME" \
-            --log typecheck.log
+        run: npm run typecheck
 
       - name: Executar testes
-        id: tests
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run test 2>&1 | tee tests.log
-
-      - name: Publicar diagnóstico dos testes
-        if: always() && steps.install.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.tests.outcome }}
-        shell: bash
-        run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / Testes" \
-            --outcome "$OUTCOME" \
-            --log tests.log
+        run: npm run test
 
       - name: Gerar build de produção
-        id: build
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run build:app 2>&1 | tee build.log
+        run: npm run build:app
 
-      - name: Publicar diagnóstico do build
-        if: always() && steps.install.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUTCOME: ${{ steps.build.outcome }}
+      - name: Publicar alterações no main
         shell: bash
         run: |
-          python3 .github/scripts/publish-diagnostic-status.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --sha "$GITHUB_SHA" \
-            --context "Diagnóstico / Build" \
-            --outcome "$OUTCOME" \
-            --log build.log
-
-      - name: Registrar conclusão informativa
-        if: always()
-        shell: bash
-        run: |
-          echo "Este workflow publica diagnósticos por etapa. O gate obrigatório permanece no workflow Qualidade."
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src tests
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração para publicar."
+            exit 0
+          fi
+          git commit -m "feat: adicionar entrega de proposta com PDF e WhatsApp"
+          git push origin HEAD:main
