@@ -1,4 +1,3 @@
-# Gatilho ativado após o workflow existir na main.
 name: Kick average monthly bill implementation
 
 on:
@@ -27,9 +26,12 @@ jobs:
           cache: npm
 
       - name: Executar implementação preparada
+        id: implement
+        continue-on-error: true
         shell: bash
         run: |
-          python3 <<'PY'
+          set -o pipefail
+          python3 <<'PY' 2>&1 | tee implementation.log
           from pathlib import Path
           import textwrap
 
@@ -41,29 +43,68 @@ jobs:
           end = source.index(marker_end, start)
           implementation = textwrap.dedent(source[start:end])
           exec(compile(implementation, str(workflow_path), 'exec'))
-
-          kick_path = Path('.github/workflows/kick-average-monthly-bill.yml')
-          if kick_path.exists():
-              kick_path.unlink()
           PY
 
       - name: Instalar dependências
-        run: npm ci
+        id: install
+        if: steps.implement.outcome == 'success'
+        continue-on-error: true
+        run: npm ci 2>&1 | tee install.log
 
       - name: Validar TypeScript
-        run: npm run typecheck
+        id: typecheck
+        if: steps.implement.outcome == 'success' && steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run typecheck 2>&1 | tee typecheck.log
 
       - name: Executar testes
-        run: npm run test
+        id: tests
+        if: steps.implement.outcome == 'success' && steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run test 2>&1 | tee tests.log
 
       - name: Gerar build
-        run: npm run build:app
+        id: build
+        if: steps.implement.outcome == 'success' && steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run build:app 2>&1 | tee build.log
 
       - name: Commit direto na main
+        if: always()
         shell: bash
+        env:
+          IMPLEMENT: ${{ steps.implement.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          BUILD: ${{ steps.build.outcome }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$IMPLEMENT" = "success" ] && [ "$INSTALL" = "success" ] && [ "$TYPECHECK" = "success" ] && [ "$TESTS" = "success" ] && [ "$BUILD" = "success" ]; then
+            rm -f .github/workflows/kick-average-monthly-bill.yml
+            rm -rf diagnostics/average-monthly-bill
+            MESSAGE="feat(payback): adicionar comparação com fatura média mensal"
+          else
+            mkdir -p diagnostics/average-monthly-bill
+            {
+              echo "implement=$IMPLEMENT"
+              echo "install=$INSTALL"
+              echo "typecheck=$TYPECHECK"
+              echo "tests=$TESTS"
+              echo "build=$BUILD"
+              for file in implementation.log install.log typecheck.log tests.log build.log; do
+                if [ -f "$file" ]; then
+                  echo
+                  echo "===== $file ====="
+                  cat "$file"
+                fi
+              done
+            } > diagnostics/average-monthly-bill/status.txt
+            MESSAGE="chore: registrar diagnóstico da fatura média"
+          fi
+
           git add -A
-          git commit -m "feat(payback): adicionar comparação com fatura média mensal"
+          git commit -m "$MESSAGE"
           git push origin HEAD:main
