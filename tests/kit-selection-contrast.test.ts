@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 
-test('seleção do kit usa superfícies e textos com contraste no tema escuro', async () => {
+test('seleção do kit mantém contraste e destaca o resultado de ocupação do telhado', async () => {
   const source = await readFile(CALCULATOR, 'utf8');
   const start = source.indexOf('{currentStep === 4');
   const end = source.indexOf('{currentStep === 5');
@@ -19,9 +19,9 @@ test('seleção do kit usa superfícies e textos com contraste no tema escuro', 
   assert.match(section, /bg-amber-500\/10/);
   assert.match(section, /text-slate-200/);
   assert.match(section, /text-brand-light/);
+  assert.match(section, /border-emerald-200 bg-emerald-50 text-emerald-700/);
+  assert.match(section, /border-red-200 bg-red-50 text-red-700/);
   assert.doesNotMatch(section, /Configuração DC\/AC|Relação DC\/AC|oversizing/i);
-  assert.doesNotMatch(section, /bg-emerald-50\b/);
-  assert.doesNotMatch(section, /bg-amber-50\b/);
   assert.doesNotMatch(section, /text-slate-600/);
   assert.doesNotMatch(section, /text-brand-blue/);
 });
