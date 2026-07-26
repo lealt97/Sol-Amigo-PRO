@@ -24,6 +24,24 @@ type CoverPowerTextLayout = {
   anchor?: 'start' | 'middle' | 'end';
 };
 
+type SvgBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const COVER_04_SIDE_LABEL_SOURCE_ID = 'Sistema de Energia sola Fotovoltaica';
+const COVER_04_SIDE_LABEL_ID = 'Sistema de Energia Solar Fotovoltaica';
+const COVER_04_SIDE_LABEL_TEXT = 'Sistema de Energia Solar Fotovoltaica';
+const COVER_04_SIDE_LABEL_FALLBACK_BOUNDS: SvgBounds = {
+  x: 25,
+  y: 248,
+  width: 18,
+  height: 374,
+};
+
 // Ajustes visuais devem ser declarados por capa. As coordenadas x/y continuam
 // pertencendo ao slot_systemPower de cada SVG e nunca são copiadas de outro campo.
 const COVER_POWER_TEXT_LAYOUTS: CoverPowerTextLayout[] = [
@@ -80,6 +98,84 @@ function applyCoverSpecificPowerTextLayout(doc: Document) {
   });
 }
 
+function measureSvgElementBounds(doc: Document, elementId: string): SvgBounds | null {
+  if (typeof document === 'undefined' || !document.body) return null;
+
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  host.style.position = 'fixed';
+  host.style.left = '-10000px';
+  host.style.top = '-10000px';
+  host.style.visibility = 'hidden';
+  host.style.pointerEvents = 'none';
+
+  const renderedSvg = document.importNode(
+    doc.documentElement,
+    true,
+  ) as unknown as SVGSVGElement;
+  renderedSvg.style.display = 'block';
+  host.appendChild(renderedSvg);
+  document.body.appendChild(host);
+
+  try {
+    const renderedElement = renderedSvg.querySelector(
+      `[id="${elementId}"]`,
+    ) as SVGGraphicsElement | null;
+    if (!renderedElement || typeof renderedElement.getBBox !== 'function') return null;
+
+    const bounds = renderedElement.getBBox();
+    if (bounds.width <= 0 || bounds.height <= 0) return null;
+
+    return {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    };
+  } catch {
+    return null;
+  } finally {
+    host.remove();
+  }
+}
+
+function correctCover04SideLabel(doc: Document, accentColor: string) {
+  const isCover04 = Boolean(
+    doc.getElementById('capa_4')
+    || doc.getElementById('A4 - 4'),
+  );
+  if (!isCover04) return;
+
+  const originalLabel = doc.getElementById(COVER_04_SIDE_LABEL_SOURCE_ID);
+  if (!originalLabel) return;
+
+  const bounds = measureSvgElementBounds(
+    doc,
+    COVER_04_SIDE_LABEL_SOURCE_ID,
+  ) || COVER_04_SIDE_LABEL_FALLBACK_BOUNDS;
+
+  const correctedLabel = doc.createElementNS(SVG_NS, 'text');
+  correctedLabel.setAttribute('id', COVER_04_SIDE_LABEL_ID);
+  correctedLabel.setAttribute('data-cover-role', 'side-label');
+  correctedLabel.setAttribute('data-color-role', 'accent');
+  correctedLabel.setAttribute('x', String(-(bounds.y + bounds.height)));
+  correctedLabel.setAttribute('y', String(bounds.x + bounds.width * 0.9));
+  correctedLabel.setAttribute('transform', 'rotate(-90)');
+  correctedLabel.setAttribute('font-family', 'Arial, Helvetica, sans-serif');
+  correctedLabel.setAttribute('font-size', String(Math.max(11, bounds.width * 0.95)));
+  correctedLabel.setAttribute('font-weight', '400');
+  correctedLabel.setAttribute('fill', accentColor);
+  correctedLabel.setAttribute('textLength', String(bounds.height));
+  correctedLabel.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+  correctedLabel.setAttribute('pointer-events', 'none');
+  correctedLabel.textContent = COVER_04_SIDE_LABEL_TEXT;
+
+  // O texto original foi exportado pelo Figma como um único path vetorial.
+  // A substituição mantém o mesmo retângulo visual, acrescenta o “r” ausente
+  // em “Solar” e continua respondendo à cor destaque da capa.
+  originalLabel.replaceWith(correctedLabel);
+}
+
 export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(input.svgSource, 'image/svg+xml');
@@ -92,6 +188,7 @@ export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   applyCoverSpecificPowerTextLayout(doc);
   applyStaticContrastOverrides(doc);
   applyTheme(doc, input.theme);
+  correctCover04SideLabel(doc, input.theme.current.accent);
   applyCoverPhoto(doc, input.coverImageUrl, input.coverImageTransform);
   applyLogo(doc, input.logoUrl, input.logoTransform);
 
