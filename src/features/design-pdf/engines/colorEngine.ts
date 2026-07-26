@@ -129,11 +129,10 @@ function applyCoverSpecificPaints(doc: Document, theme: CoverTheme) {
 
   if (isCover04) {
     // Na capa 04, a inscrição vertical é semanticamente um elemento de destaque.
-    // A regra explícita evita que o amarelo original #FFCC00 seja interpretado
-    // pelo alias global como cor secundária.
+    // A regra aceita tanto o ID legado com “sola” quanto o ID corrigido com “Solar”.
     forceElementPaint(
       doc,
-      '[id="Sistema de Energia sola Fotovoltaica"]',
+      '[id="Sistema de Energia sola Fotovoltaica"], [id="Sistema de Energia Solar Fotovoltaica"]',
       theme.current.accent,
     );
   }
