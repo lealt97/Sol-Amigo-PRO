@@ -80,10 +80,14 @@ const createDefaultForm = (margin = 20): PaybackFormState => ({
   additionalCosts: [],
 });
 
-const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => ({
-  ...form,
-  averageMonthlyBillAmount: form.averageMonthlyBillAmount ?? '',
-});
+const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {
+  if (typeof form.averageMonthlyBillAmount === 'string') return form;
+
+  return {
+    ...form,
+    averageMonthlyBillAmount: '',
+  };
+};
 
 const parseNumber = (value: string) => {
   const normalized = value.trim().replace(',', '.');
@@ -118,23 +122,23 @@ function PaybackField({
       <span className="text-sm font-semibold text-brand-dark">{label}</span>
       <div className="relative">
         <Input
-type="number"
-min={min}
-max={max}
-step="0.01"
-value={value}
-onChange={(event) => onChange(event.target.value)}
-className={inputClassName || undefined}
+          type="number"
+          min={min}
+          max={max}
+          step="0.01"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={inputClassName || undefined}
         />
         {prefix && (
-<span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">
-  {prefix}
-</span>
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">
+            {prefix}
+          </span>
         )}
         {suffix && (
-<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
-  {suffix}
-</span>
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
+            {suffix}
+          </span>
         )}
       </div>
       {helper && <p className="text-xs leading-5 text-slate-500">{helper}</p>}
@@ -250,6 +254,7 @@ export function PaybackStep({
       };
     }
   }, [
+    connectionType,
     form,
     hydrated,
     monthlyCompensableConsumptionKwh,
@@ -356,14 +361,14 @@ export function PaybackStep({
             min={0.01}
           />
           <PaybackField
-  label="Valor médio mensal da fatura"
-  value={form.averageMonthlyBillAmount ?? ''}
-  onChange={(value) => updateField('averageMonthlyBillAmount', value)}
-  prefix="R$"
-  min={0.01}
-  helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
-/>
-            <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField('pisPercent', value)} suffix="%" />
+            label="Valor médio mensal da fatura"
+            value={form.averageMonthlyBillAmount ?? ''}
+            onChange={(value) => updateField('averageMonthlyBillAmount', value)}
+            prefix="R$"
+            min={0.01}
+            helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
+          />
+          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField('pisPercent', value)} suffix="%" />
           <PaybackField label="COFINS" value={form.cofinsPercent} onChange={(value) => updateField('cofinsPercent', value)} suffix="%" />
           <PaybackField label="ICMS" value={form.icmsPercent} onChange={(value) => updateField('icmsPercent', value)} suffix="%" />
           <PaybackField label="Outros encargos" value={form.otherTariffsPercent} onChange={(value) => updateField('otherTariffsPercent', value)} suffix="%" />
@@ -443,50 +448,50 @@ export function PaybackStep({
             <PaybackSummary label="Economia anual" value={currency.format(result.annualSavings)} />
           </div>
 
-{result.averageMonthlyBillAmount != null
-  && result.estimatedResidualBillAmount != null
-  && result.estimatedBillReductionPercent != null && (
-  <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-    <div>
-      <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
-      <p className="mt-1 text-xs leading-5 text-slate-500">
-        Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
-      </p>
-    </div>
+          {result.averageMonthlyBillAmount != null
+            && result.estimatedResidualBillAmount != null
+            && result.estimatedBillReductionPercent != null && (
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+              <div>
+                <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
+                </p>
+              </div>
 
-    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
-      <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
-      <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
-      <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
-    </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
+                <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
+                <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
+                <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
+              </div>
 
-    <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
-      result.billReferenceStatus === 'review'
-        ? 'border-amber-200 bg-amber-50 text-amber-800'
-        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-    }`}>
-      {result.billReferenceStatus === 'review'
-        ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-        : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
-      <div>
-        <p className="font-bold">
-          {result.billReferenceStatus === 'review'
-            ? 'Revise a tarifa ou os dados da fatura'
-            : 'Fatura coerente com o consumo e a tarifa'}
-        </p>
-        <p className="mt-1 text-xs leading-5">
-          A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
-          A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
-        </p>
-      </div>
-    </div>
+              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
+                result.billReferenceStatus === 'review'
+                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}>
+                {result.billReferenceStatus === 'review'
+                  ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                  : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
+                <div>
+                  <p className="font-bold">
+                    {result.billReferenceStatus === 'review'
+                      ? 'Revise a tarifa ou os dados da fatura'
+                      : 'Fatura coerente com o consumo e a tarifa'}
+                  </p>
+                  <p className="mt-1 text-xs leading-5">
+                    A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
+                    A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
+                  </p>
+                </div>
+              </div>
 
-    <p className="mt-4 text-xs leading-5 text-slate-500">
-      A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
-    </p>
-  </div>
-)}
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
+              </p>
+            </div>
+          )}
 
           <div className={`flex items-start gap-4 rounded-xl border p-5 ${STATUS_STYLES[result.status]}`}>
             {result.status === 'unfeasible'
