@@ -13,6 +13,7 @@ export const pdfDesignService = {
   deleteModel: pdfModelService.deleteModel.bind(pdfModelService),
   setDefaultModel: pdfModelService.setDefaultModel.bind(pdfModelService),
   uploadAsset: storageAssetService.uploadAsset.bind(storageAssetService),
+  removeAsset: storageAssetService.removeAsset.bind(storageAssetService),
   resolveAssetUrl: storageAssetService.resolveAssetUrl.bind(storageAssetService),
 };
 
