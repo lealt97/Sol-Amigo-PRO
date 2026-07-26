@@ -112,6 +112,33 @@ function forceGroupPaint(doc: Document, selector: string, color: string) {
   });
 }
 
+function forceElementPaint(doc: Document, selector: string, color: string) {
+  doc.querySelectorAll(selector).forEach((element) => {
+    const fill = element.getAttribute('fill');
+    const stroke = element.getAttribute('stroke');
+    if (fill && !shouldSkipPaint(fill)) element.setAttribute('fill', color);
+    if (stroke && !shouldSkipPaint(stroke)) element.setAttribute('stroke', color);
+  });
+}
+
+function applyCoverSpecificPaints(doc: Document, theme: CoverTheme) {
+  const isCover04 = Boolean(
+    doc.getElementById('capa_4')
+    || doc.getElementById('A4 - 4'),
+  );
+
+  if (isCover04) {
+    // Na capa 04, a inscrição vertical é semanticamente um elemento de destaque.
+    // A regra explícita evita que o amarelo original #FFCC00 seja interpretado
+    // pelo alias global como cor secundária.
+    forceElementPaint(
+      doc,
+      '[id="Sistema de Energia sola Fotovoltaica"]',
+      theme.current.accent,
+    );
+  }
+}
+
 export function applyTheme(doc: Document, theme: CoverTheme) {
   const context = getPaintContext(doc);
   doc.querySelectorAll('[fill], [stroke]').forEach((element) => {
@@ -119,4 +146,5 @@ export function applyTheme(doc: Document, theme: CoverTheme) {
   });
   forceGroupPaint(doc, '[id*="cor_primaria"], [id*="Cor_primaria"], [id*="primary"]', theme.current.primary);
   forceGroupPaint(doc, '[id*="cor_secund"], [id*="Cor_secund"], [id*="secondary"]', theme.current.secondary);
+  applyCoverSpecificPaints(doc, theme);
 }
