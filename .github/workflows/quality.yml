@@ -59,7 +59,7 @@ jobs:
             min={0.01}
             helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
           />
-'''
+            '''
             source = source.replace(anchor, field + anchor, 1)
 
           payback_path.write_text(source, encoding='utf-8')
