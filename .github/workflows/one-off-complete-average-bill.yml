@@ -1,0 +1,204 @@
+name: Complete average monthly bill
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-off-complete-average-bill.yml
+
+permissions:
+  contents: write
+
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Completar fluxo da fatura média
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          payback_path = Path('src/pages/propostas/PaybackStep.tsx')
+          source = payback_path.read_text(encoding='utf-8')
+
+          field_start = source.index('function PaybackField({')
+          field_end = source.index('\n\nexport function PaybackStep', field_start)
+          field = '''function PaybackField({
+            label,
+            value,
+            onChange,
+            prefix,
+            suffix,
+            helper,
+            min = 0,
+            max,
+          }: {
+            label: string;
+            value: string;
+            onChange: (value: string) => void;
+            prefix?: string;
+            suffix?: string;
+            helper?: string;
+            min?: number;
+            max?: number;
+          }) {
+            const inputClassName = [prefix ? 'pl-10' : '', suffix ? 'pr-24' : '']
+              .filter(Boolean)
+              .join(' ');
+
+            return (
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-brand-dark">{label}</span>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={min}
+                    max={max}
+                    step="0.01"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    className={inputClassName || undefined}
+                  />
+                  {prefix && (
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">
+                      {prefix}
+                    </span>
+                  )}
+                  {suffix && (
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
+                      {suffix}
+                    </span>
+                  )}
+                </div>
+                {helper && <p className="text-xs leading-5 text-slate-500">{helper}</p>}
+              </label>
+            );
+          }'''
+          source = source[:field_start] + field + source[field_end:]
+
+          bill_label = 'label="Valor médio mensal da fatura"'
+          if bill_label not in source:
+            pis_anchor = '          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField(\'pisPercent\', value)} suffix="%" />'
+            if source.count(pis_anchor) != 1:
+              raise RuntimeError('Campo PIS não encontrado de forma única.')
+            bill_field = '''          <PaybackField
+            label="Valor médio mensal da fatura"
+            value={form.averageMonthlyBillAmount ?? ''}
+            onChange={(value) => updateField('averageMonthlyBillAmount', value)}
+            prefix="R$"
+            min={0.01}
+            helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
+          />
+'''
+            source = source.replace(pis_anchor, bill_field + pis_anchor, 1)
+
+          comparison_start = source.index('{result.averageMonthlyBillAmount != null')
+          status_anchor = '          <div className={`flex items-start gap-4 rounded-xl border p-5 ${STATUS_STYLES[result.status]}`}>'
+          comparison_end = source.index(status_anchor, comparison_start)
+          comparison = '''          {result.averageMonthlyBillAmount != null
+            && result.estimatedResidualBillAmount != null
+            && result.estimatedBillReductionPercent != null && (
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+              <div>
+                <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
+                </p>
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
+                <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
+                <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
+                <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
+              </div>
+
+              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
+                result.billReferenceStatus === 'review'
+                  ? 'border-amber-200 bg-amber-50 text-amber-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}>
+                {result.billReferenceStatus === 'review'
+                  ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+                  : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
+                <div>
+                  <p className="font-bold">
+                    {result.billReferenceStatus === 'review'
+                      ? 'Revise a tarifa ou os dados da fatura'
+                      : 'Fatura coerente com o consumo e a tarifa'}
+                  </p>
+                  <p className="mt-1 text-xs leading-5">
+                    A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
+                    A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
+              </p>
+            </div>
+          )}
+
+'''
+          source = source[:comparison_start] + comparison + source[comparison_end:]
+          payback_path.write_text(source, encoding='utf-8')
+
+          calculator_path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
+          calculator = calculator_path.read_text(encoding='utf-8')
+          if 'label="Redução estimada da fatura"' not in calculator:
+            margin_anchor = '                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />'
+            if calculator.count(margin_anchor) != 1:
+              raise RuntimeError('Resumo da margem não encontrado de forma única.')
+            rows = '''
+                            {paybackResult.averageMonthlyBillAmount != null && (
+                              <>
+                                <PreviewRow label="Fatura média atual" value={`R$ ${number.format(paybackResult.averageMonthlyBillAmount)}`} />
+                                <PreviewRow label="Fatura residual estimada" value={`R$ ${number.format(paybackResult.estimatedResidualBillAmount ?? 0)}`} />
+                                <PreviewRow label="Redução estimada da fatura" value={`${number.format(paybackResult.estimatedBillReductionPercent ?? 0)}%`} />
+                              </>
+                            )}'''
+            calculator = calculator.replace(margin_anchor, margin_anchor + rows, 1)
+          calculator_path.write_text(calculator, encoding='utf-8')
+
+          final_payback = payback_path.read_text(encoding='utf-8')
+          final_calculator = calculator_path.read_text(encoding='utf-8')
+          assert final_payback.count(bill_label) == 1
+          assert 'Comparação da fatura' in final_payback
+          assert 'label="Redução estimada da fatura"' in final_calculator
+          PY
+
+      - name: Install
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build:app
+
+      - name: Commit direto na main
+        shell: bash
+        run: |
+          rm -f .github/workflows/one-off-complete-average-bill.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(payback): concluir campo e resumo da fatura média"
+          git push origin HEAD:main
