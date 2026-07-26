@@ -32,6 +32,34 @@ function applyStaticContrastOverrides(doc: Document) {
   });
 }
 
+function applyPowerTextLayout(doc: Document) {
+  const powerTexts = Array.from(
+    doc.querySelectorAll('text[data-bind="powerKwp"], tspan[data-bind="powerKwp"]'),
+  );
+  if (!powerTexts.length) return;
+
+  const alignmentReference = doc.querySelector(
+    'text[data-bind="clientName"], tspan[data-bind="clientName"], text[data-bind="cityState"], tspan[data-bind="cityState"]',
+  );
+  const referenceX = alignmentReference?.getAttribute('x');
+
+  powerTexts.forEach((element) => {
+    // Potência deve começar na mesma margem dos dados de Localização e Cliente,
+    // em vez de ficar centralizada dentro do espaço reservado pelo template.
+    element.setAttribute('text-anchor', 'start');
+    if (referenceX) element.setAttribute('x', referenceX);
+
+    const currentFontSize = Number.parseFloat(element.getAttribute('font-size') || '');
+    if (Number.isFinite(currentFontSize) && currentFontSize > 0) {
+      const enlargedFontSize = Math.min(28, Math.max(9, currentFontSize * 1.15));
+      element.setAttribute('font-size', enlargedFontSize.toFixed(2));
+    }
+
+    element.setAttribute('font-weight', '700');
+    element.setAttribute('data-power-layout', 'aligned-and-enlarged');
+  });
+}
+
 export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(input.svgSource, 'image/svg+xml');
@@ -41,6 +69,7 @@ export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   // primary-color group. Applying the theme first makes that value inherit the
   // background color and the generated text becomes visually invisible.
   applyDynamicTexts(doc, input.texts || {}, input.theme.current);
+  applyPowerTextLayout(doc);
   applyStaticContrastOverrides(doc);
   applyTheme(doc, input.theme);
   applyCoverPhoto(doc, input.coverImageUrl, input.coverImageTransform);
