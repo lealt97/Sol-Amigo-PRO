@@ -4,12 +4,16 @@ import test from 'node:test';
 
 const ENGINE = 'src/features/design-pdf/engines/svgTemplateEngine.ts';
 
-test('a potência da capa fica maior e alinhada aos dados acima', async () => {
+test('o ajuste de potência é específico da capa 1 e preserva as coordenadas dos slots', async () => {
   const source = await readFile(ENGINE, 'utf8');
 
-  assert.match(source, /applyPowerTextLayout\(doc\)/);
-  assert.match(source, /text-anchor', 'start'/);
-  assert.match(source, /text\[data-bind="clientName"\].*text\[data-bind="cityState"\]/s);
-  assert.match(source, /currentFontSize \* 1\.15/);
-  assert.match(source, /data-power-layout', 'aligned-and-enlarged'/);
+  assert.match(source, /COVER_POWER_TEXT_LAYOUTS/);
+  assert.match(source, /coverSelector: '\[id="A4 - 1"\], \[id="capa_1"\]'/);
+  assert.match(source, /applyCoverSpecificPowerTextLayout\(doc\)/);
+  assert.match(source, /currentFontSize \* layout\.fontScale/);
+  assert.match(source, /data-power-layout', 'cover-specific'/);
+
+  assert.doesNotMatch(source, /alignmentReference/);
+  assert.doesNotMatch(source, /referenceX/);
+  assert.doesNotMatch(source, /element\.setAttribute\('x'/);
 });
