@@ -129,10 +129,10 @@ function applyCoverSpecificPaints(doc: Document, theme: CoverTheme) {
 
   if (isCover04) {
     // Na capa 04, a inscrição vertical é semanticamente um elemento de destaque.
-    // A regra aceita tanto o ID legado com “sola” quanto o ID corrigido com “Solar”.
+    // O seletor contempla o id original com erro e o id corrigido gerado pelo motor.
     forceElementPaint(
       doc,
-      '[id="Sistema de Energia sola Fotovoltaica"], [id="Sistema de Energia Solar Fotovoltaica"]',
+      '[id="Sistema de Energia sola Fotovoltaica"], [id="Sistema de Energia Solar Fotovoltaica"], [data-cover04-solar-r="true"]',
       theme.current.accent,
     );
   }
