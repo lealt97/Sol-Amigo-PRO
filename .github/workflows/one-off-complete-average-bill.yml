@@ -1,3 +1,4 @@
+# Gatilho ativado após o workflow existir na main.
 name: Complete average monthly bill
 
 on:
