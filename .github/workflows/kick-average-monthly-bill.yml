@@ -42,7 +42,11 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in lines[start:end]
           ]
-          implementation = '\n'.join(implementation_lines) + '\n'
+          prepared = '\n'.join(implementation_lines) + '\n'
+          tail_marker = '# Formulário e apresentação do payback.'
+          tail_start = prepared.index(tail_marker)
+          helpers = """from pathlib import Path\n\ndef read(path: str) -> str:\n    return Path(path).read_text(encoding='utf-8')\n\ndef write(path: str, content: str) -> None:\n    Path(path).write_text(content, encoding='utf-8')\n\n"""
+          implementation = helpers + prepared[tail_start:]
 
           fragile = """if content.count(old_field) != 1:\n    raise RuntimeError('PaybackStep: bloco PaybackField não encontrado de forma única')\ncontent = content.replace(old_field, new_field, 1)"""
           robust = """field_start = content.index('function PaybackField({')\nfield_end = content.index('\\n\\nexport function PaybackStep', field_start)\ncontent = content[:field_start] + new_field + content[field_end:]"""
