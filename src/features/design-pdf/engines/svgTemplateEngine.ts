@@ -16,6 +16,26 @@ export type BuildSvgTemplateInput = {
   modelId?: string;
 };
 
+type CoverPowerTextLayout = {
+  coverSelector: string;
+  fontScale: number;
+  minFontSize: number;
+  maxFontSize: number;
+  anchor?: 'start' | 'middle' | 'end';
+};
+
+// Ajustes visuais devem ser declarados por capa. As coordenadas x/y continuam
+// pertencendo ao slot_systemPower de cada SVG e nunca são copiadas de outro campo.
+const COVER_POWER_TEXT_LAYOUTS: CoverPowerTextLayout[] = [
+  {
+    coverSelector: '[id="A4 - 1"], [id="capa_1"]',
+    fontScale: 1.15,
+    minFontSize: 9,
+    maxFontSize: 28,
+    anchor: 'start',
+  },
+];
+
 function applyStaticContrastOverrides(doc: Document) {
   const isCover06 = Boolean(
     doc.querySelector('[id="A4 - 6"], [id="capa_6"]'),
@@ -32,31 +52,31 @@ function applyStaticContrastOverrides(doc: Document) {
   });
 }
 
-function applyPowerTextLayout(doc: Document) {
+function applyCoverSpecificPowerTextLayout(doc: Document) {
+  const layout = COVER_POWER_TEXT_LAYOUTS.find(({ coverSelector }) => (
+    Boolean(doc.querySelector(coverSelector))
+  ));
+  if (!layout) return;
+
   const powerTexts = Array.from(
     doc.querySelectorAll('text[data-bind="powerKwp"], tspan[data-bind="powerKwp"]'),
   );
-  if (!powerTexts.length) return;
-
-  const alignmentReference = doc.querySelector(
-    'text[data-bind="clientName"], tspan[data-bind="clientName"], text[data-bind="cityState"], tspan[data-bind="cityState"]',
-  );
-  const referenceX = alignmentReference?.getAttribute('x');
 
   powerTexts.forEach((element) => {
-    // Potência deve começar na mesma margem dos dados de Localização e Cliente,
-    // em vez de ficar centralizada dentro do espaço reservado pelo template.
-    element.setAttribute('text-anchor', 'start');
-    if (referenceX) element.setAttribute('x', referenceX);
+    // Preserva integralmente x e y definidos pelo slot próprio desta capa.
+    if (layout.anchor) element.setAttribute('text-anchor', layout.anchor);
 
     const currentFontSize = Number.parseFloat(element.getAttribute('font-size') || '');
     if (Number.isFinite(currentFontSize) && currentFontSize > 0) {
-      const enlargedFontSize = Math.min(28, Math.max(9, currentFontSize * 1.15));
+      const enlargedFontSize = Math.min(
+        layout.maxFontSize,
+        Math.max(layout.minFontSize, currentFontSize * layout.fontScale),
+      );
       element.setAttribute('font-size', enlargedFontSize.toFixed(2));
     }
 
     element.setAttribute('font-weight', '700');
-    element.setAttribute('data-power-layout', 'aligned-and-enlarged');
+    element.setAttribute('data-power-layout', 'cover-specific');
   });
 }
 
@@ -69,7 +89,7 @@ export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   // primary-color group. Applying the theme first makes that value inherit the
   // background color and the generated text becomes visually invisible.
   applyDynamicTexts(doc, input.texts || {}, input.theme.current);
-  applyPowerTextLayout(doc);
+  applyCoverSpecificPowerTextLayout(doc);
   applyStaticContrastOverrides(doc);
   applyTheme(doc, input.theme);
   applyCoverPhoto(doc, input.coverImageUrl, input.coverImageTransform);
