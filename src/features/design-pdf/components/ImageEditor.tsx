@@ -1,5 +1,5 @@
 import { ChangeEvent, useEffect, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Trash2, Upload } from 'lucide-react';
 import { Label } from '../../../components/ui/Label';
 import { MAX_ACCOUNT_LOGOS } from '../../../utils/logoHelper';
 import { PdfUserModel, TransformConfig } from '../types/pdfDesignTypes';
@@ -12,6 +12,8 @@ interface ImageEditorProps {
   profileLogo: string | null;
   availableLogos: string[];
   onFileUpload: (event: ChangeEvent<HTMLInputElement>, target: 'cover_image_url') => void;
+  onCoverImageRemove: () => void;
+  isRemovingCoverImage: boolean;
   onLogoSelect: (logoUrl: string) => void;
   onTransformChange: (target: 'logo_transform' | 'cover_image_transform', key: keyof TransformConfig, value: number) => void;
   onTransformSet: (target: 'logo_transform' | 'cover_image_transform', transform: TransformConfig) => void;
@@ -23,6 +25,8 @@ export function ImageEditor({
   profileLogo,
   availableLogos,
   onFileUpload,
+  onCoverImageRemove,
+  isRemovingCoverImage,
   onLogoSelect,
   onTransformChange,
   onTransformSet,
@@ -32,6 +36,7 @@ export function ImageEditor({
   const accountLogos = [...new Set([profileLogo, ...availableLogos].filter(Boolean) as string[])]
     .slice(0, MAX_ACCOUNT_LOGOS);
   const hasSelectedAccountLogo = Boolean(model.logo_url && accountLogos.includes(model.logo_url));
+  const hasCoverImage = Boolean(model.cover_image_url);
 
   useEffect(() => {
     let active = true;
@@ -118,10 +123,22 @@ export function ImageEditor({
           </div>
         )}
 
-        <label className="w-full flex items-center justify-center gap-2 rounded-md border border-brand-border bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/15 hover:text-white cursor-pointer transition-colors">
-          <Upload className="w-4 h-4" /> Enviar foto da capa
-          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => onFileUpload(event, 'cover_image_url')} />
-        </label>
+        {hasCoverImage ? (
+          <button
+            type="button"
+            onClick={onCoverImageRemove}
+            disabled={isRemovingCoverImage}
+            className="w-full flex items-center justify-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            {isRemovingCoverImage ? 'Removendo foto...' : 'Remover foto'}
+          </button>
+        ) : (
+          <label className="w-full flex items-center justify-center gap-2 rounded-md border border-brand-border bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/15 hover:text-white cursor-pointer transition-colors">
+            <Upload className="w-4 h-4" /> Enviar foto da capa
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => onFileUpload(event, 'cover_image_url')} />
+          </label>
+        )}
 
         {coverImagePreviewUrl && (
           <>
