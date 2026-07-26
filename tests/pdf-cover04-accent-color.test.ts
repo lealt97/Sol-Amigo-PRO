@@ -12,6 +12,15 @@ const COLOR_ENGINE = path.join(
   'colorEngine.ts',
 );
 
+const SVG_TEMPLATE_ENGINE = path.join(
+  process.cwd(),
+  'src',
+  'features',
+  'design-pdf',
+  'engines',
+  'svgTemplateEngine.ts',
+);
+
 const COVER_04 = path.join(
   process.cwd(),
   'public',
@@ -31,7 +40,18 @@ test('a inscrição lateral da capa 04 usa semanticamente a cor destaque', async
 
   assert.match(engine, /doc\.getElementById\('capa_4'\)/);
   assert.match(engine, /doc\.getElementById\('A4 - 4'\)/);
-  assert.match(engine, /\[id="Sistema de Energia sola Fotovoltaica"\]/);
+  assert.match(engine, /Sistema de Energia Solar Fotovoltaica/);
   assert.match(engine, /theme\.current\.accent/);
   assert.match(engine, /applyCoverSpecificPaints\(doc, theme\)/);
+});
+
+test('o motor substitui o vetor legado pela frase com Solar corretamente', async () => {
+  const engine = await readFile(SVG_TEMPLATE_ENGINE, 'utf8');
+
+  assert.match(engine, /COVER_04_SIDE_LABEL_SOURCE_ID = 'Sistema de Energia sola Fotovoltaica'/);
+  assert.match(engine, /COVER_04_SIDE_LABEL_TEXT = 'Sistema de Energia Solar Fotovoltaica'/);
+  assert.match(engine, /correctCover04SideLabel\(doc, input\.theme\.current\.accent\)/);
+  assert.match(engine, /originalLabel\.replaceWith\(correctedLabel\)/);
+  assert.match(engine, /textLength/);
+  assert.match(engine, /lengthAdjust', 'spacingAndGlyphs'/);
 });
