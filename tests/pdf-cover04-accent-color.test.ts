@@ -63,7 +63,7 @@ test('o motor preserva os vetores e desloca todo o trecho posterior a Solar', as
   assert.match(engine, /COVER_04_TARGET_PREVIOUS_INDEX = 19/);
   assert.match(engine, /COVER_04_TARGET_NEXT_INDEX = 20/);
   assert.match(engine, /rebuildCover04SideLabelVector\(doc\)/);
-  assert.match(engine, /sourceRGlyph\.subpaths\.map/);
+  assert.match(engine, /glyph\.subpaths\.map/);
   assert.match(engine, /sourceRGlyph\.centerY - sourcePreviousGlyph\.centerY/);
   assert.match(engine, /index >= COVER_04_TARGET_NEXT_INDEX/);
   assert.match(engine, /data-cover04-shifted-tail/);
