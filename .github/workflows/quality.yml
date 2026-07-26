@@ -7,110 +7,13 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: quality-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  apply_average_bill_fix:
-    name: Aplicar reparo final da fatura média
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Baixar código
-        uses: actions/checkout@v4
-
-      - name: Detectar gatilho
-        id: trigger
-        shell: bash
-        run: |
-          if [ -f docs/.average-bill-trigger ]; then
-            echo "apply=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "apply=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Inserir campo e resumo da fatura
-        id: patch
-        if: steps.trigger.outputs.apply == 'true'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          python3 <<'PY' 2>&1 | tee average-bill-patch.log
-          from pathlib import Path
-
-          payback_path = Path('src/pages/propostas/PaybackStep.tsx')
-          source = payback_path.read_text(encoding='utf-8')
-          label = 'label="Valor médio mensal da fatura"'
-
-          if label not in source:
-            anchor = '          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField(\'pisPercent\', value)} suffix="%" />'
-            if source.count(anchor) != 1:
-              raise RuntimeError(f'Âncora PIS encontrada {source.count(anchor)} vezes.')
-            field = '''          <PaybackField
-            label="Valor médio mensal da fatura"
-            value={form.averageMonthlyBillAmount ?? ''}
-            onChange={(value) => updateField('averageMonthlyBillAmount', value)}
-            prefix="R$"
-            min={0.01}
-            helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
-          />
-            '''
-            source = source.replace(anchor, field + anchor, 1)
-
-          payback_path.write_text(source, encoding='utf-8')
-
-          calculator_path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
-          calculator = calculator_path.read_text(encoding='utf-8')
-          reduction_label = 'label="Redução estimada da fatura"'
-
-          if reduction_label not in calculator:
-            anchor = '                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />'
-            if calculator.count(anchor) != 1:
-              raise RuntimeError(f'Âncora da margem encontrada {calculator.count(anchor)} vezes.')
-            rows = '''
-                            {paybackResult.averageMonthlyBillAmount != null && (
-                              <>
-                                <PreviewRow label="Fatura média atual" value={`R$ ${number.format(paybackResult.averageMonthlyBillAmount)}`} />
-                                <PreviewRow label="Fatura residual estimada" value={`R$ ${number.format(paybackResult.estimatedResidualBillAmount ?? 0)}`} />
-                                <PreviewRow label="Redução estimada da fatura" value={`${number.format(paybackResult.estimatedBillReductionPercent ?? 0)}%`} />
-                              </>
-                            )}'''
-            calculator = calculator.replace(anchor, anchor + rows, 1)
-
-          calculator_path.write_text(calculator, encoding='utf-8')
-
-          assert payback_path.read_text(encoding='utf-8').count(label) == 1
-          assert reduction_label in calculator_path.read_text(encoding='utf-8')
-          PY
-
-      - name: Publicar reparo ou diagnóstico na main
-        if: steps.trigger.outputs.apply == 'true'
-        shell: bash
-        env:
-          PATCH_OUTCOME: ${{ steps.patch.outcome }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f docs/.average-bill-trigger
-
-          if [ "$PATCH_OUTCOME" = "success" ]; then
-            rm -rf diagnostics/average-monthly-bill-final
-            MESSAGE="fix(payback): concluir campo e resumo da fatura média"
-          else
-            mkdir -p diagnostics/average-monthly-bill-final
-            cp average-bill-patch.log diagnostics/average-monthly-bill-final/status.txt
-            MESSAGE="chore: registrar falha final da fatura média"
-          fi
-
-          git add -A
-          git commit -m "$MESSAGE"
-          git push origin HEAD:main
-
   quality:
     name: TypeScript completo, testes e build
     runs-on: ubuntu-latest
