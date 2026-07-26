@@ -1372,6 +1372,13 @@ export function ProfessionalSizingCalculator() {
                             <PreviewRow label="Custo direto" value={`R$ ${number.format(paybackResult.directCost)}`} />
                             <PreviewRow label="Lucro estimado" value={`R$ ${number.format(paybackResult.profitAmount)}`} />
                             <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />
+                  {paybackResult.averageMonthlyBillAmount != null && (
+                    <>
+                      <PreviewRow label="Fatura média atual" value={`R$ ${number.format(paybackResult.averageMonthlyBillAmount)}`} />
+                      <PreviewRow label="Fatura residual estimada" value={`R$ ${number.format(paybackResult.estimatedResidualBillAmount ?? 0)}`} />
+                      <PreviewRow label="Redução estimada da fatura" value={`${number.format(paybackResult.estimatedBillReductionPercent ?? 0)}%`} />
+                    </>
+                  )}
                           </dl>
                         </CardContent>
                       </Card>

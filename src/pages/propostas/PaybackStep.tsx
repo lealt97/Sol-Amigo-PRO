@@ -355,7 +355,15 @@ export function PaybackStep({
             suffix="centavos/kWh"
             min={0.01}
           />
-          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField('pisPercent', value)} suffix="%" />
+          <PaybackField
+  label="Valor médio mensal da fatura"
+  value={form.averageMonthlyBillAmount ?? ''}
+  onChange={(value) => updateField('averageMonthlyBillAmount', value)}
+  prefix="R$"
+  min={0.01}
+  helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
+/>
+            <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField('pisPercent', value)} suffix="%" />
           <PaybackField label="COFINS" value={form.cofinsPercent} onChange={(value) => updateField('cofinsPercent', value)} suffix="%" />
           <PaybackField label="ICMS" value={form.icmsPercent} onChange={(value) => updateField('icmsPercent', value)} suffix="%" />
           <PaybackField label="Outros encargos" value={form.otherTariffsPercent} onChange={(value) => updateField('otherTariffsPercent', value)} suffix="%" />
