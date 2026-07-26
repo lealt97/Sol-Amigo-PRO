@@ -48,6 +48,17 @@ const COVER_04_SIDE_LABEL_CORRECT_ID = 'Sistema de Energia Solar Fotovoltaica';
 const COVER_04_SOURCE_TEXT = 'Sistema de Energia sola Fotovoltaica';
 const COVER_04_SOURCE_R_INDEX = 12;
 const COVER_04_TARGET_PREVIOUS_INDEX = 19;
+const COVER_04_TARGET_NEXT_INDEX = 20;
+const VECTOR_STYLE_ATTRIBUTES = [
+  'fill',
+  'stroke',
+  'fill-rule',
+  'clip-rule',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'opacity',
+] as const;
 
 // Ajustes visuais devem ser declarados por capa. As coordenadas x/y continuam
 // pertencendo ao slot_systemPower de cada SVG e nunca são copiadas de outro campo.
@@ -198,7 +209,32 @@ function measureVectorGlyphs(pathData: string) {
   }
 }
 
-function copyCover04SolarRVector(doc: Document) {
+function copyVectorStyle(source: Element, target: Element) {
+  VECTOR_STYLE_ATTRIBUTES.forEach((attribute) => {
+    const value = source.getAttribute(attribute);
+    if (value) target.setAttribute(attribute, value);
+  });
+}
+
+function createGlyphPath(
+  doc: Document,
+  source: Element,
+  glyph: VectorGlyph,
+  id: string,
+  translateY = 0,
+) {
+  const path = doc.createElementNS(SVG_NS, 'path');
+  path.setAttribute('id', id);
+  path.setAttribute('d', glyph.subpaths.map((subpath) => subpath.d).join(' '));
+  path.setAttribute('data-color-role', 'accent');
+  if (Math.abs(translateY) > 0.0001) {
+    path.setAttribute('transform', `translate(0 ${translateY.toFixed(4)})`);
+  }
+  copyVectorStyle(source, path);
+  return path;
+}
+
+function rebuildCover04SideLabelVector(doc: Document) {
   const isCover04 = Boolean(
     doc.getElementById('capa_4')
     || doc.getElementById('A4 - 4'),
@@ -207,7 +243,7 @@ function copyCover04SolarRVector(doc: Document) {
 
   const originalLabel = doc.getElementById(COVER_04_SIDE_LABEL_SOURCE_ID);
   if (!originalLabel || originalLabel.tagName.toLowerCase() !== 'path') return;
-  if (doc.querySelector('[data-cover04-solar-r="true"]')) return;
+  if (doc.querySelector('[data-cover04-solar-corrected="true"]')) return;
 
   const pathData = originalLabel.getAttribute('d');
   if (!pathData) return;
@@ -221,28 +257,55 @@ function copyCover04SolarRVector(doc: Document) {
   const targetPreviousGlyph = glyphs[COVER_04_TARGET_PREVIOUS_INDEX];
   if (!sourcePreviousGlyph || !sourceRGlyph || !targetPreviousGlyph) return;
 
-  // Reutiliza o mesmo avanço vertical existente entre “e” e “r” em “Energia”.
-  // Assim o novo “r” entra depois de “sola” sem trocar fonte ou redesenhar o texto.
+  // Usa exatamente o avanço vertical entre “e” e “r” em “Energia”.
   const sourceAdvanceY = sourceRGlyph.centerY - sourcePreviousGlyph.centerY;
-  const targetCenterY = targetPreviousGlyph.centerY + sourceAdvanceY;
-  const translateY = targetCenterY - sourceRGlyph.centerY;
+  if (!Number.isFinite(sourceAdvanceY) || Math.abs(sourceAdvanceY) < 0.05) return;
 
-  const copiedR = doc.createElementNS(SVG_NS, 'path');
-  copiedR.setAttribute('id', `${COVER_04_SIDE_LABEL_CORRECT_ID} - r`);
-  copiedR.setAttribute('data-cover04-solar-r', 'true');
-  copiedR.setAttribute('data-color-role', 'accent');
-  copiedR.setAttribute('d', sourceRGlyph.subpaths.map((subpath) => subpath.d).join(' '));
-  copiedR.setAttribute('transform', `translate(0 ${translateY.toFixed(4)})`);
+  const copiedRTargetCenterY = targetPreviousGlyph.centerY + sourceAdvanceY;
+  const copiedRTranslateY = copiedRTargetCenterY - sourceRGlyph.centerY;
 
-  const fill = originalLabel.getAttribute('fill');
-  const stroke = originalLabel.getAttribute('stroke');
-  if (fill) copiedR.setAttribute('fill', fill);
-  if (stroke) copiedR.setAttribute('stroke', stroke);
+  const correctedGroup = doc.createElementNS(SVG_NS, 'g');
+  correctedGroup.setAttribute('id', COVER_04_SIDE_LABEL_CORRECT_ID);
+  correctedGroup.setAttribute('data-cover-role', 'side-label');
+  correctedGroup.setAttribute('data-color-role', 'accent');
+  correctedGroup.setAttribute('data-cover04-solar-corrected', 'true');
 
-  originalLabel.setAttribute('id', COVER_04_SIDE_LABEL_CORRECT_ID);
-  originalLabel.setAttribute('data-cover-role', 'side-label');
-  originalLabel.setAttribute('data-color-role', 'accent');
-  originalLabel.insertAdjacentElement('afterend', copiedR);
+  const originalTransform = originalLabel.getAttribute('transform');
+  if (originalTransform) correctedGroup.setAttribute('transform', originalTransform);
+
+  glyphs.forEach((glyph, index) => {
+    if (index === COVER_04_TARGET_NEXT_INDEX) {
+      const copiedR = createGlyphPath(
+        doc,
+        originalLabel,
+        sourceRGlyph,
+        `${COVER_04_SIDE_LABEL_CORRECT_ID} - r`,
+        copiedRTranslateY,
+      );
+      copiedR.setAttribute('data-cover04-solar-r', 'true');
+      correctedGroup.appendChild(copiedR);
+    }
+
+    // Todos os glifos posteriores ao ponto de inserção descem pelo mesmo avanço.
+    // Isso preserva o espaço original entre “sola” e “Fotovoltaica” depois que
+    // “sola” recebe o novo “r”, sem colar as palavras seguintes.
+    const tailTranslateY = index >= COVER_04_TARGET_NEXT_INDEX
+      ? sourceAdvanceY
+      : 0;
+    const glyphPath = createGlyphPath(
+      doc,
+      originalLabel,
+      glyph,
+      `${COVER_04_SIDE_LABEL_CORRECT_ID} - glyph-${index}`,
+      tailTranslateY,
+    );
+    if (index >= COVER_04_TARGET_NEXT_INDEX) {
+      glyphPath.setAttribute('data-cover04-shifted-tail', 'true');
+    }
+    correctedGroup.appendChild(glyphPath);
+  });
+
+  originalLabel.replaceWith(correctedGroup);
 }
 
 export function buildSvgTemplate(input: BuildSvgTemplateInput) {
@@ -257,7 +320,7 @@ export function buildSvgTemplate(input: BuildSvgTemplateInput) {
   applyCoverSpecificPowerTextLayout(doc);
   applyStaticContrastOverrides(doc);
   applyTheme(doc, input.theme);
-  copyCover04SolarRVector(doc);
+  rebuildCover04SideLabelVector(doc);
   applyCoverPhoto(doc, input.coverImageUrl, input.coverImageTransform);
   applyLogo(doc, input.logoUrl, input.logoTransform);
 
