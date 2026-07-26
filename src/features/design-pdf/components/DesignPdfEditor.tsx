@@ -34,6 +34,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     cover_image_transform: normalizeTransform(initialModel.cover_image_transform),
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isRemovingCoverImage, setIsRemovingCoverImage] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('colors');
 
   useEffect(() => {
@@ -127,6 +128,43 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     }
   };
 
+  const handleCoverImageRemove = async () => {
+    const coverImageUrl = model.cover_image_url;
+    if (!coverImageUrl || !user || isRemovingCoverImage) return;
+
+    const resetCoverTransform = getDefaultTransform();
+
+    try {
+      setIsRemovingCoverImage(true);
+
+      await pdfDesignService.updateModel(model.id, {
+        cover_image_url: null,
+        cover_image_transform: resetCoverTransform,
+      });
+
+      setModel((prev) => ({
+        ...prev,
+        cover_image_url: null,
+        cover_image_transform: resetCoverTransform,
+      }));
+
+      try {
+        await pdfDesignService.removeAsset(coverImageUrl, 'pdf-assets', user.id);
+      } catch (storageError) {
+        // A referência já foi removida do modelo. Uma falha de limpeza no storage
+        // não deve recolocar uma imagem quebrada na interface.
+        console.error('Error removing private PDF cover asset:', storageError);
+      }
+
+      toast.success('Foto removida. Você já pode enviar uma nova imagem.');
+    } catch (error) {
+      console.error('Error removing PDF cover image:', error);
+      toast.error('Não foi possível remover a foto da capa.');
+    } finally {
+      setIsRemovingCoverImage(false);
+    }
+  };
+
   const tabs: Array<{ id: EditorTab; label: string }> = [
     { id: 'colors', label: 'Cores' },
     { id: 'images', label: 'Imagens' },
@@ -165,6 +203,8 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
               profileLogo={profileLogo}
               availableLogos={availableLogos}
               onFileUpload={handleCoverImageUpload}
+              onCoverImageRemove={handleCoverImageRemove}
+              isRemovingCoverImage={isRemovingCoverImage}
               onLogoSelect={(logoUrl) => setModel((prev) => ({ ...prev, logo_url: logoUrl }))}
               onTransformChange={updateTransform}
               onTransformSet={setTransform}
