@@ -33,17 +33,28 @@ jobs:
           set -o pipefail
           python3 <<'PY' 2>&1 | tee implementation.log
           from pathlib import Path
-          import textwrap
 
           workflow_path = Path('.github/workflows/one-off-average-monthly-bill.yml')
           lines = workflow_path.read_text(encoding='utf-8').splitlines()
           start = next(index for index, line in enumerate(lines) if line.strip() == "python3 <<'PY'") + 1
           end = next(index for index in range(start, len(lines)) if lines[index].strip() == 'PY')
-          prepared = textwrap.dedent('\n'.join(lines[start:end])) + '\n'
+          prepared = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in lines[start:end]
+          ) + '\n'
           tail_marker = '# Formulário e apresentação do payback.'
           tail_start = prepared.index(tail_marker)
           helpers = """from pathlib import Path\n\ndef read(path: str) -> str:\n    return Path(path).read_text(encoding='utf-8')\n\ndef write(path: str, content: str) -> None:\n    Path(path).write_text(content, encoding='utf-8')\n\n"""
           implementation = helpers + prepared[tail_start:]
+
+          fragile_field = """if content.count(old_field) != 1:\n    raise RuntimeError('PaybackStep: bloco PaybackField não encontrado de forma única')\ncontent = content.replace(old_field, new_field, 1)"""
+          robust_field = """field_start = content.index('function PaybackField({')\nfield_end = content.index('\\n\\nexport function PaybackStep', field_start)\ncontent = content[:field_start] + new_field + content[field_end:]"""
+          implementation = implementation.replace(fragile_field, robust_field, 1)
+
+          fragile_summary = """if content.count(target) != 1:\n    raise RuntimeError('PaybackStep: grade de resumos não encontrada')\ncontent = content.replace(target, target + comparison, 1)"""
+          robust_summary = """summary_anchor = '<PaybackSummary label=\"Economia anual\" value={currency.format(result.annualSavings)} />'\nsummary_position = content.index(summary_anchor)\nsummary_end = content.index('</div>', summary_position) + len('</div>')\ncontent = content[:summary_end] + comparison + content[summary_end:]"""
+          implementation = implementation.replace(fragile_summary, robust_summary, 1)
+
           exec(compile(implementation, str(workflow_path), 'exec'))
           PY
 
