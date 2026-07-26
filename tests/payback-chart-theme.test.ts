@@ -37,7 +37,7 @@ test('motor de cores cria papéis semânticos para gráficos', async () => {
 test('gráfico de payback descontado consome a paleta semântica em todos os elementos', async () => {
   const source = await readFile(PAYBACK, 'utf8');
   const titleIndex = source.indexOf('Fluxo de caixa descontado em');
-  const start = source.lastIndexOf('<Card', titleIndex);
+  const start = source.lastIndexOf('<Card className=', titleIndex);
   const end = source.indexOf('</Card>', titleIndex);
 
   assert.ok(titleIndex >= 0 && start >= 0 && end > titleIndex, 'Gráfico de payback descontado não encontrado.');
