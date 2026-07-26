@@ -57,6 +57,27 @@ export const storageAssetService = {
     return uploadImage(file, bucket, userId, 'models');
   },
 
+  async removeAsset(value: string, bucket: DesignAssetBucket, userId: string): Promise<void> {
+    if (!userId) throw new Error('Usuário não autenticado.');
+    if (!ALLOWED_DESIGN_ASSET_BUCKETS.includes(bucket)) {
+      throw new Error('Bucket de exclusão não permitido.');
+    }
+
+    const reference = parseStorageReference(value);
+
+    // URLs legadas ou externas podem ser retiradas do modelo sem tentar excluir
+    // um arquivo que não pertence ao storage privado atual.
+    if (!reference) return;
+
+    const allowedPrefix = `${userId}/models/`;
+    if (reference.bucket !== bucket || !reference.path.startsWith(allowedPrefix)) {
+      throw new Error('Referência do arquivo do modelo inválida.');
+    }
+
+    const { error } = await supabase.storage.from(bucket).remove([reference.path]);
+    if (error) throw error;
+  },
+
   async uploadRoofImage(file: File, userId: string): Promise<string> {
     return uploadImage(file, 'proposals', userId, 'roof-photos');
   },
