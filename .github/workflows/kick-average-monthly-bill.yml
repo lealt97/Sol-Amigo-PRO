@@ -43,6 +43,13 @@ jobs:
               for line in lines[start:end]
           ]
           implementation = '\n'.join(implementation_lines) + '\n'
+
+          fragile = """if content.count(old_field) != 1:\n    raise RuntimeError('PaybackStep: bloco PaybackField não encontrado de forma única')\ncontent = content.replace(old_field, new_field, 1)"""
+          robust = """field_start = content.index('function PaybackField({')\nfield_end = content.index('\\n\\nexport function PaybackStep', field_start)\ncontent = content[:field_start] + new_field + content[field_end:]"""
+          if fragile not in implementation:
+              raise RuntimeError('Trecho frágil do PaybackField não encontrado no executor preparado.')
+          implementation = implementation.replace(fragile, robust, 1)
+
           exec(compile(implementation, str(workflow_path), 'exec'))
           PY
 
