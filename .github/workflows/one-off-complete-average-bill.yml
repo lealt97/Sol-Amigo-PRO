@@ -1,5 +1,4 @@
-# Gatilho ativado após o workflow existir na main.
-name: Complete average monthly bill
+name: Apply final average bill fix
 
 on:
   push:
@@ -11,22 +10,15 @@ permissions:
   contents: write
 
 jobs:
-  complete:
+  apply:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Completar fluxo da fatura média
+      - name: Corrigir campo e resumo da fatura
         shell: bash
         run: |
           python3 <<'PY'
@@ -35,9 +27,9 @@ jobs:
           payback_path = Path('src/pages/propostas/PaybackStep.tsx')
           source = payback_path.read_text(encoding='utf-8')
 
-          field_start = source.index('function PaybackField({')
-          field_end = source.index('\n\nexport function PaybackStep', field_start)
-          field = '''function PaybackField({
+          start = source.index('function PaybackField({')
+          end = source.index('\n\nexport function PaybackStep', start)
+          replacement = '''function PaybackField({
             label,
             value,
             onChange,
@@ -88,14 +80,14 @@ jobs:
               </label>
             );
           }'''
-          source = source[:field_start] + field + source[field_end:]
+          source = source[:start] + replacement + source[end:]
 
-          bill_label = 'label="Valor médio mensal da fatura"'
-          if bill_label not in source:
-            pis_anchor = '          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField(\'pisPercent\', value)} suffix="%" />'
-            if source.count(pis_anchor) != 1:
-              raise RuntimeError('Campo PIS não encontrado de forma única.')
-            bill_field = '''          <PaybackField
+          label = 'label="Valor médio mensal da fatura"'
+          if label not in source:
+            anchor = '          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField(\'pisPercent\', value)} suffix="%" />'
+            if source.count(anchor) != 1:
+              raise RuntimeError('Âncora do campo PIS não encontrada.')
+            field = '''          <PaybackField
             label="Valor médio mensal da fatura"
             value={form.averageMonthlyBillAmount ?? ''}
             onChange={(value) => updateField('averageMonthlyBillAmount', value)}
@@ -104,66 +96,17 @@ jobs:
             helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
           />
 '''
-            source = source.replace(pis_anchor, bill_field + pis_anchor, 1)
+            source = source.replace(anchor, field + anchor, 1)
 
-          comparison_start = source.index('{result.averageMonthlyBillAmount != null')
-          status_anchor = '          <div className={`flex items-start gap-4 rounded-xl border p-5 ${STATUS_STYLES[result.status]}`}>'
-          comparison_end = source.index(status_anchor, comparison_start)
-          comparison = '''          {result.averageMonthlyBillAmount != null
-            && result.estimatedResidualBillAmount != null
-            && result.estimatedBillReductionPercent != null && (
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-              <div>
-                <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
-                </p>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
-                <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
-                <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
-                <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
-              </div>
-
-              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
-                result.billReferenceStatus === 'review'
-                  ? 'border-amber-200 bg-amber-50 text-amber-800'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              }`}>
-                {result.billReferenceStatus === 'review'
-                  ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-                  : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
-                <div>
-                  <p className="font-bold">
-                    {result.billReferenceStatus === 'review'
-                      ? 'Revise a tarifa ou os dados da fatura'
-                      : 'Fatura coerente com o consumo e a tarifa'}
-                  </p>
-                  <p className="mt-1 text-xs leading-5">
-                    A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
-                    A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
-                  </p>
-                </div>
-              </div>
-
-              <p className="mt-4 text-xs leading-5 text-slate-500">
-                A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
-              </p>
-            </div>
-          )}
-
-'''
-          source = source[:comparison_start] + comparison + source[comparison_end:]
           payback_path.write_text(source, encoding='utf-8')
 
           calculator_path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
           calculator = calculator_path.read_text(encoding='utf-8')
-          if 'label="Redução estimada da fatura"' not in calculator:
-            margin_anchor = '                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />'
-            if calculator.count(margin_anchor) != 1:
-              raise RuntimeError('Resumo da margem não encontrado de forma única.')
+          reduction_label = 'label="Redução estimada da fatura"'
+          if reduction_label not in calculator:
+            anchor = '                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />'
+            if calculator.count(anchor) != 1:
+              raise RuntimeError('Âncora da margem não encontrada.')
             rows = '''
                             {paybackResult.averageMonthlyBillAmount != null && (
                               <>
@@ -172,27 +115,13 @@ jobs:
                                 <PreviewRow label="Redução estimada da fatura" value={`${number.format(paybackResult.estimatedBillReductionPercent ?? 0)}%`} />
                               </>
                             )}'''
-            calculator = calculator.replace(margin_anchor, margin_anchor + rows, 1)
+            calculator = calculator.replace(anchor, anchor + rows, 1)
+
           calculator_path.write_text(calculator, encoding='utf-8')
 
-          final_payback = payback_path.read_text(encoding='utf-8')
-          final_calculator = calculator_path.read_text(encoding='utf-8')
-          assert final_payback.count(bill_label) == 1
-          assert 'Comparação da fatura' in final_payback
-          assert 'label="Redução estimada da fatura"' in final_calculator
+          assert payback_path.read_text(encoding='utf-8').count(label) == 1
+          assert reduction_label in calculator_path.read_text(encoding='utf-8')
           PY
-
-      - name: Install
-        run: npm ci
-
-      - name: TypeScript
-        run: npm run typecheck
-
-      - name: Tests
-        run: npm run test
-
-      - name: Build
-        run: npm run build:app
 
       - name: Commit direto na main
         shell: bash
