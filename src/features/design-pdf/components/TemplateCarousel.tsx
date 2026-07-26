@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight, LayoutTemplate, Plus } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { PdfTemplatePreset } from '../types/pdfDesignTypes';
+import { buildSvgTemplate } from '../engines/svgTemplateEngine';
 
 interface TemplateCarouselProps {
   presets: PdfTemplatePreset[];
@@ -9,7 +11,38 @@ interface TemplateCarouselProps {
   onAddFromPreset: (presetId: string) => void;
 }
 
+function buildCorrectedPresetPreviews(presets: PdfTemplatePreset[]) {
+  const previews = new Map<string, string>();
+
+  presets.forEach((preset) => {
+    if (preset.id !== 'preset-4' || !preset.svg_content) return;
+
+    try {
+      previews.set(
+        preset.id,
+        buildSvgTemplate({
+          svgSource: preset.svg_content,
+          theme: {
+            current: preset.default_theme,
+            original: preset.default_theme,
+          },
+          modelId: `standard-preview-${preset.id}`,
+        }),
+      );
+    } catch {
+      // A miniatura original continua disponível como fallback.
+    }
+  });
+
+  return previews;
+}
+
 export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, onAddFromPreset }: TemplateCarouselProps) {
+  const correctedPresetPreviews = useMemo(
+    () => buildCorrectedPresetPreviews(presets),
+    [presets],
+  );
+
   if (presets.length === 0) {
     return (
       <div className="text-center p-12 bg-brand-surface border border-brand-border rounded-xl">
@@ -42,6 +75,7 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
             if (Math.abs(diff) > 2) return null;
 
             const isActive = index === activeIndex;
+            const correctedPreview = correctedPresetPreviews.get(preset.id);
             let transformStyle = '';
             let opacityStyle = '';
             let zIndexStyle = 10;
@@ -69,7 +103,18 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
             return (
               <div key={preset.id} onClick={() => !isActive && onActiveIndexChange(index)} style={{ zIndex: zIndexStyle }} className={`absolute left-1/2 top-1/2 -translate-y-1/2 w-[240px] group bg-brand-surface border rounded-xl overflow-hidden shadow-md transition-all duration-500 ease-out cursor-pointer select-none ${transformStyle} ${opacityStyle} ${isActive ? 'border-brand-primary shadow-xl ring-2 ring-brand-primary/20' : 'border-brand-border'}`}>
                 <div className="aspect-[1/1.414] bg-slate-950/40 relative">
-                  {preset.thumbnail_url ? <img src={preset.thumbnail_url} alt={preset.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-400">Sem miniatura</div>}
+                  {correctedPreview ? (
+                    <div
+                      className="w-full h-full [&>svg]:block [&>svg]:w-full [&>svg]:h-full"
+                      aria-label={preset.name}
+                      role="img"
+                      dangerouslySetInnerHTML={{ __html: correctedPreview }}
+                    />
+                  ) : preset.thumbnail_url ? (
+                    <img src={preset.thumbnail_url} alt={preset.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">Sem miniatura</div>
+                  )}
                   {isActive && (
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button onClick={(event) => { event.stopPropagation(); onAddFromPreset(preset.id); }} className="gap-2 font-semibold shadow-md">
