@@ -1,5 +1,6 @@
 import { ChangeEvent, useEffect, useState } from 'react';
-import { Trash2, Upload } from 'lucide-react';
+import { ArrowUpRight, Trash2, Upload } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Label } from '../../../components/ui/Label';
 import { MAX_ACCOUNT_LOGOS } from '../../../utils/logoHelper';
 import { PdfUserModel, TransformConfig } from '../types/pdfDesignTypes';
@@ -68,7 +69,13 @@ export function ImageEditor({
         <div>
           <Label className="text-slate-100 font-semibold">Logo da empresa</Label>
           <p className="text-xs text-slate-400 mt-1">
-            Escolha um dos até {MAX_ACCOUNT_LOGOS} logos cadastrados em Configurações da Conta &gt; Logo. O envio de logos é feito somente nessa área.
+            Escolha um dos até {MAX_ACCOUNT_LOGOS} logos cadastrados. O envio de logos é feito em{' '}
+            <Link
+              to="/configuracoes?tab=logo"
+              className="font-semibold text-brand-blue hover:text-brand-blue/80 hover:underline"
+            >
+              Configurações da Conta &gt; Logo
+            </Link>.
           </p>
         </div>
 
@@ -100,11 +107,16 @@ export function ImageEditor({
           <div className="rounded-lg border border-dashed border-brand-border bg-slate-950/30 p-4 text-center">
             <p className="text-sm font-medium text-slate-200">Nenhum logo cadastrado na conta.</p>
             <p className="mt-1 text-xs text-slate-400">Cadastre até {MAX_ACCOUNT_LOGOS} logos para poder selecioná-los neste modelo.</p>
-            <a href="/configuracoes?tab=logo" className="mt-3 inline-flex text-xs font-semibold text-brand-blue hover:underline">
-              Abrir Configurações da Conta &gt; Logo
-            </a>
           </div>
         )}
+
+        <Link
+          to="/configuracoes?tab=logo"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-brand-blue/40 bg-brand-blue/10 px-4 py-2 text-sm font-semibold text-brand-blue transition-colors hover:bg-brand-blue/20 hover:text-white"
+        >
+          Gerenciar logos da conta
+          <ArrowUpRight className="h-4 w-4" />
+        </Link>
 
         {hasSelectedAccountLogo && (
           <TransformControls label="Logo" target="logo" value={model.logo_transform} onChange={(key, value) => onTransformChange('logo_transform', key, value)} onReset={() => onTransformReset('logo_transform')} />
