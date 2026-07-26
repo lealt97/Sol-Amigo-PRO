@@ -8,8 +8,10 @@ build=skipped
 .github/workflows/one-off-average-monthly-bill.yml:371: SyntaxWarning: invalid escape sequence '\$'
   monthlyGenerationKwh: 400,
 Traceback (most recent call last):
-  File "<stdin>", line 12, in <module>
-  File ".github/workflows/one-off-average-monthly-bill.yml", line 168, in <module>
-    const inputClassName = [prefix ? 'pl-10' : '', suffix ? 'pr-24' : '']
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: PaybackStep: bloco PaybackField não encontrado de forma única
+  File "<stdin>", line 19, in <module>
+  File ".github/workflows/one-off-average-monthly-bill.yml", line 17, in <module>
+    
+  File ".github/workflows/one-off-average-monthly-bill.yml", line 13, in replace_once
+    implement:
+          ^^^^^
+RuntimeError: src/types/proposalDraft.ts: esperado 1 trecho, encontrado 0: 'export type ProposalDraftPaybackForm = {\n  tariffCentsPerKwh: string;\n  pisPercent: string;'
