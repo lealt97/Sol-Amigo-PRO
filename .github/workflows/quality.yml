@@ -42,7 +42,18 @@ jobs:
         run: npx tsx --test tests/billing-foundation.test.ts
 
       - name: Executar testes automatizados
-        run: npm run test
+        run: |
+          set -o pipefail
+          npm run test 2>&1 | tee test-output.txt
+
+      - name: Publicar diagnóstico dos testes
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-output
+          path: test-output.txt
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Gerar build de produção
         run: npm run build:app
