@@ -562,6 +562,9 @@ export function ProfessionalSizingCalculator() {
     const margin = paybackResult?.marginPercentage
       ?? (paybackForm ? parseOptionalNumber(paybackForm.marginPercentage) : null);
     const tariff = paybackForm ? parseOptionalNumber(paybackForm.tariffCentsPerKwh) : null;
+    const billAmount = paybackForm?.averageMonthlyBillAmount
+      ? parseOptionalNumber(paybackForm.averageMonthlyBillAmount)
+      : null;
 
     return {
       title: proposalTitle.trim().replace(/\s+/g, ' ') || (selectedClient ? `Proposta em elaboração — ${selectedClient.name}` : undefined),
@@ -570,6 +573,7 @@ export function ProfessionalSizingCalculator() {
       monthly_consumption_kwh: consumptionResolution.averageMonthlyConsumptionKwh,
       estimated_daily_consumption: calculation.result?.targetDailyGenerationKwh ?? null,
       energy_tariff: tariff == null ? null : tariff / 100,
+      bill_amount: billAmount,
       roof_area_m2: parseOptionalNumber(roofAreaM2),
       roof_image_url: roofPhotoReference,
       module_width_m: selectedKit?.module_width_m ?? parseOptionalNumber(moduleWidthM),

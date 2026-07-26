@@ -80,3 +80,70 @@ test('rejeita margem de lucro igual ou superior a 100%', () => {
     /menor que 100%/,
   );
 });
+
+
+test('compara a fatura média com a tarifa e calcula a fatura residual', () => {
+  const result = calculatePayback({
+    kitCost: 10_000,
+    marginPercentage: 0,
+    tariffCentsPerKwh: 100,
+    averageMonthlyBillAmount: 610,
+    monthlyAvailabilityConsumptionKwh: 30,
+    pisPercent: 0,
+    cofinsPercent: 0,
+    icmsPercent: 0,
+    otherTariffsPercent: 0,
+    monthlyCompensableConsumptionKwh: 470,
+    monthlyGenerationKwh: 400,
+    additionalCosts: [],
+  });
+
+  assert.equal(result.estimatedEnergyBillAmount, 500);
+  assert.equal(result.averageMonthlyBillAmount, 610);
+  assert.equal(result.estimatedResidualBillAmount, 210);
+  assert.equal(result.estimatedBillReductionPercent, 65.57);
+  assert.equal(result.billReferenceDifferencePercent, 18.03);
+  assert.equal(result.billReferenceStatus, 'consistent');
+});
+
+test('sinaliza revisão quando a fatura diverge mais de vinte por cento', () => {
+  const result = calculatePayback({
+    kitCost: 10_000,
+    marginPercentage: 0,
+    tariffCentsPerKwh: 100,
+    averageMonthlyBillAmount: 800,
+    monthlyAvailabilityConsumptionKwh: 30,
+    pisPercent: 0,
+    cofinsPercent: 0,
+    icmsPercent: 0,
+    otherTariffsPercent: 0,
+    monthlyCompensableConsumptionKwh: 470,
+    monthlyGenerationKwh: 400,
+    additionalCosts: [],
+  });
+
+  assert.equal(result.estimatedResidualBillAmount, 400);
+  assert.equal(result.estimatedBillReductionPercent, 50);
+  assert.equal(result.billReferenceDifferencePercent, 37.5);
+  assert.equal(result.billReferenceStatus, 'review');
+});
+
+test('mantém a comparação opcional quando a fatura não é informada', () => {
+  const result = calculatePayback({
+    kitCost: 10_000,
+    marginPercentage: 0,
+    tariffCentsPerKwh: 100,
+    pisPercent: 0,
+    cofinsPercent: 0,
+    icmsPercent: 0,
+    otherTariffsPercent: 0,
+    monthlyCompensableConsumptionKwh: 300,
+    monthlyGenerationKwh: 300,
+    additionalCosts: [],
+  });
+
+  assert.equal(result.averageMonthlyBillAmount, null);
+  assert.equal(result.estimatedResidualBillAmount, null);
+  assert.equal(result.estimatedBillReductionPercent, null);
+  assert.equal(result.billReferenceStatus, 'not_informed');
+});

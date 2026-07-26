@@ -71,12 +71,18 @@ const createCost = (): AdditionalCostDraft => ({
 
 const createDefaultForm = (margin = 20): PaybackFormState => ({
   tariffCentsPerKwh: '100',
+  averageMonthlyBillAmount: '',
   pisPercent: '0',
   cofinsPercent: '0',
   icmsPercent: '0',
   otherTariffsPercent: '0',
   marginPercentage: String(margin),
   additionalCosts: [],
+});
+
+const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => ({
+  ...form,
+  averageMonthlyBillAmount: form.averageMonthlyBillAmount ?? '',
 });
 
 const parseNumber = (value: string) => {
@@ -88,6 +94,7 @@ function PaybackField({
   label,
   value,
   onChange,
+  prefix,
   suffix,
   helper,
   min = 0,
@@ -96,27 +103,39 @@ function PaybackField({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  suffix: string;
+  prefix?: string;
+  suffix?: string;
   helper?: string;
   min?: number;
   max?: number;
 }) {
+  const inputClassName = [prefix ? 'pl-10' : '', suffix ? 'pr-24' : '']
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-brand-dark">{label}</span>
       <div className="relative">
         <Input
-          type="number"
-          min={min}
-          max={max}
-          step="0.01"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="pr-24"
+type="number"
+min={min}
+max={max}
+step="0.01"
+value={value}
+onChange={(event) => onChange(event.target.value)}
+className={inputClassName || undefined}
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
-          {suffix}
-        </span>
+        {prefix && (
+<span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">
+  {prefix}
+</span>
+        )}
+        {suffix && (
+<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
+  {suffix}
+</span>
+        )}
       </div>
       {helper && <p className="text-xs leading-5 text-slate-500">{helper}</p>}
     </label>
@@ -142,7 +161,7 @@ export function PaybackStep({
 }) {
   const { user } = useAuth();
   const storageKey = `sol-amigo:payback:${selectedKit.id}`;
-  const [form, setForm] = useState<PaybackFormState>(() => initialForm || createDefaultForm());
+  const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm()));
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -151,7 +170,7 @@ export function PaybackStep({
     const hydrate = async () => {
       setHydrated(false);
       if (initialForm) {
-        if (active) setForm(initialForm);
+        if (active) setForm(normalizeForm(initialForm));
         if (active) setHydrated(true);
         return;
       }
@@ -160,7 +179,7 @@ export function PaybackStep({
       if (saved) {
         try {
           const parsed = JSON.parse(saved) as PaybackFormState;
-          if (active) setForm(parsed);
+          if (active) setForm(normalizeForm(parsed));
           if (active) setHydrated(true);
           return;
         } catch {
@@ -207,6 +226,10 @@ export function PaybackStep({
           kitCost: selectedKit.cost_price,
           marginPercentage: parseNumber(form.marginPercentage),
           tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),
+          averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()
+            ? parseNumber(form.averageMonthlyBillAmount)
+            : null,
+          monthlyAvailabilityConsumptionKwh: CONNECTION_AVAILABILITY_KWH[connectionType],
           pisPercent: parseNumber(form.pisPercent),
           cofinsPercent: parseNumber(form.cofinsPercent),
           icmsPercent: parseNumber(form.icmsPercent),
@@ -411,6 +434,51 @@ export function PaybackStep({
             <PaybackSummary label="Economia mensal" value={currency.format(result.monthlySavings)} />
             <PaybackSummary label="Economia anual" value={currency.format(result.annualSavings)} />
           </div>
+
+{result.averageMonthlyBillAmount != null
+  && result.estimatedResidualBillAmount != null
+  && result.estimatedBillReductionPercent != null && (
+  <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+    <div>
+      <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
+      </p>
+    </div>
+
+    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
+      <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
+      <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
+      <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
+    </div>
+
+    <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
+      result.billReferenceStatus === 'review'
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    }`}>
+      {result.billReferenceStatus === 'review'
+        ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
+      <div>
+        <p className="font-bold">
+          {result.billReferenceStatus === 'review'
+            ? 'Revise a tarifa ou os dados da fatura'
+            : 'Fatura coerente com o consumo e a tarifa'}
+        </p>
+        <p className="mt-1 text-xs leading-5">
+          A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
+          A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
+        </p>
+      </div>
+    </div>
+
+    <p className="mt-4 text-xs leading-5 text-slate-500">
+      A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
+    </p>
+  </div>
+)}
 
           <div className={`flex items-start gap-4 rounded-xl border p-5 ${STATUS_STYLES[result.status]}`}>
             {result.status === 'unfeasible'
