@@ -22,8 +22,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 3
 
       - name: Detectar gatilho
         id: trigger
@@ -98,8 +96,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git show HEAD^^:.github/workflows/quality.yml > .github/workflows/quality.yml
-          rm -f .github/workflows/one-off-complete-average-bill.yml
           rm -f docs/.average-bill-trigger
 
           if [ "$PATCH_OUTCOME" = "success" ]; then
