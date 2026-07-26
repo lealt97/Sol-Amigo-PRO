@@ -5,13 +5,11 @@ tests=skipped
 build=skipped
 
 ===== implementation.log =====
-.github/workflows/one-off-average-monthly-bill.yml:371: SyntaxWarning: invalid escape sequence '\$'
-  monthlyGenerationKwh: 400,
+.github/workflows/one-off-average-monthly-bill.yml:315: SyntaxWarning: invalid escape sequence '\$'
+  <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />''',
 Traceback (most recent call last):
-  File "<stdin>", line 19, in <module>
-  File ".github/workflows/one-off-average-monthly-bill.yml", line 17, in <module>
-    
-  File ".github/workflows/one-off-average-monthly-bill.yml", line 13, in replace_once
-    implement:
-          ^^^^^
-RuntimeError: src/types/proposalDraft.ts: esperado 1 trecho, encontrado 0: 'export type ProposalDraftPaybackForm = {\n  tariffCentsPerKwh: string;\n  pisPercent: string;'
+  File "<stdin>", line 23, in <module>
+  File ".github/workflows/one-off-average-monthly-bill.yml", line 206, in <module>
+    1,
+^^^^^^^
+RuntimeError: PaybackStep: grade de resumos não encontrada
