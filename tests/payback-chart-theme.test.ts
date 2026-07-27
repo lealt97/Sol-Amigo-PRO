@@ -34,13 +34,13 @@ test('motor de cores cria papéis semânticos para gráficos', async () => {
   assert.match(source, /setCssVar\('--color-chart-marker', palette\.chartMarker\)/);
 });
 
-test('gráfico de payback consome a paleta semântica em todos os elementos', async () => {
+test('gráfico de payback descontado consome a paleta semântica em todos os elementos', async () => {
   const source = await readFile(PAYBACK, 'utf8');
-  const titleIndex = source.indexOf('Saldo acumulado em 25 anos');
-  const start = source.lastIndexOf('          <Card\n', titleIndex);
+  const titleIndex = source.indexOf('Fluxo de caixa descontado em');
+  const start = source.lastIndexOf('<Card className=', titleIndex);
   const end = source.indexOf('</Card>', titleIndex);
 
-  assert.ok(titleIndex >= 0 && start >= 0 && end > titleIndex, 'Gráfico de payback não encontrado.');
+  assert.ok(titleIndex >= 0 && start >= 0 && end > titleIndex, 'Gráfico de payback descontado não encontrado.');
   const chart = source.slice(start, end);
 
   for (const cssVariable of [
@@ -62,8 +62,7 @@ test('gráfico de payback consome a paleta semântica em todos os elementos', as
   }
 
   assert.match(source, /const paybackMarkerYear =/);
-  assert.match(chart, /value: 'Payback'/);
-  assert.match(chart, /Capital não recuperado/);
-  assert.match(chart, /Retorno acumulado/);
-  assert.match(chart, /Marco do payback/);
+  assert.match(chart, /value: 'Payback descontado'/);
+  assert.match(chart, /dataKey="discountedCumulativeBalance"/);
+  assert.match(chart, /Saldo descontado/);
 });
