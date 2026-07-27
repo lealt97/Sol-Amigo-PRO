@@ -17,27 +17,20 @@ test('o payback ocupa a penúltima etapa e o resultado permanece por último', a
   assert.match(calculator, /if \(currentStep === 5 && !paybackResult\)/);
 });
 
-test('a etapa contém tarifa segura, marco regulatório, premissas econômicas e fluxo descontado', async () => {
+test('a etapa contém tarifa, tributos, margem editável, custos e gráfico vertical', async () => {
   const payback = await readFile(PAYBACK_STEP, 'utf8');
 
   assert.match(payback, /label="Tarifa de energia"/);
-  assert.match(payback, /Composição da tarifa/);
-  assert.match(payback, /Tarifa final — tributos já incluídos/);
   assert.match(payback, /label="PIS"/);
   assert.match(payback, /label="COFINS"/);
   assert.match(payback, /label="ICMS"/);
-  assert.match(payback, /Margem sobre o preço de venda/);
+  assert.match(payback, /label="Outros encargos"/);
+  assert.match(payback, /label="Margem de lucro"/);
   assert.match(payback, /default_margin_percentage/);
-  assert.match(payback, /Enquadramento regulatório/);
-  assert.match(payback, /Transição da Lei 14\.300/);
-  assert.match(payback, /Componentes compensáveis do Fio B/);
-  assert.match(payback, /Autoconsumo instantâneo/);
-  assert.match(payback, /Taxa de desconto \/ TMA/);
+  assert.match(payback, /Configurações da Conta > Preferências Comerciais/);
   assert.match(payback, /Adicionar custo/);
-  assert.match(payback, /VPL em/);
-  assert.match(payback, /TIR estimada/);
   assert.match(payback, /<BarChart/);
-  assert.match(payback, /<Bar[\s\S]*dataKey="discountedCumulativeBalance"[\s\S]*radius=\{0\}/);
+  assert.match(payback, /<Bar[\s\S]*dataKey="cumulativeBalance"[\s\S]*radius=\{0\}/);
   assert.match(payback, /var\(--color-brand-blue\)/);
   assert.match(payback, /var\(--color-brand-yellow\)/);
   assert.match(payback, /var\(--color-brand-border\)/);
@@ -49,13 +42,12 @@ test('a etapa contém tarifa segura, marco regulatório, premissas econômicas e
   assert.doesNotMatch(payback, /#0076DD|#ef4444|#64748b/);
 });
 
-test('a classificação não chama retorno longo de inviável automaticamente', async () => {
-  const calculation = await readFile('src/lib/calculations/paybackTypes.ts', 'utf8');
+test('a etapa apresenta todas as classificações solicitadas', async () => {
+  const calculation = await readFile('src/lib/calculations/payback.ts', 'utf8');
 
   assert.match(calculation, /Excelente/);
   assert.match(calculation, /Muito bom/);
   assert.match(calculation, /Bom/);
-  assert.match(calculation, /Retorno prolongado/);
-  assert.match(calculation, /Requer revisão/);
-  assert.doesNotMatch(calculation, /paybackYears > 10/);
+  assert.match(calculation, /Regular/);
+  assert.match(calculation, /Inviável/);
 });

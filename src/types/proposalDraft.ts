@@ -1,9 +1,4 @@
 import type { ElectricalStandardId } from '../lib/calculations/electricalStandards';
-import type {
-  PaybackStatus,
-  RegulatoryFramework,
-  TariffTaxMode,
-} from '../lib/calculations/payback';
 
 export const PROPOSAL_DRAFT_VERSION = 1 as const;
 
@@ -25,50 +20,15 @@ export type ProposalDraftAdditionalCost = {
   amount: string;
 };
 
-export type ProposalDraftPaybackCalculationSnapshot = {
-  calculationVersion: number;
-  monthlySavings: number;
-  annualSavings: number;
-  firstYearNetCashFlow: number;
-  paybackYears: number | null;
-  paybackMonths: number | null;
-  discountedPaybackYears: number | null;
-  discountedPaybackMonths: number | null;
-  netPresentValue: number;
-  internalRateOfReturnPercent: number | null;
-  projectedGrossSavings: number;
-  projectedNetSavings: number;
-  projectionYears: number;
-  effectiveTariffPerKwh: number;
-  regulatoryFramework: RegulatoryFramework;
-  status: PaybackStatus;
-  statusLabel: string;
-};
-
 export type ProposalDraftPaybackForm = {
   tariffCentsPerKwh: string;
-  tariffTaxMode?: TariffTaxMode;
   averageMonthlyBillAmount?: string;
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;
   otherTariffsPercent: string;
   marginPercentage: string;
-  regulatoryFramework?: RegulatoryFramework;
-  projectionStartYear?: string;
-  fioBComponentsCentsPerKwh?: string;
-  customRegulatoryChargePercent?: string;
-  postTransitionChargePercent?: string;
-  selfConsumptionPercent?: string;
-  annualTariffEscalationPercent?: string;
-  annualDegradationPercent?: string;
-  annualMaintenancePercent?: string;
-  annualDiscountRatePercent?: string;
-  inverterReplacementYear?: string;
-  inverterReplacementCost?: string;
-  projectionYears?: string;
   additionalCosts: ProposalDraftAdditionalCost[];
-  calculationSnapshot?: ProposalDraftPaybackCalculationSnapshot;
 };
 
 export type ProposalDraftStateV1 = {

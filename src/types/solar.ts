@@ -24,18 +24,6 @@ export interface SolarSystemCalculation {
   payback_formatted: string | null;
   return_25_years: number | null;
   net_savings_25_years: number | null;
-  calculation_version?: number | null;
-  discounted_payback_years?: number | null;
-  discounted_payback_months?: number | null;
-  net_present_value?: number | null;
-  internal_rate_of_return_percent?: number | null;
-  first_year_net_cash_flow?: number | null;
-  projection_years?: number | null;
-  projected_gross_savings?: number | null;
-  projected_net_savings?: number | null;
-  regulatory_framework?: string | null;
-  financial_status?: string | null;
-  financial_status_label?: string | null;
   created_at: string;
   updated_at: string;
 }
