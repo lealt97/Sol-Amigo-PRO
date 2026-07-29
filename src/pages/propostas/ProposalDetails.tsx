@@ -9,17 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { formatDate } from '../../lib/utils';
 import { getProposalContinuePath, isActiveProposalFlowDraft } from '../../lib/proposals/flow';
-
-const getStatusLabel = (status: string) => ({
-  draft: 'Rascunho',
-  pending: 'Pendente',
-  sent: 'Enviada',
-  viewed: 'Visualizada',
-  accepted: 'Aprovada',
-  approved: 'Aprovada',
-  rejected: 'Recusada',
-  expired: 'Expirada',
-}[status] || status);
+import { getProposalStatusPresentation } from '../../lib/proposals/presentation';
 
 export function ProposalDetails() {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +58,8 @@ export function ProposalDetails() {
     return <Navigate to={getProposalContinuePath(proposal.id)} replace />;
   }
 
+  const statusPresentation = getProposalStatusPresentation(proposal.status);
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <header className="flex items-start gap-3 border-b border-brand-border pb-5">
@@ -76,9 +68,16 @@ export function ProposalDetails() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-brand-dark">{proposal.title || 'Proposta sem título'}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {proposal.code ? `Código: ${proposal.code}` : 'Sem código'} · {getStatusLabel(proposal.status)}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+            <span>{proposal.code ? `Código: ${proposal.code}` : 'Sem código'}</span>
+            <span aria-hidden="true">·</span>
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-xs ${statusPresentation.className}`}
+              title={statusPresentation.description}
+            >
+              {statusPresentation.label}
+            </span>
+          </div>
         </div>
       </header>
 
