@@ -1,6 +1,7 @@
 import { SolarSystemCalculation } from './solar';
 import { ProposalLoad } from './loadSurvey';
 import { RoofLayoutData } from './roofLayout';
+import type { RoofPlaneConfiguration } from './roof';
 import { SolarKitSnapshot, SolarSystemType } from './solarKit';
 import type { ProposalDraftState } from './proposalDraft';
 
@@ -29,6 +30,10 @@ export interface Proposal {
   roof_image_url?: string | null;
   roof_photo_url?: string | null;
   roof_plan_image_url?: string | null;
+  roof_latitude_degrees?: number | null;
+  roof_planes_json?: RoofPlaneConfiguration[] | null;
+  roof_orientation_factor?: number | null;
+  effective_performance_ratio?: number | null;
   module_width_m?: number | null;
   module_height_m?: number | null;
   roof_layout_json?: RoofLayoutData | null;
