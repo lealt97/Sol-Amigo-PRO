@@ -18,7 +18,7 @@ test('telhado é dividido em águas com área, inclinação e orientação antes
   assert.match(calculator, /roofOrientationResult/);
   assert.match(editor, /Área útil/);
   assert.match(editor, /Inclinação/);
-  assert.match(editor, /Ponto cardeal/);
+  assert.match(editor, /Orientação da água/);
   assert.match(editor, /Azimute personalizado/);
   assert.match(editor, /Adicionar água do telhado/);
   assert.doesNotMatch(calculator, /Área do telhado \(opcional\)/);
