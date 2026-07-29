@@ -173,7 +173,7 @@ export function RoofPlanesEditor({
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-brand-dark">Ponto cardeal</span>
+                  <span className="text-sm font-semibold text-brand-dark">Orientação da água</span>
                   <Select
                     value={plane.cardinalDirection}
                     onChange={(event) => changeCardinalDirection(plane, event.target.value as RoofCardinalDirection)}
@@ -183,6 +183,9 @@ export function RoofPlanesEditor({
                     ))}
                     <option value="CUSTOM">Azimute personalizado</option>
                   </Select>
+                  <p className="text-xs leading-5 text-slate-500">
+                    Escolha um ponto cardeal ou colateral. Para maior precisão, informe o azimute personalizado.
+                  </p>
                 </label>
               </div>
 
