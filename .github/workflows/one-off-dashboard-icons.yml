@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   apply:
-    if: ${{ github.event.head_commit.message == 'chore: aplicar ícones semânticos do dashboard' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,12 +64,15 @@ jobs:
           }
 
           for old, new in replacements.items():
-              if old not in source:
-                  raise SystemExit(f'Trecho esperado não encontrado: {old}')
               source = source.replace(old, new)
 
           if 'SolAmigoCategoryIcons' in source:
               raise SystemExit('O Dashboard ainda importa a família antiga de ícones.')
+
+          required = ['ChartNoAxesCombined', 'FileSignature', 'ContactRound', 'PackageSearch', 'BadgeCheck', 'FileSearch2']
+          missing = [name for name in required if name not in source]
+          if missing:
+              raise SystemExit(f'Ícones esperados ausentes: {missing}')
 
           path.write_text(source)
           PY
@@ -114,5 +116,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/pages/Dashboard.tsx tests/dashboard-icons.test.ts
+          if git diff --cached --quiet; then
+            echo 'Nenhuma alteração pendente.'
+            exit 0
+          fi
           git commit -m 'fix(dashboard): alinhar ícones à família visual do sistema'
           git push origin main
