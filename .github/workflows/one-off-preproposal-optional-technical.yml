@@ -1,0 +1,313 @@
+name: One-off preproposal optional technical data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/.apply-preproposal-optional-technical'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply preproposal rules
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f'Pattern not found in {path}: {old[:120]!r}')
+              file.write_text(text.replace(old, new, 1))
+
+          # Draft: manual preliminary cost when no kit is selected.
+          replace(
+              'src/types/proposalDraft.ts',
+              "  averageMonthlyBillAmount?: string;\n  pisPercent: string;",
+              "  averageMonthlyBillAmount?: string;\n  estimatedSystemCost?: string;\n  pisPercent: string;",
+          )
+
+          # Payback supports a selected kit or a manual preliminary system cost.
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "  averageMonthlyBillAmount: '',\n  pisPercent: '0',",
+              "  averageMonthlyBillAmount: '',\n  estimatedSystemCost: '',\n  pisPercent: '0',",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {\n  if (typeof form.averageMonthlyBillAmount === 'string') return form;\n\n  return {\n    ...form,\n    averageMonthlyBillAmount: '',\n  };\n};",
+              "const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {\n  if (typeof form.averageMonthlyBillAmount === 'string' && typeof form.estimatedSystemCost === 'string') return form;\n\n  return {\n    ...form,\n    averageMonthlyBillAmount: typeof form.averageMonthlyBillAmount === 'string' ? form.averageMonthlyBillAmount : '',\n    estimatedSystemCost: typeof form.estimatedSystemCost === 'string' ? form.estimatedSystemCost : '',\n  };\n};",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "  selectedKit: SolarKit;",
+              "  selectedKit: SolarKit | null;",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "  const storageKey = `sol-amigo:payback:${selectedKit.id}`;",
+              "  const storageKey = `sol-amigo:payback:${selectedKit?.id ?? 'manual-estimate'}`;",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "        result: calculatePayback({\n          kitCost: selectedKit.cost_price,",
+              "        result: calculatePayback({\n          kitCost: selectedKit?.cost_price ?? parseNumber(form.estimatedSystemCost || ''),",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "    selectedKit.cost_price,",
+              "    selectedKit?.cost_price,",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "          Calcule o investimento, a economia anual e o tempo estimado para recuperar o valor aplicado.",
+              "          Calcule uma estimativa comercial de investimento e retorno. Os valores poderão ser revisados após a vistoria técnica.",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "        <Card className=\"shadow-none\">\n          <CardContent className=\"p-5\">\n            <p className=\"text-xs font-bold uppercase tracking-wider text-brand-blue\">Kit escolhido</p>\n            <h3 className=\"mt-2 font-bold text-brand-dark\">{selectedKit.name}</h3>\n            <div className=\"mt-4 grid gap-3 text-sm sm:grid-cols-2\">\n              <div>\n                <p className=\"text-xs font-semibold uppercase tracking-wider text-slate-500\">Custo do kit</p>\n                <p className=\"mt-1 text-lg font-bold text-brand-dark\">{currency.format(selectedKit.cost_price)}</p>\n              </div>\n              {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (\n                <div>\n                  <p className=\"text-xs font-semibold uppercase tracking-wider text-slate-500\">Venda cadastrada</p>\n                  <p className=\"mt-1 text-lg font-bold text-brand-dark\">{currency.format(selectedKit.sale_price)}</p>\n                </div>\n              )}\n            </div>\n          </CardContent>\n        </Card>",
+              "        <Card className=\"shadow-none\">\n          <CardContent className=\"p-5\">\n            <p className=\"text-xs font-bold uppercase tracking-wider text-brand-blue\">Base do investimento</p>\n            {selectedKit ? (\n              <>\n                <h3 className=\"mt-2 font-bold text-brand-dark\">{selectedKit.name}</h3>\n                <div className=\"mt-4 grid gap-3 text-sm sm:grid-cols-2\">\n                  <div>\n                    <p className=\"text-xs font-semibold uppercase tracking-wider text-slate-500\">Custo do kit</p>\n                    <p className=\"mt-1 text-lg font-bold text-brand-dark\">{currency.format(selectedKit.cost_price)}</p>\n                  </div>\n                  {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (\n                    <div>\n                      <p className=\"text-xs font-semibold uppercase tracking-wider text-slate-500\">Venda cadastrada</p>\n                      <p className=\"mt-1 text-lg font-bold text-brand-dark\">{currency.format(selectedKit.sale_price)}</p>\n                    </div>\n                  )}\n                </div>\n              </>\n            ) : (\n              <div className=\"mt-3 space-y-4\">\n                <p className=\"text-sm leading-6 text-slate-500\">Nenhum kit foi definido. Informe um custo preliminar para calcular a pré-proposta.</p>\n                <PaybackField\n                  label=\"Custo estimado preliminar do sistema\"\n                  value={form.estimatedSystemCost || ''}\n                  onChange={(value) => updateField('estimatedSystemCost', value)}\n                  prefix=\"R$\"\n                  helper=\"Estimativa comercial sujeita à definição dos equipamentos e à vistoria técnica.\"\n                />\n              </div>\n            )}\n          </CardContent>\n        </Card>",
+          )
+          replace(
+              'src/pages/propostas/PaybackStep.tsx',
+              "      <div className=\"grid gap-4 md:grid-cols-2\">",
+              "      <div className=\"rounded-xl border border-amber-300/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-700\">\n        Esta análise é preliminar. Preço, equipamentos, geração, custos de instalação e condições do local deverão ser confirmados após a vistoria técnica.\n      </div>\n\n      <div className=\"grid gap-4 md:grid-cols-2\">",
+          )
+
+          # Wizard: roof and kit become optional, while payback can use a manual estimate.
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "  { id: 'modules', title: 'Telhado e orientação' },\n  { id: 'kit', title: 'Kit solar' },\n  { id: 'payback', title: 'Payback' },",
+              "  { id: 'modules', title: 'Telhado (opcional)' },\n  { id: 'kit', title: 'Kit de referência (opcional)' },\n  { id: 'payback', title: 'Investimento e payback' },",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "      const latitudeDegrees = parseNumber(siteLatitudeDegrees);\n      const planes = roofPlanes.map((plane, index) => ({",
+              "      const configuredPlanes = roofPlanes.filter((plane) => plane.areaM2.trim() !== '');\n      if (configuredPlanes.length === 0) return { result: null, error: null };\n\n      const latitudeDegrees = parseNumber(siteLatitudeDegrees);\n      const planes = configuredPlanes.map((plane, index) => ({",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "    if (currentStep === 3) {\n      if (!roofOrientationResult) {\n        toast.error(roofOrientationCalculation.error || 'Revise as águas, inclinações e orientações do telhado.');\n        return false;\n      }\n    }\n\n    if (currentStep === 4) {\n      if (!selectedKit) {\n        toast.error('Selecione um kit on-grid cadastrado.');\n        return false;\n      }\n\n      const kitModuleHeight = Number(selectedKit.module_height_m);\n      const kitModuleWidth = Number(selectedKit.module_width_m);\n      if (!Number.isFinite(kitModuleHeight) || kitModuleHeight <= 0 || !Number.isFinite(kitModuleWidth) || kitModuleWidth <= 0) {\n        toast.error('Edite o kit selecionado e informe as dimensões A × L dos módulos fotovoltaicos.');\n        return false;\n      }\n    }",
+              "    if (currentStep === 3) {\n      const hasRoofTechnicalData = roofPlanes.some((plane) => plane.areaM2.trim() !== '');\n      if (hasRoofTechnicalData && !roofOrientationResult) {\n        toast.error(roofOrientationCalculation.error || 'Revise os dados técnicos informados para o telhado.');\n        return false;\n      }\n    }",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "      kit_cost: selectedKit?.cost_price ?? null,",
+              "      kit_cost: paybackResult?.kitCost ?? selectedKit?.cost_price ?? null,",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                  <h2 className=\"text-lg font-bold text-brand-dark\">Águas, inclinação e orientação do telhado</h2>\n                  <p className=\"mt-1 text-sm text-slate-500\">\n                    Cadastre cada água disponível. A área de cada superfície pondera o impacto da inclinação e do ponto cardeal na geração global.\n                  </p>",
+              "                  <h2 className=\"text-lg font-bold text-brand-dark\">Dados do telhado — opcional</h2>\n                  <p className=\"mt-1 text-sm leading-6 text-slate-500\">\n                    Preencha somente quando já houver levantamento do local. A ausência destas informações não impede a pré-proposta; inclinação, orientação, área, sombreamento e estrutura serão confirmados na vistoria técnica.\n                  </p>",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                  <h2 className=\"text-lg font-bold text-brand-dark\">Seleção do kit cadastrado</h2>\n                  <p className=\"mt-1 text-sm text-slate-300\">\n                    Escolha um kit on-grid ativo. Quantidade, potência e dimensões A × L dos módulos são carregadas do cadastro.\n                  </p>",
+              "                  <h2 className=\"text-lg font-bold text-brand-dark\">Kit solar de referência — opcional</h2>\n                  <p className=\"mt-1 text-sm leading-6 text-slate-300\">\n                    Selecione um kit apenas quando ele já estiver definido. Sem kit, a pré-proposta usa a potência necessária calculada e um custo preliminar informado na próxima etapa.\n                  </p>",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                    title=\"Nenhum kit on-grid ativo\"\n                    description=\"Cadastre ou ative um kit antes de concluir o dimensionamento.\"",
+              "                    title=\"Nenhum kit on-grid ativo\"\n                    description=\"O cadastro de kit é opcional para a pré-proposta. Você pode continuar e informar um custo estimado na próxima etapa.\"",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                    <span className=\"text-sm font-semibold text-brand-dark\">Kit solar</span>",
+              "                    <span className=\"text-sm font-semibold text-brand-dark\">Kit solar de referência (opcional)</span>",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                )}\n\n                {selectedKit && result && (",
+              "                )}\n\n                {!selectedKit && (\n                  <div className=\"flex items-start gap-3 rounded-xl border border-brand-light/30 bg-brand-blue/10 p-4 text-sm leading-6 text-slate-200\">\n                    <PackageCheck className=\"mt-0.5 h-5 w-5 shrink-0 text-brand-light\" />\n                    <p><strong>Equipamentos a definir.</strong> A pré-proposta continuará com a potência preliminar calculada. Módulos, inversor, fabricante e fornecedor serão confirmados após a vistoria técnica.</p>\n                  </div>\n                )}\n\n                {selectedKit && result && (",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "            {currentStep === 5 && (\n              selectedKit && result ? (\n                <PaybackStep\n                  selectedKit={selectedKit}",
+              "            {currentStep === 5 && (\n              result ? (\n                <PaybackStep\n                  selectedKit={selectedKit}",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                <ErrorState message=\"Selecione um kit e conclua o dimensionamento antes de calcular o payback.\" />",
+              "                <ErrorState message=\"Informe consumo, HSP e rendimento-base antes de calcular o investimento e o payback.\" />",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                    Revise os principais dados técnicos e financeiros antes de concluir.",
+              "                    Revise os dados comerciais e as premissas preliminares antes de concluir. As condições técnicas serão confirmadas em vistoria.",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                {selectedKit && result && paybackResult ? (",
+              "                {result && paybackResult ? (",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                      <Summary label=\"Kit selecionado\" value={selectedKit.name} />\n                      <Summary label=\"Potência do kit\" value={`${number.format(selectedKit.kit_power_kwp)} kWp`} />",
+              "                      <Summary label={selectedKit ? 'Kit de referência' : 'Equipamentos'} value={selectedKit?.name ?? 'A definir após vistoria'} />\n                      <Summary label={selectedKit ? 'Potência do kit' : 'Potência preliminar'} value={`${number.format(selectedKit?.kit_power_kwp ?? result.requiredPowerKwp)} kWp`} />",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                    <div className={`flex items-start gap-3 rounded-xl border p-5 ${",
+              "                    <div className=\"flex items-start gap-3 rounded-xl border border-amber-300/40 bg-amber-400/10 p-5 text-amber-700\">\n                      <AlertTriangle className=\"mt-0.5 h-6 w-6 shrink-0\" />\n                      <div>\n                        <p className=\"font-bold\">Pré-proposta sujeita à vistoria técnica</p>\n                        <p className=\"mt-1 text-sm leading-6\">Kit, quantidade e modelo dos equipamentos, potência final, área disponível, inclinação, orientação, sombreamento, estrutura e geração poderão ser ajustados após a inspeção do local.</p>\n                      </div>\n                    </div>\n\n                    <div className={`flex items-start gap-3 rounded-xl border p-5 ${",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "                            <PreviewRow label=\"Geração estimada\" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh/mês`} />\n                            <PreviewRow label=\"Fator solar do telhado\" value={`${number.format(result.roofOrientationFactor * 100)}%`} />\n                            <PreviewRow label=\"Rendimento global efetivo\" value={`${number.format(result.effectivePerformanceRatioPercent)}%`} />\n                            <PreviewRow label=\"Cobertura da meta\" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />",
+              "                            <PreviewRow label=\"Geração estimada\" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? result.targetMonthlyGenerationKwh)} kWh/mês`} />\n                            <PreviewRow label=\"Fator solar do telhado\" value={roofOrientationResult ? `${number.format(result.roofOrientationFactor * 100)}%` : 'Não verificado — premissa neutra'} />\n                            <PreviewRow label=\"Rendimento global efetivo\" value={`${number.format(result.effectivePerformanceRatioPercent)}%`} />\n                            {selectedKit && <PreviewRow label=\"Cobertura da meta\" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />}",
+          )
+          replace(
+              'src/pages/propostas/ProfessionalSizingCalculatorView.tsx',
+              "          Quantidade, potência, dimensões dos módulos e inversor são definidos pelo kit cadastrado pelo usuário.",
+              "          Esta é uma pré-proposta. Equipamentos e condições do telhado podem permanecer a definir e devem ser confirmados na vistoria técnica.",
+          )
+
+          # Optional language in the roof editor.
+          replace(
+              'src/pages/propostas/RoofPlanesEditor.tsx',
+              "<span className=\"text-sm font-semibold text-brand-dark\">Latitude da instalação</span>",
+              "<span className=\"text-sm font-semibold text-brand-dark\">Latitude da instalação (opcional)</span>",
+          )
+          replace(
+              'src/pages/propostas/RoofPlanesEditor.tsx',
+              "<span className=\"text-sm font-semibold text-brand-dark\">Área útil</span>",
+              "<span className=\"text-sm font-semibold text-brand-dark\">Área útil (opcional)</span>",
+          )
+          replace(
+              'src/pages/propostas/RoofPlanesEditor.tsx',
+              "    <div className=\"space-y-5\">",
+              "    <div className=\"space-y-5\">\n      <div className=\"rounded-xl border border-brand-light/30 bg-brand-blue/10 p-4 text-sm leading-6 text-slate-500\">\n        Etapa opcional para a pré-proposta. Deixe a área em branco quando ainda não houver vistoria; nesse caso, nenhum ajuste de inclinação ou orientação será aplicado ao rendimento.\n      </div>",
+          )
+
+          # PDF always explains the preliminary nature, even without technical survey data.
+          Path('src/components/pdf/sections/TechnicalSection.tsx').write_text("""import React from 'react';
+          import { StyleSheet, Text, View } from '@react-pdf/renderer';
+          import { getRoofCardinalLabel } from '../../../lib/calculations/roofOrientation';
+          import type { Proposal } from '../../../types/proposal';
+
+          const styles = StyleSheet.create({
+            sectionTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#18181b', borderBottom: '2px solid #3b82f6', paddingBottom: 5 },
+            table: { width: 'auto', borderStyle: 'solid', borderWidth: 1, borderColor: '#e4e4e7', borderRightWidth: 0, borderBottomWidth: 0, marginTop: 20 },
+            tableRow: { margin: 'auto', flexDirection: 'row' },
+            tableColHeader: { width: '50%', borderStyle: 'solid', borderWidth: 1, borderColor: '#e4e4e7', borderLeftWidth: 0, borderTopWidth: 0, backgroundColor: '#f4f4f5', padding: 8 },
+            tableCol: { width: '50%', borderStyle: 'solid', borderWidth: 1, borderColor: '#e4e4e7', borderLeftWidth: 0, borderTopWidth: 0, padding: 8 },
+            tableCellHeader: { fontSize: 10, fontWeight: 'bold', color: '#3f3f46' },
+            tableCell: { fontSize: 10, color: '#52525b' },
+            note: { fontSize: 10, color: '#71717a', marginTop: 16, fontStyle: 'italic', lineHeight: 1.5 },
+            planeList: { marginTop: 12, padding: 10, backgroundColor: '#f8fafc', border: '1px solid #e4e4e7' },
+            planeTitle: { fontSize: 10, fontWeight: 'bold', color: '#3f3f46', marginBottom: 5 },
+            planeText: { fontSize: 9, color: '#52525b', marginBottom: 3 },
+            provisionalBox: { marginTop: 12, padding: 12, backgroundColor: '#fffbeb', border: '1px solid #fbbf24' },
+            provisionalTitle: { fontSize: 11, fontWeight: 'bold', color: '#92400e', marginBottom: 5 },
+            provisionalText: { fontSize: 9, color: '#78350f', lineHeight: 1.5 },
+          });
+
+          function TechnicalRow({ label, value }: { label: string; value: string }) {
+            return <View style={styles.tableRow}><View style={styles.tableCol}><Text style={styles.tableCell}>{label}</Text></View><View style={styles.tableCol}><Text style={styles.tableCell}>{value}</Text></View></View>;
+          }
+
+          const formatNumber = (value: number, decimals = 2) => value.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+          export const TechnicalSection = ({ proposal }: { proposal: Proposal }) => {
+            const solar = proposal.solar;
+            const kit = proposal.solar_kit_snapshot;
+            const roofPlanes = proposal.roof_planes_json ?? [];
+            const panelPowerW = solar?.panel_power_w ?? kit?.module_power_w ?? null;
+            const panelCount = solar?.panel_count ?? kit?.module_quantity ?? null;
+            const installedPowerKwp = solar?.installed_power_kwp ?? kit?.kit_power_kwp ?? null;
+            const inverterPowerKw = solar?.min_inverter_power_kw ?? kit?.inverter_power_kw ?? null;
+            const hasTechnicalData = Boolean(solar || kit || roofPlanes.length || proposal.roof_orientation_factor || proposal.effective_performance_ratio);
+
+            return (
+              <View>
+                <Text style={styles.sectionTitle}>Solução Técnica Preliminar</Text>
+                {hasTechnicalData ? (
+                  <View style={styles.table}>
+                    <View style={styles.tableRow}><View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Especificação</Text></View><View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Detalhes preliminares</Text></View></View>
+                    {panelPowerW != null && <TechnicalRow label="Potência de cada módulo" value={`${formatNumber(panelPowerW, 0)} W`} />}
+                    {panelCount != null && <TechnicalRow label="Quantidade de módulos" value={`${panelCount} unidades`} />}
+                    {installedPowerKwp != null && <TechnicalRow label="Potência total estimada" value={`${formatNumber(installedPowerKwp)} kWp`} />}
+                    {inverterPowerKw != null && <TechnicalRow label="Potência AC estimada do inversor" value={`${formatNumber(inverterPowerKw)} kW`} />}
+                    {proposal.roof_area_m2 != null && <TechnicalRow label="Área útil informada" value={`${formatNumber(proposal.roof_area_m2)} m²`} />}
+                    {solar?.hsp != null && <TechnicalRow label="Índice de irradiação adotado (HSP)" value={`${formatNumber(solar.hsp)} kWh/m².dia`} />}
+                    {proposal.roof_latitude_degrees != null && <TechnicalRow label="Latitude informada" value={`${formatNumber(proposal.roof_latitude_degrees, 4)}°`} />}
+                    {roofPlanes.length > 0 && <TechnicalRow label="Águas consideradas" value={`${roofPlanes.length}`} />}
+                    {proposal.roof_orientation_factor != null && <TechnicalRow label="Fator solar ponderado" value={`${formatNumber(proposal.roof_orientation_factor * 100, 1)}%`} />}
+                    {proposal.effective_performance_ratio != null && <TechnicalRow label="Rendimento global estimado" value={`${formatNumber(proposal.effective_performance_ratio * 100, 1)}%`} />}
+                  </View>
+                ) : (
+                  <View style={styles.provisionalBox}>
+                    <Text style={styles.provisionalTitle}>Dados técnicos ainda não verificados</Text>
+                    <Text style={styles.provisionalText}>O telhado, a área disponível, a orientação, a inclinação e os equipamentos serão definidos após a vistoria técnica.</Text>
+                  </View>
+                )}
+                {roofPlanes.length > 0 && <View style={styles.planeList}><Text style={styles.planeTitle}>Configuração preliminar das águas do telhado</Text>{roofPlanes.map((plane, index) => <Text key={plane.id || String(index)} style={styles.planeText}>{plane.name || `Água ${index + 1}`}: {formatNumber(plane.areaM2)} m², inclinação de {formatNumber(plane.tiltDegrees, 1)}°, {getRoofCardinalLabel(plane.cardinalDirection)} ({formatNumber(plane.azimuthDegrees, 1)}°).</Text>)}</View>}
+                <Text style={styles.note}>* Esta é uma pré-proposta comercial. Kit, fabricantes, modelos, quantidade de módulos, inversor, potência final, layout, área, inclinação, orientação, sombreamento, estrutura, geração e custos poderão ser ajustados após a vistoria técnica e o projeto executivo.</Text>
+              </View>
+            );
+          };
+          """.replace('\n          ', '\n').lstrip())
+
+          # Public page uses the same terminology and disclaimer.
+          replace(
+              'src/pages/public/PublicProposal.tsx',
+              "                  Proposta Comercial",
+              "                  Pré-proposta Comercial",
+          )
+          replace(
+              'src/pages/public/PublicProposal.tsx',
+              "            {kit && (",
+              "            <div className=\"mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800\">\n              Esta é uma pré-proposta comercial. Equipamentos, potência, geração, valores e condições de instalação poderão ser ajustados após a vistoria técnica.\n            </div>\n\n            {kit && (",
+          )
+
+          Path('tests/preproposal-optional-technical.test.ts').write_text("""import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          import test from 'node:test';
+
+          test('pré-proposta não exige telhado nem kit e mantém ressalva de vistoria', async () => {
+            const [calculator, payback, draft, technical, publicPage] = await Promise.all([
+              readFile('src/pages/propostas/ProfessionalSizingCalculatorView.tsx', 'utf8'),
+              readFile('src/pages/propostas/PaybackStep.tsx', 'utf8'),
+              readFile('src/types/proposalDraft.ts', 'utf8'),
+              readFile('src/components/pdf/sections/TechnicalSection.tsx', 'utf8'),
+              readFile('src/pages/public/PublicProposal.tsx', 'utf8'),
+            ]);
+
+            assert.match(calculator, /Telhado \(opcional\)/);
+            assert.match(calculator, /Kit de referência \(opcional\)/);
+            assert.match(calculator, /hasRoofTechnicalData && !roofOrientationResult/);
+            assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
+            assert.match(calculator, /selectedKit\?\.name \?\? 'A definir após vistoria'/);
+            assert.match(payback, /selectedKit: SolarKit \| null/);
+            assert.match(payback, /Custo estimado preliminar do sistema/);
+            assert.match(draft, /estimatedSystemCost\?: string/);
+            assert.match(technical, /Solução Técnica Preliminar/);
+            assert.match(technical, /Esta é uma pré-proposta comercial/);
+            assert.match(publicPage, /Pré-proposta Comercial/);
+            assert.match(publicPage, /ajustados após a vistoria técnica/);
+          });
+          """.replace('\n          ', '\n').lstrip())
+          PY
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:app
+      - name: Commit changes
+        run: |
+          git config user.name "Sol Amigo Automation"
+          git config user.email "actions@github.com"
+          git add src tests
+          git commit -m "feat(proposals): tornar dados técnicos opcionais na pré-proposta"
+          git push
