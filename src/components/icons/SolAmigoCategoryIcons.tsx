@@ -18,11 +18,11 @@ type CategoryIconBaseProps = CategoryIconProps & {
   icon: LucideIcon;
 };
 
-function CategoryIconBase({ icon: Icon, title, strokeWidth = 1.9, ...props }: CategoryIconBaseProps) {
+function CategoryIconBase({ icon: Icon, title, ...props }: CategoryIconBaseProps) {
   return (
     <Icon
       {...props}
-      strokeWidth={strokeWidth}
+      strokeWidth={1.9}
       absoluteStrokeWidth
       role={title ? 'img' : undefined}
       aria-label={title}
