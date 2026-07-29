@@ -87,6 +87,7 @@ test('rascunho em fluxo oferece somente continuar e excluir em todas as listagen
   assert.match(actions, /const isFlowDraft = isActiveProposalFlowDraft\(proposal\)/);
   assert.match(actions, /isFlowDraft \? \([\s\S]*Continuar[\s\S]*\) : \([\s\S]*title="Visualizar"[\s\S]*title="Editar"[\s\S]*title="Duplicar"[\s\S]*title="Renomear"/);
   assert.match(actions, /title="Excluir"/);
-  assert.match(list, /statusFilter === 'pending_like'[\s\S]*proposal\.status === 'pending'/);
+  assert.match(list, /<option value="pending">Pronta para envio<\/option>/);
+  assert.doesNotMatch(list, /pending_like|>Pendente<\/option>/);
   assert.match(details, /if \(isActiveProposalFlowDraft\(proposal\)\)[\s\S]*<Navigate to=\{getProposalContinuePath\(proposal\.id\)\} replace/);
 });
