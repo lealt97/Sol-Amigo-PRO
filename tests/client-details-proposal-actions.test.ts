@@ -19,7 +19,9 @@ test('visão geral lista todas as propostas vinculadas ao cliente com dados do f
   assert.match(source, /Propostas do cliente/);
   assert.match(source, /Visualize e gerencie todas as propostas vinculadas a este cliente/);
   assert.match(source, /getProposalStatusLabel\(proposal\.status\)/);
-  assert.match(presentation, /draft: 'Rascunho'/);
+  assert.match(presentation, /draft: \{[\s\S]*label: 'Rascunho'/);
+  assert.match(presentation, /pending: \{[\s\S]*label: 'Pronta para envio'/);
+  assert.doesNotMatch(presentation, /label: 'Pendente'/);
 });
 
 test('listagem geral e visão geral reutilizam a mesma regra de ações', async () => {
