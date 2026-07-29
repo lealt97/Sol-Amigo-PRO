@@ -52,7 +52,11 @@ export function ProposalList() {
       const matchSearch = proposal.title?.toLowerCase().includes(term)
         || proposal.code?.toLowerCase().includes(term)
         || proposal.client?.name.toLowerCase().includes(term);
-      const matchStatus = statusFilter ? proposal.status === statusFilter : true;
+      const matchStatus = statusFilter
+        ? statusFilter === 'approved'
+          ? proposal.status === 'approved' || proposal.status === 'accepted'
+          : proposal.status === statusFilter
+        : true;
       return Boolean(matchSearch && matchStatus);
     }));
   }, [searchTerm, statusFilter, proposals]);
