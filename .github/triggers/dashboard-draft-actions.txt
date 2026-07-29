@@ -1,0 +1,1 @@
+Aplicar a regra de rascunho ativo no Dashboard: somente Continuar e Excluir, com status Rascunho.
