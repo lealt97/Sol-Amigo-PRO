@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,30 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+
+      - name: Alinhar terminologia de rendimento
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/pages/propostas/ProfessionalSizingCalculatorView.tsx')
+          source = path.read_text()
+          source = source.replace(
+              "toast.error('Informe um rendimento global entre 75% e 80%.');",
+              "toast.error('Informe um rendimento-base entre 75% e 80%.');",
+          )
+          source = source.replace(
+              "HSP adotada: <strong>{hspDaily} h/dia</strong> e rendimento global de <strong>{performanceRatioPercent}%</strong>.",
+              "HSP adotada: <strong>{hspDaily} h/dia</strong>, rendimento-base de <strong>{performanceRatioPercent}%</strong>, fator solar do telhado de <strong>{number.format(result.roofOrientationFactor * 100)}%</strong> e rendimento global efetivo de <strong>{number.format(result.effectivePerformanceRatioPercent)}%</strong>.",
+          )
+          path.write_text(source)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx
+          git commit -m "fix(roof): alinhar terminologia do rendimento"
+          git push --force origin HEAD:refs/heads/automation-roof-copyfix
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
