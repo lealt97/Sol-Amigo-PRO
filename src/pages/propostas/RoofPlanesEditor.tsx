@@ -70,6 +70,9 @@ export function RoofPlanesEditor({
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-brand-light/30 bg-brand-blue/10 p-4 text-sm leading-6 text-slate-500">
+        Etapa opcional para a pré-proposta. Deixe a área em branco quando ainda não houver vistoria; nesse caso, nenhum ajuste de inclinação ou orientação será aplicado ao rendimento.
+      </div>
       <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
@@ -77,7 +80,7 @@ export function RoofPlanesEditor({
           </span>
           <div className="flex-1">
             <label className="block max-w-sm space-y-2">
-              <span className="text-sm font-semibold text-brand-dark">Latitude da instalação</span>
+              <span className="text-sm font-semibold text-brand-dark">Latitude da instalação (opcional)</span>
               <div className="relative">
                 <Input
                   type="number"
@@ -140,7 +143,7 @@ export function RoofPlanesEditor({
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-brand-dark">Área útil</span>
+                  <span className="text-sm font-semibold text-brand-dark">Área útil (opcional)</span>
                   <div className="relative">
                     <Input
                       type="number"

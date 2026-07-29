@@ -72,6 +72,7 @@ const createCost = (): AdditionalCostDraft => ({
 const createDefaultForm = (margin = 20): PaybackFormState => ({
   tariffCentsPerKwh: '100',
   averageMonthlyBillAmount: '',
+  estimatedSystemCost: '',
   pisPercent: '0',
   cofinsPercent: '0',
   icmsPercent: '0',
@@ -81,11 +82,12 @@ const createDefaultForm = (margin = 20): PaybackFormState => ({
 });
 
 const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {
-  if (typeof form.averageMonthlyBillAmount === 'string') return form;
+  if (typeof form.averageMonthlyBillAmount === 'string' && typeof form.estimatedSystemCost === 'string') return form;
 
   return {
     ...form,
-    averageMonthlyBillAmount: '',
+    averageMonthlyBillAmount: typeof form.averageMonthlyBillAmount === 'string' ? form.averageMonthlyBillAmount : '',
+    estimatedSystemCost: typeof form.estimatedSystemCost === 'string' ? form.estimatedSystemCost : '',
   };
 };
 
@@ -155,7 +157,7 @@ export function PaybackStep({
   onDraftChange,
   onResultChange,
 }: {
-  selectedKit: SolarKit;
+  selectedKit: SolarKit | null;
   connectionType: ConnectionType;
   monthlyCompensableConsumptionKwh: number;
   monthlyGenerationKwh: number;
@@ -164,7 +166,7 @@ export function PaybackStep({
   onResultChange: (result: PaybackResult | null) => void;
 }) {
   const { user } = useAuth();
-  const storageKey = `sol-amigo:payback:${selectedKit.id}`;
+  const storageKey = `sol-amigo:payback:${selectedKit?.id ?? 'manual-estimate'}`;
   const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm()));
   const [hydrated, setHydrated] = useState(false);
 
@@ -227,7 +229,7 @@ export function PaybackStep({
     try {
       return {
         result: calculatePayback({
-          kitCost: selectedKit.cost_price,
+          kitCost: selectedKit?.cost_price ?? parseNumber(form.estimatedSystemCost || ''),
           marginPercentage: parseNumber(form.marginPercentage),
           tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),
           averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()
@@ -259,7 +261,7 @@ export function PaybackStep({
     hydrated,
     monthlyCompensableConsumptionKwh,
     monthlyGenerationKwh,
-    selectedKit.cost_price,
+    selectedKit?.cost_price,
   ]);
 
   useEffect(() => {
@@ -306,27 +308,46 @@ export function PaybackStep({
       <div>
         <h2 className="text-lg font-bold text-brand-dark">Payback do sistema fotovoltaico</h2>
         <p className="mt-1 text-sm leading-6 text-slate-500">
-          Calcule o investimento, a economia anual e o tempo estimado para recuperar o valor aplicado.
+          Calcule uma estimativa comercial de investimento e retorno. Os valores poderão ser revisados após a vistoria técnica.
         </p>
+      </div>
+
+      <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-700">
+        Esta análise é preliminar. Preço, equipamentos, geração, custos de instalação e condições do local deverão ser confirmados após a vistoria técnica.
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-none">
           <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Kit escolhido</p>
-            <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
-            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo do kit</p>
-                <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
-              </div>
-              {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Venda cadastrada</p>
-                  <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.sale_price)}</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Base do investimento</p>
+            {selectedKit ? (
+              <>
+                <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
+                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo do kit</p>
+                    <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
+                  </div>
+                  {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Venda cadastrada</p>
+                      <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.sale_price)}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="mt-3 space-y-4">
+                <p className="text-sm leading-6 text-slate-500">Nenhum kit foi definido. Informe um custo preliminar para calcular a pré-proposta.</p>
+                <PaybackField
+                  label="Custo estimado preliminar do sistema"
+                  value={form.estimatedSystemCost || ''}
+                  onChange={(value) => updateField('estimatedSystemCost', value)}
+                  prefix="R$"
+                  helper="Estimativa comercial sujeita à definição dos equipamentos e à vistoria técnica."
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 

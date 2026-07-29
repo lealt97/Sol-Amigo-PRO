@@ -33,6 +33,7 @@ export type ProposalDraftRoofPlane = {
 export type ProposalDraftPaybackForm = {
   tariffCentsPerKwh: string;
   averageMonthlyBillAmount?: string;
+  estimatedSystemCost?: string;
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;

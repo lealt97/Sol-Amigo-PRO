@@ -112,7 +112,7 @@ export function PublicProposal() {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider mb-1">
-                  Proposta Comercial
+                  Pré-proposta Comercial
                 </h2>
                 <h3 className="text-xl sm:text-2xl font-bold text-brand-dark">
                   {proposal.title || 'Sistema de Energia Solar Fotovoltaica'}
@@ -179,6 +179,10 @@ export function PublicProposal() {
                 <p className="text-xs text-slate-500 mb-1">Payback</p>
                 <p className="text-lg font-bold text-brand-dark">{paybackText}</p>
               </div>
+            </div>
+
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+              Esta é uma pré-proposta comercial. Equipamentos, potência, geração, valores e condições de instalação poderão ser ajustados após a vistoria técnica.
             </div>
 
             {kit && (
