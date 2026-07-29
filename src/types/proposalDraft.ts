@@ -1,4 +1,5 @@
 import type { ElectricalStandardId } from '../lib/calculations/electricalStandards';
+import type { RoofCardinalDirection } from './roof';
 
 export const PROPOSAL_DRAFT_VERSION = 1 as const;
 
@@ -18,6 +19,15 @@ export type ProposalDraftAdditionalCost = {
   id: string;
   description: string;
   amount: string;
+};
+
+export type ProposalDraftRoofPlane = {
+  id: string;
+  name: string;
+  areaM2: string;
+  tiltDegrees: string;
+  azimuthDegrees: string;
+  cardinalDirection: RoofCardinalDirection;
 };
 
 export type ProposalDraftPaybackForm = {
@@ -50,6 +60,8 @@ export type ProposalDraftStateV1 = {
   moduleWidthM: string;
   moduleHeightM: string;
   roofAreaM2: string;
+  siteLatitudeDegrees?: string;
+  roofPlanes?: ProposalDraftRoofPlane[];
   roofPhotoReference: string | null;
   selectedKitId: string;
   paybackForm: ProposalDraftPaybackForm | null;
