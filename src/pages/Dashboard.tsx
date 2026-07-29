@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDownRight, ArrowUpRight, Eye, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Eye, RefreshCw, Trash2 } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -22,17 +22,22 @@ import {
 } from '../components/icons/SolAmigoCategoryIcons';
 import { Card } from '../components/ui/Card';
 import { DeleteConfirmModal } from '../components/ui/DeleteConfirmModal';
+import { getProposalContinuePath, isActiveProposalFlowDraft } from '../lib/proposals/flow';
 import { supabase } from '../lib/supabase/client';
 import { formatDate } from '../lib/utils';
 import { proposalService } from '../services/proposalService';
+import type { Proposal } from '../types/proposal';
 
-type ProposalRow = {
-  id: string;
-  title: string | null;
-  code: string | null;
-  status: string;
-  created_at: string;
-  selected_solar_kit_id: string | null;
+type ProposalRow = Pick<Proposal,
+  | 'id'
+  | 'title'
+  | 'code'
+  | 'status'
+  | 'created_at'
+  | 'selected_solar_kit_id'
+  | 'flow_state'
+  | 'flow_completed'
+> & {
   client: { name: string | null } | null;
 };
 
@@ -45,7 +50,7 @@ type MetricCardProps = {
 };
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Pendente', className: 'border-amber-300/40 bg-amber-400/10 text-amber-300' },
+  draft: { label: 'Rascunho', className: 'border-sky-300/40 bg-sky-400/10 text-sky-300' },
   pending: { label: 'Pendente', className: 'border-amber-300/40 bg-amber-400/10 text-amber-300' },
   sent: { label: 'Enviada', className: 'border-sky-300/40 bg-sky-400/10 text-sky-300' },
   viewed: { label: 'Visualizada', className: 'border-violet-300/40 bg-violet-400/10 text-violet-300' },
@@ -134,7 +139,7 @@ export function Dashboard() {
         supabase.from('solar_kits').select('*', { count: 'exact', head: true }),
         supabase
           .from('proposals')
-          .select('id, title, code, status, created_at, selected_solar_kit_id, client:clients(name)', { count: 'exact' })
+          .select('id, title, code, status, created_at, selected_solar_kit_id, flow_state, flow_completed, client:clients(name)', { count: 'exact' })
           .order('created_at', { ascending: false }),
       ]);
 
@@ -436,14 +441,26 @@ export function Dashboard() {
                   <td className="px-5 py-4"><StatusBadge status={proposal.status} /></td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/propostas/${proposal.id}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-brand-border hover:bg-gray-50 hover:text-brand-blue"
-                        title="Visualizar"
-                        aria-label={`Visualizar proposta ${proposal.title || proposal.code || ''}`}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
+                      {isActiveProposalFlowDraft(proposal) ? (
+                        <Link
+                          to={getProposalContinuePath(proposal.id)}
+                          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-brand-blue px-3 text-xs font-bold text-white transition hover:bg-brand-blue-hover"
+                          title="Continuar preenchimento"
+                          aria-label={`Continuar proposta ${proposal.title || proposal.code || ''}`}
+                        >
+                          Continuar
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                      ) : (
+                        <Link
+                          to={`/propostas/${proposal.id}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-brand-border hover:bg-gray-50 hover:text-brand-blue"
+                          title="Visualizar"
+                          aria-label={`Visualizar proposta ${proposal.title || proposal.code || ''}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      )}
                       <button
                         type="button"
                         className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-red-400 transition hover:border-red-400/20 hover:bg-red-400/10"
