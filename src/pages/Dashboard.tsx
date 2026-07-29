@@ -23,6 +23,7 @@ import {
 import { Card } from '../components/ui/Card';
 import { DeleteConfirmModal } from '../components/ui/DeleteConfirmModal';
 import { getProposalContinuePath, isActiveProposalFlowDraft } from '../lib/proposals/flow';
+import { getProposalStatusPresentation } from '../lib/proposals/presentation';
 import { supabase } from '../lib/supabase/client';
 import { formatDate } from '../lib/utils';
 import { proposalService } from '../services/proposalService';
@@ -49,34 +50,25 @@ type MetricCardProps = {
   trend?: number;
 };
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Rascunho', className: 'border-sky-300/40 bg-sky-400/10 text-sky-300' },
-  pending: { label: 'Pendente', className: 'border-amber-300/40 bg-amber-400/10 text-amber-300' },
-  sent: { label: 'Enviada', className: 'border-sky-300/40 bg-sky-400/10 text-sky-300' },
-  viewed: { label: 'Visualizada', className: 'border-violet-300/40 bg-violet-400/10 text-violet-300' },
-  approved: { label: 'Aprovada', className: 'border-emerald-300/40 bg-emerald-400/10 text-emerald-300' },
-  accepted: { label: 'Aprovada', className: 'border-emerald-300/40 bg-emerald-400/10 text-emerald-300' },
-  rejected: { label: 'Recusada', className: 'border-red-300/40 bg-red-400/10 text-red-300' },
-  expired: { label: 'Expirada', className: 'border-slate-300/40 bg-slate-400/10 text-slate-300' },
-};
-
 const STATUS_CHART_COLORS = [
-  'var(--color-brand-blue, #0076DD)',
+  '#94A3B8',
   'var(--color-brand-yellow, #FACB5C)',
   'var(--color-brand-light, #64B0F3)',
+  '#A78BFA',
+  '#34D399',
   '#F87171',
-  '#94A3B8',
+  '#64748B',
 ];
 
 function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] || {
-    label: status,
-    className: 'border-brand-border bg-gray-50 text-slate-500',
-  };
+  const presentation = getProposalStatusPresentation(status);
 
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${meta.className}`}>
-      {meta.label}
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${presentation.className}`}
+      title={presentation.description}
+    >
+      {presentation.label}
     </span>
   );
 }
@@ -214,9 +206,11 @@ export function Dashboard() {
 
   const proposalStatusData = useMemo(() => {
     const groups = [
-      { name: 'Aprovadas', statuses: ['approved', 'accepted'] },
-      { name: 'Em análise', statuses: ['draft', 'pending', 'viewed'] },
+      { name: 'Rascunhos', statuses: ['draft'] },
+      { name: 'Prontas para envio', statuses: ['pending'] },
       { name: 'Enviadas', statuses: ['sent'] },
+      { name: 'Visualizadas', statuses: ['viewed'] },
+      { name: 'Aprovadas', statuses: ['approved', 'accepted'] },
       { name: 'Recusadas', statuses: ['rejected'] },
       { name: 'Expiradas', statuses: ['expired'] },
     ];
@@ -351,7 +345,7 @@ export function Dashboard() {
         <Card className="p-5 sm:p-6">
           <div>
             <h2 className="font-black text-brand-dark">Status das propostas</h2>
-            <p className="mt-1 text-xs text-slate-500">Distribuição do histórico atual</p>
+            <p className="mt-1 text-xs text-slate-500">Cada etapa do ciclo comercial, sem misturar rascunhos com propostas enviadas</p>
           </div>
           <div className="relative mt-2 h-56">
             <ResponsiveContainer width="100%" height="100%">
