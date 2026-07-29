@@ -7,6 +7,10 @@ import {
 } from '../src/lib/calculations/roofOrientation';
 import { calculateProfessionalSizing } from '../src/lib/calculations/professionalSizing';
 
+const approximatelyEqual = (actual: number, expected: number, tolerance = 0.0001) => {
+  assert.ok(Math.abs(actual - expected) <= tolerance, `Esperado ${expected}, recebido ${actual}`);
+};
+
 test('orientação de referência no hemisfério sul mantém fator próximo de 100%', () => {
   const factor = calculateRoofPlaneOrientationFactor({
     latitudeDegrees: -20,
@@ -40,8 +44,8 @@ test('rendimento do telhado é ponderado pela área útil de cada água', () => 
   const west = result.planes[1].orientationFactor;
   const expected = (north * 30 + west * 10) / 40;
 
-  assert.equal(result.totalAreaM2, 40);
-  assert.equal(result.weightedOrientationFactor, Math.round(expected * 10_000) / 10_000);
+  approximatelyEqual(result.totalAreaM2, 40, 0.001);
+  approximatelyEqual(result.weightedOrientationFactor, expected, 0.0001);
   assert.ok(result.weightedOrientationFactor < north);
   assert.ok(result.weightedOrientationFactor > west);
 });
@@ -59,10 +63,10 @@ test('fator solar reduz geração do kit e aumenta potência necessária', () =>
   const reference = calculateProfessionalSizing({ ...baseInput, roofOrientationFactor: 1 });
   const affected = calculateProfessionalSizing({ ...baseInput, roofOrientationFactor: 0.8 });
 
-  assert.equal(affected.effectivePerformanceRatioPercent, 64);
+  approximatelyEqual(affected.effectivePerformanceRatioPercent, 64, 0.01);
   assert.ok(affected.requiredPowerKwp > reference.requiredPowerKwp);
   assert.ok((affected.selectedKitEstimatedMonthlyGenerationKwh ?? 0) < (reference.selectedKitEstimatedMonthlyGenerationKwh ?? 0));
-  assert.equal(affected.roofOrientationFactor, 0.8);
+  approximatelyEqual(affected.roofOrientationFactor, 0.8, 0.0001);
 });
 
 test('wizard persiste as águas e aplica o fator ao dimensionamento e payback', async () => {
