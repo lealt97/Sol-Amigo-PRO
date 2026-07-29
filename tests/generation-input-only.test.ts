@@ -43,15 +43,15 @@ test('o resumo identifica dinamicamente o tipo de ligação na disponibilidade',
   assert.match(calculatorEntry, /addEventListener\('change', synchronize\)/);
 });
 
-test('a aba do telhado recebe as águas e continua usando as dimensões cadastradas no kit', async () => {
+test('a aba opcional do telhado recebe as águas e continua usando dimensões do kit quando disponíveis', async () => {
   const [calculator, roofEditor] = await Promise.all([
     readFile(CALCULATOR_VIEW, 'utf8'),
     readFile(ROOF_EDITOR, 'utf8'),
   ]);
 
-  assert.match(calculator, /Telhado e orientação/);
+  assert.match(calculator, /Telhado \(opcional\)/);
   assert.match(calculator, /<RoofPlanesEditor/);
-  assert.match(roofEditor, /Área útil/);
+  assert.match(roofEditor, /Área útil \(opcional\)/);
   assert.match(roofEditor, /Inclinação/);
   assert.match(roofEditor, /Orientação da água/);
   assert.doesNotMatch(calculator, /label="Potência do módulo"/);
@@ -64,22 +64,22 @@ test('a aba do telhado recebe as águas e continua usando as dimensões cadastra
   assert.match(calculator, /Os módulos do kit não cabem na área útil do telhado/);
 });
 
-test('a configuração das águas permanece na aba 4 antes da seleção do kit', async () => {
+test('a configuração opcional das águas permanece antes da seleção opcional do kit', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
 
   assert.match(
     calculator,
-    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Telhado e orientação'[\s\S]*id: 'kit'/,
+    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Telhado \(opcional\)'[\s\S]*id: 'kit', title: 'Kit de referência \(opcional\)'/,
   );
   assert.match(
     calculator,
-    /currentStep === 3[\s\S]*Águas, inclinação e orientação do telhado[\s\S]*currentStep === 4[\s\S]*Seleção do kit cadastrado/,
+    /currentStep === 3[\s\S]*Dados do telhado — opcional[\s\S]*currentStep === 4[\s\S]*Kit solar de referência — opcional/,
   );
-  assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*roofOrientationResult/);
-  assert.match(calculator, /if \(currentStep === 4\) \{[\s\S]*dimensões A × L/);
+  assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*hasRoofTechnicalData/);
+  assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
 });
 
-test('a foto do telhado é exibida e persistida dentro da aba 4', async () => {
+test('a foto do telhado é exibida e persistida dentro da aba opcional', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
 
   assert.match(calculator, /import \{ RoofPhotoUpload \} from '\.\/RoofPhotoUpload';/);
