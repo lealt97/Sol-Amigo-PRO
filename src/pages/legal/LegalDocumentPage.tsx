@@ -1,5 +1,6 @@
 import { ArrowLeft, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BrandLogo } from '../../components/brand/BrandLogo';
 import { LEGAL_DOCUMENTS, LegalDocumentType } from '../../lib/legal/legalCatalog';
 
 export function LegalDocumentPage({ type }: { type: LegalDocumentType }) {
@@ -8,11 +9,12 @@ export function LegalDocumentPage({ type }: { type: LegalDocumentType }) {
   return (
     <main className="min-h-screen bg-[#0E2337] px-4 py-10 text-slate-100 sm:px-6">
       <div className="mx-auto max-w-4xl">
+        <BrandLogo format="horizontal" surface="dark" className="mb-6 h-10 w-auto" loading="eager" />
         <Link
           to="/planos"
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-[#64B0F3] hover:bg-white/5"
         >
-          <ArrowLeft className="h-4 w-4" /> Voltar ao SolAmigo
+          <ArrowLeft className="h-4 w-4" /> Voltar à Sol Amigo PRO
         </Link>
 
         <article className="mt-6 overflow-hidden rounded-3xl border border-[#2C527A] bg-[#142E46] shadow-2xl">

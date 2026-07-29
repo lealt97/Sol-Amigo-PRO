@@ -1,6 +1,8 @@
 {
-  "name": "SolAmigo Propostas FV",
-  "description": "SaaS para gerar propostas comerciais profissionais para sistemas solares fotovoltaicos On-Grid.",
+  "name": "Sol Amigo PRO",
+  "description": "SaaS para dimensionamento e geração de propostas comerciais profissionais para sistemas solares fotovoltaicos on-grid.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

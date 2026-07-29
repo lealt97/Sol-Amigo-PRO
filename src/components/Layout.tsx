@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { AnimatedNavbarLogo } from "./brand/AnimatedNavbarLogo";
+import { BrandLogo } from "./brand/BrandLogo";
 import {
   AdminCategoryIcon,
   ClientsCategoryIcon,
@@ -73,7 +73,7 @@ export function Layout() {
   }, [user?.id]);
 
   const displayName = navbarProfile?.seller_name || navbarProfile?.name || user?.user_metadata?.name || 'Usuário';
-  const displayCompany = navbarProfile?.company_name || user?.user_metadata?.company_name || 'SolAmigo Pro';
+  const displayCompany = navbarProfile?.company_name || user?.user_metadata?.company_name || 'Sol Amigo PRO';
   const avatarUrl = navbarProfile?.avatar_url || user?.user_metadata?.avatar_url || null;
 
   useEffect(() => {
@@ -111,7 +111,12 @@ export function Layout() {
               isSidebarExpanded ? "px-3" : "justify-center"
             }`}
           >
-            <AnimatedNavbarLogo className={`${isSidebarExpanded ? "h-14 w-14" : "h-12 w-12"} shrink-0`} />
+            <BrandLogo
+              format={isSidebarExpanded ? 'horizontal' : 'icon'}
+              surface="auto"
+              className={isSidebarExpanded ? 'h-10 w-full max-w-[176px]' : 'h-11 w-11 shrink-0'}
+              loading="eager"
+            />
           </Link>
           <nav className="space-y-1">
             {navItems.map((item) => {
@@ -179,7 +184,7 @@ export function Layout() {
             </button>
             <h2 className="text-sm font-medium text-brand-dark">{getPageTitle()}</h2>
             <div className="h-4 w-[1px] bg-gray-100 hidden sm:block"></div>
-            <span className="text-xs text-slate-500 hidden sm:block">SaaS SolAmigo FV</span>
+            <span className="text-xs text-slate-500 hidden sm:block">Sol Amigo PRO · Propostas fotovoltaicas</span>
           </div>
         </header>
         <div className="p-8 flex-1 overflow-auto flex flex-col">

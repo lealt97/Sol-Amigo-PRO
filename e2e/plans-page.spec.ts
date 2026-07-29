@@ -26,7 +26,7 @@ test.describe('Página pública de planos', () => {
 
     await expect(page.getByTestId('plans-page')).toHaveCSS('background-color', 'rgb(14, 35, 55)');
     await expect(page.getByTestId('plans-title')).toHaveCSS('color', 'rgb(180, 191, 138)');
-    await expect(page.getByTestId('plans-brand-name')).toHaveCSS('color', 'rgb(250, 203, 92)');
+    await expect(page.getByTestId('plans-brand-name').getByRole('img', { name: 'Sol Amigo PRO' })).toBeVisible();
     await expect(texture).toHaveCSS('opacity', '0.9');
     await expect(texture).toHaveCSS('background-repeat', 'repeat');
     await expect(texture).toHaveCSS('background-size', '6px 6px');

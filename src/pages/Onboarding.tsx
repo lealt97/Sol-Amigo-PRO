@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AnimatedNavbarLogo } from '../components/brand/AnimatedNavbarLogo';
+import { BrandLogo } from '../components/brand/BrandLogo';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
@@ -382,11 +382,8 @@ export function Onboarding() {
       <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <AnimatedNavbarLogo className="h-12 w-12" />
-            <div>
-              <p className="text-sm font-bold text-brand-dark">SolAmigo</p>
-              <p className="text-xs text-slate-500">Configuração inicial da conta</p>
-            </div>
+            <BrandLogo format="horizontal" surface="auto" className="h-10 w-auto max-w-[190px]" loading="eager" />
+            <p className="hidden text-xs text-slate-500 sm:block">Configuração inicial da conta</p>
           </div>
           {!mandatoryFirstUse && (
             <Button type="button" variant="outline" onClick={() => navigate('/dashboard')}>

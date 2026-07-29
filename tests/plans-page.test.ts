@@ -64,7 +64,7 @@ test('identidade visual usa fundo do login, textura de 6px centralizada e opacid
   ]);
 
   assert.match(page, /data-testid="plans-page"[\s\S]*bg-\[#0E2337\]/);
-  assert.match(page, /data-testid="plans-brand-name"[\s\S]*text-\[#FACB5C\]/);
+  assert.match(page, /data-testid="plans-brand-name"[\s\S]*<BrandLogo[\s\S]*format="horizontal"[\s\S]*surface="dark"/);
   assert.match(page, /data-testid="plans-title"[\s\S]*text-\[#B4BF8A\]/);
   assert.match(page, /bg-\[#142E46\]\/95/);
   assert.match(page, /bg-\[#0076DD\]/);

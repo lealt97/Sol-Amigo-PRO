@@ -1,5 +1,6 @@
-import { ArrowRight, Check, Info, Sparkles, Star, Sun } from 'lucide-react';
+import { ArrowRight, Check, Info, Sparkles, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BrandLogo } from '../components/brand/BrandLogo';
 import { useAuth } from '../contexts/AuthContext';
 import {
   FREE_PLAN,
@@ -103,17 +104,8 @@ const plans: Plan[] = [
 
 function BrandMark() {
   return (
-    <span className="flex items-center gap-2.5" aria-label="SolAmigo">
-      <span className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-xl bg-[#0076DD] text-white shadow-[0_8px_24px_rgba(0,118,221,0.28)]">
-        <Sun className="h-5 w-5" aria-hidden="true" />
-        <span className="absolute -bottom-3 -right-3 h-7 w-7 rounded-full bg-[#FACB5C]/90" />
-      </span>
-      <span
-        data-testid="plans-brand-name"
-        className="text-xl font-extrabold tracking-[-0.035em] text-[#FACB5C]"
-      >
-        SolAmigo
-      </span>
+    <span data-testid="plans-brand-name" className="flex items-center" aria-label="Sol Amigo PRO">
+      <BrandLogo format="horizontal" surface="dark" className="h-9 w-auto max-w-[180px]" loading="eager" />
     </span>
   );
 }
