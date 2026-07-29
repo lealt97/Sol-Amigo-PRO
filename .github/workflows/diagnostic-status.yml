@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -16,134 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  apply-dashboard-draft-rule:
-    name: Aplicar regra de rascunho no Dashboard
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Baixar código
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Corrigir status e ações
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('src/pages/Dashboard.tsx')
-          source = path.read_text()
-
-          replacements = [
-            (
-              "import { ArrowDownRight, ArrowUpRight, Eye, RefreshCw, Trash2 } from 'lucide-react';",
-              "import { ArrowDownRight, ArrowRight, ArrowUpRight, Eye, RefreshCw, Trash2 } from 'lucide-react';",
-            ),
-            (
-              "import { formatDate } from '../lib/utils';",
-              "import { getProposalContinuePath, isActiveProposalFlowDraft } from '../lib/proposals/flow';\nimport { formatDate } from '../lib/utils';",
-            ),
-            (
-              "import { proposalService } from '../services/proposalService';",
-              "import { proposalService } from '../services/proposalService';\nimport type { Proposal } from '../types/proposal';",
-            ),
-            (
-              "type ProposalRow = {\n  id: string;\n  title: string | null;\n  code: string | null;\n  status: string;\n  created_at: string;\n  selected_solar_kit_id: string | null;\n  client: { name: string | null } | null;\n};",
-              "type ProposalRow = Pick<Proposal,\n  | 'id'\n  | 'title'\n  | 'code'\n  | 'status'\n  | 'created_at'\n  | 'selected_solar_kit_id'\n  | 'flow_state'\n  | 'flow_completed'\n> & {\n  client: { name: string | null } | null;\n};",
-            ),
-            (
-              "  draft: { label: 'Pendente', className: 'border-amber-300/40 bg-amber-400/10 text-amber-300' },",
-              "  draft: { label: 'Rascunho', className: 'border-sky-300/40 bg-sky-400/10 text-sky-300' },",
-            ),
-            (
-              ".select('id, title, code, status, created_at, selected_solar_kit_id, client:clients(name)', { count: 'exact' })",
-              ".select('id, title, code, status, created_at, selected_solar_kit_id, flow_state, flow_completed, client:clients(name)', { count: 'exact' })",
-            ),
-          ]
-
-          for old, new in replacements:
-            if old not in source:
-              raise SystemExit(f'Trecho esperado não encontrado: {old[:100]}')
-            source = source.replace(old, new, 1)
-
-          old_actions = '''                      <Link
-                        to={`/propostas/${proposal.id}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-brand-border hover:bg-gray-50 hover:text-brand-blue"
-                        title="Visualizar"
-                        aria-label={`Visualizar proposta ${proposal.title || proposal.code || ''}`}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>'''
-
-          new_actions = '''                      {isActiveProposalFlowDraft(proposal) ? (
-                        <Link
-                          to={getProposalContinuePath(proposal.id)}
-                          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-brand-blue px-3 text-xs font-bold text-white transition hover:bg-brand-blue-hover"
-                          title="Continuar preenchimento"
-                          aria-label={`Continuar proposta ${proposal.title || proposal.code || ''}`}
-                        >
-                          Continuar
-                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                        </Link>
-                      ) : (
-                        <Link
-                          to={`/propostas/${proposal.id}`}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-slate-500 transition hover:border-brand-border hover:bg-gray-50 hover:text-brand-blue"
-                          title="Visualizar"
-                          aria-label={`Visualizar proposta ${proposal.title || proposal.code || ''}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      )}'''
-
-          if old_actions not in source:
-            raise SystemExit('Bloco de visualização do Dashboard não encontrado.')
-          source = source.replace(old_actions, new_actions, 1)
-          path.write_text(source)
-          PY
-
-      - name: Adicionar proteção de regressão
-        shell: bash
-        run: |
-          cat > tests/dashboard-draft-actions.test.ts <<'EOF'
-          import assert from 'node:assert/strict';
-          import { readFile } from 'node:fs/promises';
-          import test from 'node:test';
-
-          test('dashboard aplica a regra de rascunho ativo: continuar e excluir', async () => {
-            const source = await readFile('src/pages/Dashboard.tsx', 'utf8');
-
-            assert.match(source, /flow_state, flow_completed/);
-            assert.match(source, /isActiveProposalFlowDraft/);
-            assert.match(source, /getProposalContinuePath/);
-            assert.match(source, /isActiveProposalFlowDraft\(proposal\) \? \([\s\S]*Continuar[\s\S]*\) : \([\s\S]*title="Visualizar"/);
-            assert.match(source, /title="Excluir"/);
-            assert.match(source, /draft: \{ label: 'Rascunho'/);
-            assert.doesNotMatch(source, /draft: \{ label: 'Pendente'/);
-          });
-          EOF
-
-      - name: Validar correção
-        shell: bash
-        run: |
-          npm ci
-          npm run typecheck
-          npm run test
-          npm run build:app
-
-      - name: Publicar correção
-        shell: bash
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/pages/Dashboard.tsx tests/dashboard-draft-actions.test.ts
-          git commit -m 'fix(dashboard): respeitar ações de rascunho ativo'
-          git push origin main
-
   diagnose:
     name: Diagnosticar TypeScript, testes e build
     runs-on: ubuntu-latest
