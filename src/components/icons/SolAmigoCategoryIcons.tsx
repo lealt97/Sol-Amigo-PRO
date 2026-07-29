@@ -1,3 +1,4 @@
+import type { SVGProps } from 'react';
 import {
   ChartNoAxesCombined,
   ContactRound,
@@ -7,10 +8,9 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   type LucideIcon,
-  type LucideProps,
 } from 'lucide-react';
 
-type CategoryIconProps = LucideProps & {
+type CategoryIconProps = SVGProps<SVGSVGElement> & {
   title?: string;
 };
 
