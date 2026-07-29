@@ -36,6 +36,7 @@ import {
   type ConnectionType,
   type ProfessionalSizingResult,
 } from '../../lib/calculations/professionalSizing';
+import { calculateRoofOrientation, type RoofOrientationResult } from '../../lib/calculations/roofOrientation';
 import {
   calculateModuleSizing,
   type ModuleSizingResult,
@@ -58,6 +59,7 @@ import {
   PROPOSAL_DRAFT_VERSION,
   isProposalDraftState,
   type ProposalDraftPaybackForm,
+  type ProposalDraftRoofPlane,
   type ProposalDraftState,
 } from '../../types/proposalDraft';
 import {
@@ -68,6 +70,7 @@ import {
 import { ProposalDeliveryPanel } from '../../components/proposals/ProposalDeliveryPanel';
 import { PaybackStep } from './PaybackStep';
 import { RoofPhotoUpload } from './RoofPhotoUpload';
+import { RoofPlanesEditor, createRoofPlaneDraft } from './RoofPlanesEditor';
 
 const MONTHS = [
   'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
@@ -78,7 +81,7 @@ const STEPS = [
   { id: 'client', title: 'Cliente' },
   { id: 'consumption', title: 'Consumo' },
   { id: 'irradiation', title: 'HSP e meta de geração' },
-  { id: 'modules', title: 'Área do telhado M²' },
+  { id: 'modules', title: 'Telhado e orientação' },
   { id: 'kit', title: 'Kit solar' },
   { id: 'payback', title: 'Payback' },
   { id: 'result', title: 'Resultado' },
@@ -211,6 +214,8 @@ export function ProfessionalSizingCalculator() {
   const [moduleWidthM, setModuleWidthM] = useState('');
   const [moduleHeightM, setModuleHeightM] = useState('');
   const [roofAreaM2, setRoofAreaM2] = useState('');
+  const [siteLatitudeDegrees, setSiteLatitudeDegrees] = useState('-20');
+  const [roofPlanes, setRoofPlanes] = useState<ProposalDraftRoofPlane[]>([createRoofPlaneDraft(0)]);
 
   const [kits, setKits] = useState<SolarKit[]>([]);
   const [selectedKitId, setSelectedKitId] = useState('');
@@ -250,6 +255,10 @@ export function ProfessionalSizingCalculator() {
     setModuleWidthM(state.moduleWidthM);
     setModuleHeightM(state.moduleHeightM);
     setRoofAreaM2(state.roofAreaM2);
+    setSiteLatitudeDegrees(state.siteLatitudeDegrees || '-20');
+    setRoofPlanes(state.roofPlanes?.length
+      ? state.roofPlanes
+      : [createRoofPlaneDraft(0, state.roofAreaM2)]);
     setRoofPhotoReference(state.roofPhotoReference);
     setSelectedKitId(state.selectedKitId);
     setPaybackForm(state.paybackForm);
@@ -393,6 +402,37 @@ export function ProfessionalSizingCalculator() {
     };
   }, [connectionType, consumptionMode, consumptionResolution.averageMonthlyConsumptionKwh]);
 
+  const roofOrientationCalculation = useMemo<{ result: RoofOrientationResult | null; error: string | null }>(() => {
+    try {
+      const latitudeDegrees = parseNumber(siteLatitudeDegrees);
+      const planes = roofPlanes.map((plane, index) => ({
+        id: plane.id,
+        name: plane.name.trim() || `Água ${index + 1}`,
+        areaM2: parseNumber(plane.areaM2),
+        tiltDegrees: parseNumber(plane.tiltDegrees),
+        azimuthDegrees: parseNumber(plane.azimuthDegrees),
+        cardinalDirection: plane.cardinalDirection,
+      }));
+
+      return {
+        result: calculateRoofOrientation({ latitudeDegrees, planes }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        result: null,
+        error: error instanceof Error ? error.message : 'Não foi possível calcular a orientação do telhado.',
+      };
+    }
+  }, [roofPlanes, siteLatitudeDegrees]);
+
+  const roofOrientationResult = roofOrientationCalculation.result;
+
+  useEffect(() => {
+    if (!roofOrientationResult) return;
+    setRoofAreaM2(String(roofOrientationResult.totalAreaM2));
+  }, [roofOrientationResult]);
+
   const calculation = useMemo(() => {
     if (!consumptionResolution.monthlySeries) return { result: null, error: null };
 
@@ -410,6 +450,7 @@ export function ProfessionalSizingCalculator() {
           connectionType,
           hspDaily: hsp,
           performanceRatioPercent: performanceRatio,
+          roofOrientationFactor: roofOrientationResult?.weightedOrientationFactor ?? 1,
           generationIncreasePercent: generationIncrease,
           selectedKitPowerKwp: selectedKit?.kit_power_kwp ?? null,
         }),
@@ -426,6 +467,7 @@ export function ProfessionalSizingCalculator() {
     consumptionResolution.monthlySeries,
     hspDaily,
     performanceRatioPercent,
+    roofOrientationResult,
     generationIncreasePercent,
     selectedKit,
   ]);
@@ -500,9 +542,8 @@ export function ProfessionalSizingCalculator() {
     }
 
     if (currentStep === 3) {
-      const parsedRoofArea = parseNumber(roofAreaM2);
-      if (!Number.isFinite(parsedRoofArea) || parsedRoofArea <= 0) {
-        toast.error('Informe a área do telhado em m² com um valor maior que zero.');
+      if (!roofOrientationResult) {
+        toast.error(roofOrientationCalculation.error || 'Revise as águas, inclinações e orientações do telhado.');
         return false;
       }
     }
@@ -548,6 +589,8 @@ export function ProfessionalSizingCalculator() {
     moduleWidthM,
     moduleHeightM,
     roofAreaM2,
+    siteLatitudeDegrees,
+    roofPlanes,
     roofPhotoReference,
     selectedKitId,
     paybackForm,
@@ -574,8 +617,12 @@ export function ProfessionalSizingCalculator() {
       estimated_daily_consumption: calculation.result?.targetDailyGenerationKwh ?? null,
       energy_tariff: tariff == null ? null : tariff / 100,
       bill_amount: billAmount,
-      roof_area_m2: parseOptionalNumber(roofAreaM2),
+      roof_area_m2: roofOrientationResult?.totalAreaM2 ?? parseOptionalNumber(roofAreaM2),
       roof_image_url: roofPhotoReference,
+      roof_latitude_degrees: roofOrientationResult?.latitudeDegrees ?? parseOptionalNumber(siteLatitudeDegrees),
+      roof_planes_json: roofOrientationResult?.planes.map(({ orientationFactor: _factor, orientationLossPercent: _loss, ...plane }) => plane) ?? [],
+      roof_orientation_factor: roofOrientationResult?.weightedOrientationFactor ?? null,
+      effective_performance_ratio: calculation.result?.performanceRatio ?? null,
       module_width_m: selectedKit?.module_width_m ?? parseOptionalNumber(moduleWidthM),
       module_height_m: selectedKit?.module_height_m ?? parseOptionalNumber(moduleHeightM),
       selected_solar_kit_id: selectedKit?.id ?? null,
@@ -1044,9 +1091,9 @@ export function ProfessionalSizingCalculator() {
             {currentStep === 2 && (
               <section className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-brand-dark">HSP, rendimento e meta de geração</h2>
+                  <h2 className="text-lg font-bold text-brand-dark">HSP, perdas e meta de geração</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Informe a HSP, o rendimento global e quanto o cliente deseja gerar além do consumo compensável.
+                    Informe a HSP, o rendimento-base do sistema e quanto o cliente deseja gerar além do consumo compensável. A orientação do telhado será aplicada na próxima etapa.
                   </p>
                 </div>
 
@@ -1061,14 +1108,14 @@ export function ProfessionalSizingCalculator() {
                     helper="Use a HSP média diária obtida para a região do cliente."
                   />
                   <Field
-                    label="Rendimento global"
+                    label="Rendimento-base do sistema"
                     value={performanceRatioPercent}
                     onChange={setPerformanceRatioPercent}
                     suffix="%"
                     min={75}
                     max={80}
                     step="0.5"
-                    helper="Faixa adotada neste fluxo: 75% a 80%."
+                    helper="Perdas elétricas, térmicas e operacionais. A inclinação e o azimute serão aplicados separadamente."
                   />
                 </div>
 
@@ -1101,25 +1148,27 @@ export function ProfessionalSizingCalculator() {
             {currentStep === 3 && (
               <section className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-brand-dark">Área do telhado M²</h2>
+                  <h2 className="text-lg font-bold text-brand-dark">Águas, inclinação e orientação do telhado</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Informe a área útil disponível. As dimensões A × L dos módulos serão carregadas automaticamente do kit selecionado na próxima etapa.
+                    Cadastre cada água disponível. A área de cada superfície pondera o impacto da inclinação e do ponto cardeal na geração global.
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
-                  <div className="max-w-md">
-                    <Field
-                      label="Área do telhado"
-                      value={roofAreaM2}
-                      onChange={setRoofAreaM2}
-                      suffix="m²"
-                      min={0.01}
-                      step="0.01"
-                      helper="Informe somente a área útil disponível para instalação dos módulos."
-                    />
+                <RoofPlanesEditor
+                  latitudeDegrees={siteLatitudeDegrees}
+                  onLatitudeChange={setSiteLatitudeDegrees}
+                  planes={roofPlanes}
+                  onPlanesChange={setRoofPlanes}
+                  orientationResult={roofOrientationResult}
+                  basePerformanceRatioPercent={parseOptionalNumber(performanceRatioPercent)}
+                />
+
+                {roofOrientationCalculation.error && (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-300/40 bg-amber-400/10 p-4 text-sm text-amber-200">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                    <p>{roofOrientationCalculation.error}</p>
                   </div>
-                </div>
+                )}
 
                 <RoofPhotoUpload
                   clientId={selectedClient?.id ?? null}
@@ -1360,6 +1409,8 @@ export function ProfessionalSizingCalculator() {
                           <dl className="mt-4 space-y-3 text-sm">
                             <PreviewRow label="Potência necessária" value={`${number.format(result.requiredPowerKwp)} kWp`} />
                             <PreviewRow label="Geração estimada" value={`${number.format(result.selectedKitEstimatedMonthlyGenerationKwh ?? 0)} kWh/mês`} />
+                            <PreviewRow label="Fator solar do telhado" value={`${number.format(result.roofOrientationFactor * 100)}%`} />
+                            <PreviewRow label="Rendimento global efetivo" value={`${number.format(result.effectivePerformanceRatioPercent)}%`} />
                             <PreviewRow label="Cobertura da meta" value={`${number.format(result.selectedKitCoveragePercent ?? 0)}%`} />
                           </dl>
                         </CardContent>
@@ -1435,6 +1486,7 @@ export function ProfessionalSizingCalculator() {
             hspDaily={hspDaily}
             generationIncreasePercent={generationIncreasePercent}
             moduleSizing={moduleSizing.result}
+            roofOrientationResult={roofOrientationResult}
           />
         </div>
       </div>
@@ -1482,6 +1534,7 @@ function SizingPreview({
   hspDaily,
   generationIncreasePercent,
   moduleSizing,
+  roofOrientationResult,
 }: {
   selectedClient: Client | null;
   consumptionPreview: {
@@ -1496,6 +1549,7 @@ function SizingPreview({
   hspDaily: string;
   generationIncreasePercent: string;
   moduleSizing: ModuleSizingResult | null;
+  roofOrientationResult: RoofOrientationResult | null;
 }) {
   return (
     <Card>
@@ -1540,6 +1594,13 @@ function SizingPreview({
             <PreviewRow label="Geração adicional" value={Number.isFinite(parseNumber(generationIncreasePercent)) ? `${number.format(parseNumber(generationIncreasePercent))}%` : '0%'} />
             <PreviewRow label="Meta de geração" value={result ? `${number.format(result.targetMonthlyGenerationKwh)} kWh/mês` : 'Aguardando HSP'} />
             <PreviewRow label="HSP" value={Number.isFinite(parseNumber(hspDaily)) ? `${number.format(parseNumber(hspDaily))} h/dia` : 'Não informada'} />
+            {roofOrientationResult && (
+              <>
+                <PreviewRow label="Águas cadastradas" value={`${roofOrientationResult.planes.length}`} />
+                <PreviewRow label="Fator solar do telhado" value={`${number.format(roofOrientationResult.weightedOrientationFactor * 100)}%`} />
+                <PreviewRow label="Rendimento global efetivo" value={result ? `${number.format(result.effectivePerformanceRatioPercent)}%` : 'Aguardando cálculo'} />
+              </>
+            )}
             <PreviewRow
               label="Energia de geração"
               value={result
