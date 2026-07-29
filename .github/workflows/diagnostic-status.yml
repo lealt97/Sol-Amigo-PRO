@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          python3 scripts/apply_roof_orientation_feature.py > /tmp/roof-patch.log 2>&1
+          python3 scripts/run_roof_patch_tolerant.py > /tmp/roof-patch.log 2>&1
           PATCH_EXIT=$?
           set -e
           cat /tmp/roof-patch.log
