@@ -21,6 +21,7 @@ const ACCOUNT_CLOSURE = 'src/pages/AccountClosure.tsx';
 const PROPOSAL_SERVICE = 'src/services/proposalService.ts';
 const PROPOSAL_LIST = 'src/pages/propostas/ProposalList.tsx';
 const SIZING_CALCULATOR = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
+const ROOF_EDITOR = 'src/pages/propostas/RoofPlanesEditor.tsx';
 const SIZING_ENGINE = 'src/lib/calculations/professionalSizing.ts';
 const CONSUMPTION_ENGINE = 'src/lib/calculations/consumptionModes.ts';
 const CONFIG = 'supabase/config.toml';
@@ -149,11 +150,12 @@ test('onboarding não depende mais de proposta ou cálculo', async () => {
 });
 
 test('dimensionamento começa pelo cliente, oferece três modos de consumo e persiste propostas com segurança', async () => {
-  const [app, service, list, calculator, engine, consumptionEngine] = await Promise.all([
+  const [app, service, list, calculator, roofEditor, engine, consumptionEngine] = await Promise.all([
     read(APP),
     read(PROPOSAL_SERVICE),
     read(PROPOSAL_LIST),
     read(SIZING_CALCULATOR),
+    read(ROOF_EDITOR),
     read(SIZING_ENGINE),
     read(CONSUMPTION_ENGINE),
   ]);
@@ -173,8 +175,9 @@ test('dimensionamento começa pelo cliente, oferece três modos de consumo e per
   assert.match(calculator, /Levantamento de cargas/);
   assert.match(calculator, /Adicionar equipamento/);
   assert.match(calculator, /solarKitService\.getActiveKits\(\)/);
-  assert.match(calculator, /Latitude da instalação/);
-  assert.doesNotMatch(calculator, /Longitude|CRESESB\/SunData|Fonte da irradiação/);
+  assert.match(calculator, /<RoofPlanesEditor/);
+  assert.match(roofEditor, /Latitude da instalação/);
+  assert.doesNotMatch(`${calculator}\n${roofEditor}`, /Longitude|CRESESB\/SunData|Fonte da irradiação/);
   assert.match(calculator, /Geração adicional desejada/);
   assert.match(calculator, /Padrão elétrico da unidade/);
   assert.match(calculator, /Rendimento global/);
