@@ -1,0 +1,118 @@
+name: Aplicar ícones semânticos no Dashboard
+
+on:
+  push:
+    paths:
+      - '.github/triggers/dashboard-icons-v2.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.event.head_commit.message == 'chore: aplicar ícones semânticos do dashboard' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Atualizar Dashboard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/pages/Dashboard.tsx')
+          source = path.read_text()
+
+          source = source.replace(
+              "import { ArrowDownRight, ArrowUpRight, Eye, RefreshCw, Trash2 } from 'lucide-react';",
+              """import {
+            ArrowDownRight,
+            ArrowUpRight,
+            BadgeCheck,
+            ChartNoAxesCombined,
+            ContactRound,
+            FileSearch2,
+            FileSignature,
+            PackageSearch,
+            RefreshCw,
+            Trash2,
+          } from 'lucide-react';""",
+          )
+
+          source = source.replace(
+              """import {
+            ClientsCategoryIcon,
+            DashboardCategoryIcon,
+            ProposalsCategoryIcon,
+            SolarKitsCategoryIcon,
+          } from '../components/icons/SolAmigoCategoryIcons';
+""",
+              '',
+          )
+
+          replacements = {
+              '<DashboardCategoryIcon className="h-5 w-5" />': '<ChartNoAxesCombined className="h-5 w-5" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />',
+              'icon={<ProposalsCategoryIcon className="h-8 w-8 text-brand-blue" />}': 'icon={<FileSignature className="h-6 w-6 text-brand-blue" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />}',
+              'icon={<ClientsCategoryIcon className="h-8 w-8 text-brand-blue" />}': 'icon={<ContactRound className="h-6 w-6 text-brand-blue" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />}',
+              'icon={<SolarKitsCategoryIcon className="h-8 w-8 text-brand-blue" />}': 'icon={<PackageSearch className="h-6 w-6 text-brand-blue" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />}',
+              'icon={<DashboardCategoryIcon className="h-8 w-8 text-brand-blue" />}': 'icon={<BadgeCheck className="h-6 w-6 text-brand-blue" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />}',
+              '<Eye className="h-4 w-4" />': '<FileSearch2 className="h-4 w-4" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />',
+              '<RefreshCw className={`h-4 w-4 ${isLoading ? \'animate-spin\' : \'\'}`} />': '<RefreshCw className={`h-4 w-4 ${isLoading ? \'animate-spin\' : \'\'}`} strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />',
+              '<Trash2 className="h-4 w-4" />': '<Trash2 className="h-4 w-4" strokeWidth={1.9} absoluteStrokeWidth aria-hidden="true" />',
+          }
+
+          for old, new in replacements.items():
+              if old not in source:
+                  raise SystemExit(f'Trecho esperado não encontrado: {old}')
+              source = source.replace(old, new)
+
+          if 'SolAmigoCategoryIcons' in source:
+              raise SystemExit('O Dashboard ainda importa a família antiga de ícones.')
+
+          path.write_text(source)
+          PY
+
+      - name: Adicionar teste de regressão
+        run: |
+          cat > tests/dashboard-icons.test.ts <<'EOF'
+          import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          import test from 'node:test';
+
+          test('dashboard usa a mesma família Lucide semântica da navegação', async () => {
+            const source = await readFile('src/pages/Dashboard.tsx', 'utf8');
+
+            assert.doesNotMatch(source, /SolAmigoCategoryIcons/);
+            assert.match(source, /ChartNoAxesCombined/);
+            assert.match(source, /FileSignature/);
+            assert.match(source, /ContactRound/);
+            assert.match(source, /PackageSearch/);
+            assert.match(source, /BadgeCheck/);
+            assert.match(source, /FileSearch2/);
+            assert.match(source, /strokeWidth=\{1\.9\}/);
+            assert.match(source, /absoluteStrokeWidth/);
+          });
+          EOF
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar TypeScript
+        run: npm run typecheck
+
+      - name: Executar testes
+        run: npm run test
+
+      - name: Gerar build
+        run: npm run build:app
+
+      - name: Publicar correção na main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/Dashboard.tsx tests/dashboard-icons.test.ts
+          git commit -m 'fix(dashboard): alinhar ícones à família visual do sistema'
+          git push origin main
