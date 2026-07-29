@@ -1,3 +1,5 @@
+export const ROOF_ORIENTATION_MODEL_VERSION = 1 as const;
+
 export type RoofCardinalDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'CUSTOM';
 
 export type RoofPlaneConfiguration = {
