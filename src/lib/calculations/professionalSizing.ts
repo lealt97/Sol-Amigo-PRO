@@ -11,6 +11,7 @@ export type ProfessionalSizingInput = {
   connectionType: ConnectionType;
   hspDaily: number;
   performanceRatioPercent: number;
+  roofOrientationFactor?: number;
   generationIncreasePercent?: number;
   selectedKitPowerKwp?: number | null;
 };
@@ -24,7 +25,10 @@ export type ProfessionalSizingResult = {
   generationIncreasePercent: number;
   targetMonthlyGenerationKwh: number;
   targetDailyGenerationKwh: number;
+  basePerformanceRatio: number;
+  roofOrientationFactor: number;
   performanceRatio: number;
+  effectivePerformanceRatioPercent: number;
   requiredPowerKwp: number;
   selectedKitPowerKwp: number | null;
   selectedKitEstimatedMonthlyGenerationKwh: number | null;
@@ -70,9 +74,15 @@ const validateInput = (input: ProfessionalSizingInput) => {
     throw new Error('A HSP diária deve ser maior que zero.');
   }
 
-  assertFinite(input.performanceRatioPercent, 'Rendimento global');
+  assertFinite(input.performanceRatioPercent, 'Rendimento-base');
   if (input.performanceRatioPercent <= 0 || input.performanceRatioPercent > 100) {
-    throw new Error('O rendimento global deve ser maior que 0% e menor ou igual a 100%.');
+    throw new Error('O rendimento-base deve ser maior que 0% e menor ou igual a 100%.');
+  }
+
+  const roofOrientationFactor = input.roofOrientationFactor ?? 1;
+  assertFinite(roofOrientationFactor, 'Fator solar do telhado');
+  if (roofOrientationFactor <= 0 || roofOrientationFactor > 1) {
+    throw new Error('O fator solar do telhado deve ser maior que 0 e menor ou igual a 1.');
   }
 
   const generationIncreasePercent = input.generationIncreasePercent ?? 0;
@@ -114,7 +124,9 @@ export function calculateProfessionalSizing(
   const targetMonthlyGenerationKwh = compensableMonthlyConsumptionKwh
     * (1 + generationIncreasePercent / 100);
   const targetDailyGenerationKwh = targetMonthlyGenerationKwh / 30;
-  const performanceRatio = input.performanceRatioPercent / 100;
+  const basePerformanceRatio = input.performanceRatioPercent / 100;
+  const roofOrientationFactor = input.roofOrientationFactor ?? 1;
+  const performanceRatio = basePerformanceRatio * roofOrientationFactor;
   const requiredPowerKwp = targetDailyGenerationKwh
     / (input.hspDaily * performanceRatio);
 
@@ -141,7 +153,10 @@ export function calculateProfessionalSizing(
     generationIncreasePercent: round(generationIncreasePercent),
     targetMonthlyGenerationKwh: round(targetMonthlyGenerationKwh),
     targetDailyGenerationKwh: truncate(targetDailyGenerationKwh, 2),
+    basePerformanceRatio: round(basePerformanceRatio, 4),
+    roofOrientationFactor: round(roofOrientationFactor, 4),
     performanceRatio: round(performanceRatio, 4),
+    effectivePerformanceRatioPercent: round(performanceRatio * 100, 2),
     requiredPowerKwp: round(requiredPowerKwp, 3),
     selectedKitPowerKwp: selectedKitPowerKwp == null ? null : round(selectedKitPowerKwp, 3),
     selectedKitEstimatedMonthlyGenerationKwh:
