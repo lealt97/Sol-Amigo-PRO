@@ -1,2 +1,0 @@
-Aplicar a família visual Lucide semântica aos ícones remanescentes do Dashboard.
-Tentativa 3.
