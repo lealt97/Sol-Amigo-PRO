@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { DeleteConfirmModal } from '../../components/ui/DeleteConfirmModal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { getProposalStatusLabel } from '../../lib/proposals/presentation';
+import { getProposalStatusPresentation } from '../../lib/proposals/presentation';
 import { formatDate } from '../../lib/utils';
 import { proposalService } from '../../services/proposalService';
 import { Proposal } from '../../types/proposal';
@@ -52,11 +52,7 @@ export function ProposalList() {
       const matchSearch = proposal.title?.toLowerCase().includes(term)
         || proposal.code?.toLowerCase().includes(term)
         || proposal.client?.name.toLowerCase().includes(term);
-      const matchStatus = statusFilter
-        ? statusFilter === 'pending_like'
-          ? proposal.status === 'pending'
-          : proposal.status === statusFilter
-        : true;
+      const matchStatus = statusFilter ? proposal.status === statusFilter : true;
       return Boolean(matchSearch && matchStatus);
     }));
   }, [searchTerm, statusFilter, proposals]);
@@ -129,14 +125,15 @@ export function ProposalList() {
               onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
-          <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full md:w-48">
+          <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full md:w-52">
             <option value="">Todos os status</option>
             <option value="draft">Rascunho</option>
-            <option value="pending_like">Pendente</option>
+            <option value="pending">Pronta para envio</option>
             <option value="sent">Enviada</option>
             <option value="viewed">Visualizada</option>
             <option value="approved">Aprovada</option>
             <option value="rejected">Recusada</option>
+            <option value="expired">Expirada</option>
           </Select>
         </div>
 
@@ -158,33 +155,39 @@ export function ProposalList() {
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Carregando propostas...</td></tr>
               ) : filteredProposals.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Nenhuma proposta encontrada.</td></tr>
-              ) : filteredProposals.map((proposal) => (
-                <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p>
-                    <p className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</p>
-                  </td>
-                  <td className="px-4 py-3 text-brand-dark">{proposal.client?.name || '-'}</td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full border border-brand-border px-2.5 py-0.5 text-xs">
-                      {getProposalStatusLabel(proposal.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">{formatDate(proposal.updated_at || proposal.created_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <ProposalActionButtons
-                      proposal={proposal}
-                      isDuplicating={duplicatingProposalId === proposal.id}
-                      onDuplicate={duplicateProposal}
-                      onRename={(target) => setProposalToRename({ id: target.id, title: target.title || 'Proposta sem título' })}
-                      onDelete={(target) => {
-                        setProposalToDelete({ id: target.id, title: target.title });
-                        setDeleteModalOpen(true);
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
+              ) : filteredProposals.map((proposal) => {
+                const statusPresentation = getProposalStatusPresentation(proposal.status);
+                return (
+                  <tr key={proposal.id} className="border-b border-brand-border hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-brand-dark">{proposal.title || 'Sem título'}</p>
+                      <p className="text-[11px] text-slate-500">{proposal.code || 'Sem código'}</p>
+                    </td>
+                    <td className="px-4 py-3 text-brand-dark">{proposal.client?.name || '-'}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full border px-2.5 py-0.5 text-xs ${statusPresentation.className}`}
+                        title={statusPresentation.description}
+                      >
+                        {statusPresentation.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{formatDate(proposal.updated_at || proposal.created_at)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <ProposalActionButtons
+                        proposal={proposal}
+                        isDuplicating={duplicatingProposalId === proposal.id}
+                        onDuplicate={duplicateProposal}
+                        onRename={(target) => setProposalToRename({ id: target.id, title: target.title || 'Proposta sem título' })}
+                        onDelete={(target) => {
+                          setProposalToDelete({ id: target.id, title: target.title });
+                          setDeleteModalOpen(true);
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
