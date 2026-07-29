@@ -1,20 +1,28 @@
 import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Menu } from "lucide-react";
+import {
+  ChartNoAxesCombined,
+  ContactRound,
+  FileSignature,
+  LogOut,
+  Menu,
+  PackageSearch,
+  PenTool,
+  ShieldCheck,
+  SlidersHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { BrandLogo } from "./brand/BrandLogo";
-import {
-  AdminCategoryIcon,
-  ClientsCategoryIcon,
-  DashboardCategoryIcon,
-  DesignPdfCategoryIcon,
-  ProposalsCategoryIcon,
-  SettingsCategoryIcon,
-  SolarKitsCategoryIcon,
-} from "./icons/SolAmigoCategoryIcons";
 import { profileService } from "../services/profileService";
 import { adminService } from "../services/adminService";
 import { Profile } from "../types/profile";
+
+type NavigationItem = {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+};
 
 export function Layout() {
   const { user, signOut } = useAuth();
@@ -85,14 +93,14 @@ export function Layout() {
     navigate('/login');
   };
 
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: DashboardCategoryIcon },
-    { path: '/clientes', label: 'Clientes', icon: ClientsCategoryIcon },
-    { path: '/propostas', label: 'Propostas', icon: ProposalsCategoryIcon },
-    { path: '/kits-solares', label: 'Kits Solares', icon: SolarKitsCategoryIcon },
-    { path: '/design-pdf', label: 'Design PDF', icon: DesignPdfCategoryIcon },
-    { path: '/configuracoes', label: 'Configurações da Conta', icon: SettingsCategoryIcon },
-    ...(isAdmin ? [{ path: '/admin', label: 'Administração', icon: AdminCategoryIcon }] : []),
+  const navItems: NavigationItem[] = [
+    { path: '/dashboard', label: 'Dashboard', icon: ChartNoAxesCombined },
+    { path: '/clientes', label: 'Clientes', icon: ContactRound },
+    { path: '/propostas', label: 'Propostas', icon: FileSignature },
+    { path: '/kits-solares', label: 'Kits Solares', icon: PackageSearch },
+    { path: '/design-pdf', label: 'Design PDF', icon: PenTool },
+    { path: '/configuracoes', label: 'Configurações da Conta', icon: SlidersHorizontal },
+    ...(isAdmin ? [{ path: '/admin', label: 'Administração', icon: ShieldCheck }] : []),
   ];
 
   const getPageTitle = () => {
@@ -118,7 +126,7 @@ export function Layout() {
               loading="eager"
             />
           </Link>
-          <nav className="space-y-1">
+          <nav className="space-y-1" aria-label="Navegação principal">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -126,17 +134,33 @@ export function Layout() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center overflow-hidden rounded-md transition-colors ${
-                    isSidebarExpanded ? "gap-3 px-3 py-2" : "justify-center p-2"
+                  className={`group flex items-center overflow-hidden rounded-lg transition-colors ${
+                    isSidebarExpanded ? "gap-3 px-3 py-2.5" : "justify-center p-2.5"
                   } ${
                     isActive
-                      ? "bg-gray-50 text-brand-blue"
-                      : "text-slate-500 hover:text-brand-light hover:bg-gray-50/50"
+                      ? "bg-brand-blue/12 text-brand-blue"
+                      : "text-slate-500 hover:bg-gray-50/50 hover:text-brand-light"
                   }`}
                   title={!isSidebarExpanded ? item.label : undefined}
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  <Icon className={`h-6 w-6 shrink-0 transition-transform duration-200 ${isActive ? "scale-105 opacity-100" : "opacity-80"}`} />
-                  {isSidebarExpanded && <span className={`truncate ${isActive ? "font-medium text-brand-dark" : ""}`}>{item.label}</span>}
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-brand-blue/15 text-brand-blue'
+                      : 'bg-transparent text-current group-hover:bg-brand-light/10'
+                  }`}>
+                    <Icon
+                      className="h-5 w-5"
+                      strokeWidth={1.9}
+                      absoluteStrokeWidth
+                      aria-hidden="true"
+                    />
+                  </span>
+                  {isSidebarExpanded && (
+                    <span className={`truncate text-sm ${isActive ? "font-semibold text-brand-dark" : "font-medium"}`}>
+                      {item.label}
+                    </span>
+                  )}
                 </Link>
               );
             })}
