@@ -53,7 +53,7 @@ test('a aba do telhado recebe as águas e continua usando as dimensões cadastra
   assert.match(calculator, /<RoofPlanesEditor/);
   assert.match(roofEditor, /Área útil/);
   assert.match(roofEditor, /Inclinação/);
-  assert.match(roofEditor, /Ponto cardeal/);
+  assert.match(roofEditor, /Orientação da água/);
   assert.doesNotMatch(calculator, /label="Potência do módulo"/);
   assert.doesNotMatch(calculator, /label="Largura do módulo"/);
   assert.doesNotMatch(calculator, /label="Altura do módulo"/);
