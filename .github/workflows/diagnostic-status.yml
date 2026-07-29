@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,31 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-
-      - name: Integrar águas e rendimento do telhado
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          set +e
-          python3 scripts/run_roof_patch_tolerant.py > /tmp/roof-patch.log 2>&1
-          PATCH_EXIT=$?
-          set -e
-          cat /tmp/roof-patch.log
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ "$PATCH_EXIT" -ne 0 ]; then
-            mkdir -p docs
-            cp /tmp/roof-patch.log docs/roof-orientation-patch-error.log
-            git add docs/roof-orientation-patch-error.log
-            git commit -m "chore: registrar falha da integração do telhado"
-            git push --force origin HEAD:refs/heads/automation-roof-debug
-            exit "$PATCH_EXIT"
-          fi
-          if ! git diff --quiet; then
-            git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx src/services/proposalService.ts
-            git commit -m "feat(roof): aplicar águas ao rendimento global"
-          fi
-          git push --force origin HEAD:refs/heads/automation-roof-orientation
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
