@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -24,6 +24,18 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
+
+      - name: Aplicar regra de pré-proposta
+        id: preproposal
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          python3 .github/scripts/run-one-off-preproposal.py
+          if [ -n "$(git status --porcelain src tests)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -121,6 +133,16 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
+
+      - name: Publicar alteração validada
+        if: steps.preproposal.outputs.changed == 'true' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
+        shell: bash
+        run: |
+          git config user.name "Sol Amigo Automation"
+          git config user.email "actions@github.com"
+          git add src tests
+          git commit -m "feat(proposals): tornar dados técnicos opcionais na pré-proposta"
+          git push
 
       - name: Registrar conclusão informativa
         if: always()
