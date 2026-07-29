@@ -41,14 +41,14 @@ jobs:
             cp /tmp/roof-patch.log docs/roof-orientation-patch-error.log
             git add docs/roof-orientation-patch-error.log
             git commit -m "chore: registrar falha da integração do telhado"
-            git push origin HEAD:main
+            git push --force origin HEAD:refs/heads/automation-roof-debug
             exit "$PATCH_EXIT"
           fi
           if ! git diff --quiet; then
             git add src/pages/propostas/ProfessionalSizingCalculatorView.tsx src/services/proposalService.ts
             git commit -m "feat(roof): aplicar águas ao rendimento global"
-            git push origin HEAD:main
           fi
+          git push --force origin HEAD:refs/heads/automation-roof-orientation
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
