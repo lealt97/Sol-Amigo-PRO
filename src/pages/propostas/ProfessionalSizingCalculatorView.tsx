@@ -532,7 +532,7 @@ export function ProfessionalSizingCalculator() {
         return false;
       }
       if (!Number.isFinite(parsedPerformanceRatio) || parsedPerformanceRatio < 75 || parsedPerformanceRatio > 80) {
-        toast.error('Informe um rendimento global entre 75% e 80%.');
+        toast.error('Informe um rendimento-base entre 75% e 80%.');
         return false;
       }
       if (!Number.isFinite(parsedGenerationIncrease) || parsedGenerationIncrease < 0 || parsedGenerationIncrease > 100) {
@@ -1339,7 +1339,7 @@ export function ProfessionalSizingCalculator() {
                         <Gauge className="mt-0.5 h-5 w-5 shrink-0 text-brand-light" />
                         <p>
                           Meta de geração: <strong>{number.format(result.targetMonthlyGenerationKwh)} kWh/mês</strong>, com <strong>{number.format(result.generationIncreasePercent)}%</strong> adicional.
-                          HSP adotada: <strong>{hspDaily} h/dia</strong> e rendimento global de <strong>{performanceRatioPercent}%</strong>.
+                          HSP adotada: <strong>{hspDaily} h/dia</strong>, rendimento-base de <strong>{performanceRatioPercent}%</strong>, fator solar do telhado de <strong>{number.format(result.roofOrientationFactor * 100)}%</strong> e rendimento global efetivo de <strong>{number.format(result.effectivePerformanceRatioPercent)}%</strong>.
                           O saldo mensal estimado do kit em relação à meta é de <strong>{number.format(result.selectedKitEnergyBalanceKwh ?? 0)} kWh</strong>.
                         </p>
                       </div>
