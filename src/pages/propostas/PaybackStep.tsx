@@ -72,6 +72,14 @@ const createDefaultForm = (): PaybackFormState => ({
   averageMonthlyBillAmount: '',
   proposalPrice: '',
   estimatedSystemCost: '',
+  analysisYears: '25',
+  annualTariffEscalationPercent: '4.5',
+  annualGenerationDegradationPercent: '0.5',
+  annualOperationMaintenancePercent: '0.5',
+  discountRatePercent: '8',
+  compensationFactorPercent: '100',
+  inverterReplacementYear: '12',
+  inverterReplacementCost: '',
   pisPercent: '0',
   cofinsPercent: '0',
   icmsPercent: '0',
@@ -81,33 +89,30 @@ const createDefaultForm = (): PaybackFormState => ({
 });
 
 const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {
-  const proposalPrice = typeof form.proposalPrice === 'string'
-    ? form.proposalPrice
-    : typeof form.estimatedSystemCost === 'string'
-      ? form.estimatedSystemCost
-      : '';
-  const averageMonthlyBillAmount = typeof form.averageMonthlyBillAmount === 'string'
-    ? form.averageMonthlyBillAmount
-    : '';
-  const estimatedSystemCost = typeof form.estimatedSystemCost === 'string'
-    ? form.estimatedSystemCost
-    : '';
-  const marginPercentage = typeof form.marginPercentage === 'string' ? form.marginPercentage : '';
-
-  if (
-    form.proposalPrice === proposalPrice
-    && form.averageMonthlyBillAmount === averageMonthlyBillAmount
-    && form.estimatedSystemCost === estimatedSystemCost
-    && form.marginPercentage === marginPercentage
-  ) return form;
-
-  return {
+  const normalized = {
     ...form,
-    proposalPrice,
-    averageMonthlyBillAmount,
-    estimatedSystemCost,
-    marginPercentage,
+    proposalPrice: typeof form.proposalPrice === 'string'
+      ? form.proposalPrice
+      : typeof form.estimatedSystemCost === 'string'
+        ? form.estimatedSystemCost
+        : '',
+    averageMonthlyBillAmount: typeof form.averageMonthlyBillAmount === 'string' ? form.averageMonthlyBillAmount : '',
+    estimatedSystemCost: typeof form.estimatedSystemCost === 'string' ? form.estimatedSystemCost : '',
+    analysisYears: typeof form.analysisYears === 'string' ? form.analysisYears : '25',
+    annualTariffEscalationPercent: typeof form.annualTariffEscalationPercent === 'string' ? form.annualTariffEscalationPercent : '4.5',
+    annualGenerationDegradationPercent: typeof form.annualGenerationDegradationPercent === 'string' ? form.annualGenerationDegradationPercent : '0.5',
+    annualOperationMaintenancePercent: typeof form.annualOperationMaintenancePercent === 'string' ? form.annualOperationMaintenancePercent : '0.5',
+    discountRatePercent: typeof form.discountRatePercent === 'string' ? form.discountRatePercent : '8',
+    compensationFactorPercent: typeof form.compensationFactorPercent === 'string' ? form.compensationFactorPercent : '100',
+    inverterReplacementYear: typeof form.inverterReplacementYear === 'string' ? form.inverterReplacementYear : '12',
+    inverterReplacementCost: typeof form.inverterReplacementCost === 'string' ? form.inverterReplacementCost : '',
+    marginPercentage: typeof form.marginPercentage === 'string' ? form.marginPercentage : '',
   };
+
+  const unchanged = Object.entries(normalized).every(([key, value]) => (
+    form[key as keyof ProposalDraftPaybackForm] === value
+  ));
+  return unchanged ? form : normalized;
 };
 
 const parseNumber = (value: string) => {
@@ -252,6 +257,18 @@ export function PaybackStep({
             description: cost.description.trim() || 'Custo adicional',
             amount: parseNumber(cost.amount || '0'),
           })),
+          analysisYears: parseNumber(form.analysisYears || '25'),
+          annualTariffEscalationPercent: parseNumber(form.annualTariffEscalationPercent || '4.5'),
+          annualGenerationDegradationPercent: parseNumber(form.annualGenerationDegradationPercent || '0.5'),
+          annualOperationMaintenancePercent: parseNumber(form.annualOperationMaintenancePercent || '0.5'),
+          discountRatePercent: parseNumber(form.discountRatePercent || '8'),
+          compensationFactorPercent: parseNumber(form.compensationFactorPercent || '100'),
+          inverterReplacementYear: form.inverterReplacementYear?.trim()
+            ? parseNumber(form.inverterReplacementYear)
+            : null,
+          inverterReplacementCost: form.inverterReplacementCost?.trim()
+            ? parseNumber(form.inverterReplacementCost)
+            : 0,
         }),
         error: null,
       };
@@ -304,9 +321,14 @@ export function PaybackStep({
   const result = calculation.result;
   const chartProjectionLastYear = result?.chartData[result.chartData.length - 1]?.year ?? 0;
   const paybackMarkerYear = result
-    && Number.isFinite(result.paybackYears)
-    && result.paybackYears <= chartProjectionLastYear
-      ? Math.ceil(result.paybackYears)
+    && Number.isFinite(result.simplePaybackYears)
+    && result.simplePaybackYears <= chartProjectionLastYear
+      ? Math.ceil(result.simplePaybackYears)
+      : null;
+  const discountedPaybackMarkerYear = result
+    && Number.isFinite(result.discountedPaybackYears)
+    && result.discountedPaybackYears <= chartProjectionLastYear
+      ? Math.ceil(result.discountedPaybackYears)
       : null;
 
   return (
@@ -413,6 +435,24 @@ export function PaybackStep({
         </div>
       </div>
 
+
+      <details className="rounded-xl border border-brand-border bg-brand-gray/20 p-5">
+        <summary className="cursor-pointer font-bold text-brand-dark">Premissas financeiras avançadas</summary>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          Ajuste as hipóteses usadas no fluxo de caixa. Os valores iniciais são referências editáveis da pré-proposta e devem ser adequados à distribuidora, ao contrato e ao perfil do cliente.
+        </p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <PaybackField label="Horizonte de análise" value={form.analysisYears || '25'} onChange={(value) => updateField('analysisYears', value)} suffix="anos" min={1} max={40} />
+          <PaybackField label="Reajuste anual da tarifa" value={form.annualTariffEscalationPercent || '4.5'} onChange={(value) => updateField('annualTariffEscalationPercent', value)} suffix="% a.a." min={-20} max={100} helper="Projeção de aumento da tarifa; não é garantia de reajuste futuro." />
+          <PaybackField label="Degradação anual da geração" value={form.annualGenerationDegradationPercent || '0.5'} onChange={(value) => updateField('annualGenerationDegradationPercent', value)} suffix="% a.a." min={0} max={10} />
+          <PaybackField label="Operação e manutenção anual" value={form.annualOperationMaintenancePercent || '0.5'} onChange={(value) => updateField('annualOperationMaintenancePercent', value)} suffix="% do preço" min={0} max={20} />
+          <PaybackField label="Taxa de desconto / TMA" value={form.discountRatePercent || '8'} onChange={(value) => updateField('discountRatePercent', value)} suffix="% a.a." min={0} max={100} helper="Usada no VPL e no payback descontado." />
+          <PaybackField label="Fator efetivo de compensação" value={form.compensationFactorPercent || '100'} onChange={(value) => updateField('compensationFactorPercent', value)} suffix="%" min={0} max={100} helper="Reduza quando nem toda a energia compensada tiver o mesmo valor econômico da tarifa." />
+          <PaybackField label="Ano de troca do inversor" value={form.inverterReplacementYear || ''} onChange={(value) => updateField('inverterReplacementYear', value)} suffix="ano" min={1} max={40} helper="Opcional. Deixe vazio quando não quiser provisionar a substituição." />
+          <PaybackField label="Custo estimado da troca" value={form.inverterReplacementCost || ''} onChange={(value) => updateField('inverterReplacementCost', value)} prefix="R$" min={0} />
+        </div>
+      </details>
+
       <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -472,10 +512,17 @@ export function PaybackStep({
       {result && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <PaybackSummary label="Preço da proposta" value={currency.format(result.totalInvestment)} highlight />
-            <PaybackSummary label="Economia mensal" value={currency.format(result.monthlySavings)} />
-            <PaybackSummary label="Economia anual" value={currency.format(result.annualSavings)} />
-            <PaybackSummary label="Payback" value={`${decimal.format(result.paybackYears)} anos`} />
+            <PaybackSummary label="Payback simples" value={Number.isFinite(result.simplePaybackYears) ? `${decimal.format(result.simplePaybackYears)} anos` : 'Não recuperado'} />
+            <PaybackSummary label="Payback descontado" value={Number.isFinite(result.discountedPaybackYears) ? `${decimal.format(result.discountedPaybackYears)} anos` : `Acima de ${result.analysisYears} anos`} highlight />
+            <PaybackSummary label={`VPL em ${result.analysisYears} anos`} value={currency.format(result.netPresentValue)} />
+            <PaybackSummary label="TIR estimada" value={result.internalRateOfReturnPercent == null ? 'Não calculável' : `${decimal.format(result.internalRateOfReturnPercent)}% a.a.`} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <PaybackSummary label="Preço da proposta" value={currency.format(result.totalInvestment)} />
+            <PaybackSummary label="Economia no 1º ano" value={currency.format(result.annualSavings)} />
+            <PaybackSummary label={`Economia bruta em ${result.analysisYears} anos`} value={currency.format(result.lifetimeGrossSavings)} />
+            <PaybackSummary label={`Benefício líquido em ${result.analysisYears} anos`} value={currency.format(result.lifetimeNetSavings - result.totalInvestment)} />
           </div>
 
           {result.hasCostBasis ? (
@@ -546,10 +593,10 @@ export function PaybackStep({
               ? <TriangleAlert className="mt-0.5 h-7 w-7 shrink-0" />
               : <BadgeCheck className="mt-0.5 h-7 w-7 shrink-0" />}
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider opacity-75">Status do payback</p>
+              <p className="text-xs font-bold uppercase tracking-wider opacity-75">Viabilidade financeira projetada</p>
               <h3 className="mt-1 text-xl font-bold">{result.statusLabel}</h3>
               <p className="mt-2 text-sm leading-6">
-                Retorno estimado em <strong>{decimal.format(result.paybackYears)} anos</strong> ({result.paybackMonths} meses), com tarifa efetiva de <strong>{currency.format(result.effectiveTariffPerKwh)}/kWh</strong>.
+                Payback simples de <strong>{Number.isFinite(result.simplePaybackYears) ? `${decimal.format(result.simplePaybackYears)} anos` : 'não recuperado'}</strong> e payback descontado de <strong>{Number.isFinite(result.discountedPaybackYears) ? `${decimal.format(result.discountedPaybackYears)} anos` : `mais de ${result.analysisYears} anos`}</strong>. VPL projetado: <strong>{currency.format(result.netPresentValue)}</strong>.
               </p>
             </div>
           </div>
@@ -573,8 +620,8 @@ export function PaybackStep({
                   <CircleDollarSign className="h-5 w-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-brand-dark">Saldo acumulado em 25 anos</h3>
-                  <p className="mt-1 text-xs text-slate-500">Barras negativas representam capital ainda não recuperado; positivas representam retorno acumulado.</p>
+                  <h3 className="font-bold text-brand-dark">Fluxo de caixa acumulado em {result.analysisYears} anos</h3>
+                  <p className="mt-1 text-xs text-slate-500">Compare o saldo nominal com o saldo descontado pela TMA informada.</p>
                 </div>
               </div>
 
@@ -615,7 +662,7 @@ export function PaybackStep({
                       labelStyle={{ color: 'var(--color-chart-tooltip-muted, var(--color-slate-500))' }}
                       itemStyle={{ color: 'var(--color-chart-tooltip-text, var(--color-brand-dark))' }}
                       labelFormatter={(year) => `Ano ${year}`}
-                      formatter={(value) => [currency.format(Number(value)), 'Saldo acumulado']}
+                      formatter={(value, name) => [currency.format(Number(value)), name === 'discountedCumulativeBalance' ? 'Saldo descontado' : 'Saldo nominal']}
                     />
                     <ReferenceLine
                       y={0}
@@ -625,12 +672,27 @@ export function PaybackStep({
                     {paybackMarkerYear != null && (
                       <ReferenceLine
                         x={paybackMarkerYear}
-                        stroke="var(--color-chart-marker, var(--color-brand-light))"
+                        stroke="var(--color-chart-positive, var(--color-brand-blue))"
                         strokeDasharray="5 4"
                         strokeWidth={2}
                         label={{
-                          value: 'Payback',
+                          value: 'Simples',
                           position: 'insideTopRight',
+                          fill: 'var(--color-chart-positive, var(--color-brand-blue))',
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      />
+                    )}
+                    {discountedPaybackMarkerYear != null && (
+                      <ReferenceLine
+                        x={discountedPaybackMarkerYear}
+                        stroke="var(--color-chart-marker, var(--color-brand-light))"
+                        strokeDasharray="2 4"
+                        strokeWidth={2}
+                        label={{
+                          value: 'Descontado',
+                          position: 'insideBottomRight',
                           fill: 'var(--color-chart-marker, var(--color-brand-light))',
                           fontSize: 12,
                           fontWeight: 700,
@@ -655,6 +717,12 @@ export function PaybackStep({
                         />
                       ))}
                     </Bar>
+                    <Bar
+                      dataKey="discountedCumulativeBalance"
+                      radius={0}
+                      fill="var(--color-chart-marker, var(--color-brand-light))"
+                      opacity={0.72}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -674,13 +742,20 @@ export function PaybackStep({
                   />
                   Retorno acumulado
                 </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-chart-marker, var(--color-brand-light))', opacity: 0.72 }} />
+                  Saldo descontado
+                </span>
                 {paybackMarkerYear != null && (
                   <span className="inline-flex items-center gap-2">
-                    <span
-                      className="w-5 border-t-2 border-dashed"
-                      style={{ borderColor: 'var(--color-chart-marker, var(--color-brand-light))' }}
-                    />
-                    Marco do payback
+                    <span className="w-5 border-t-2 border-dashed" style={{ borderColor: 'var(--color-chart-positive, var(--color-brand-blue))' }} />
+                    Payback simples
+                  </span>
+                )}
+                {discountedPaybackMarkerYear != null && (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="w-5 border-t-2 border-dashed" style={{ borderColor: 'var(--color-chart-marker, var(--color-brand-light))' }} />
+                    Payback descontado
                   </span>
                 )}
               </div>

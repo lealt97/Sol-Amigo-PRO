@@ -35,6 +35,14 @@ export type ProposalDraftPaybackForm = {
   averageMonthlyBillAmount?: string;
   proposalPrice?: string;
   estimatedSystemCost?: string;
+  analysisYears?: string;
+  annualTariffEscalationPercent?: string;
+  annualGenerationDegradationPercent?: string;
+  annualOperationMaintenancePercent?: string;
+  discountRatePercent?: string;
+  compensationFactorPercent?: string;
+  inverterReplacementYear?: string;
+  inverterReplacementCost?: string;
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;
