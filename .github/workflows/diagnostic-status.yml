@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
 
 concurrency:
@@ -25,7 +25,35 @@ jobs:
       - name: Baixar código
         uses: actions/checkout@v4
 
+      - name: Aplicar evolução do payback
+        id: apply
+        if: github.event_name == 'push'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          if grep -q "internalRateOfReturnPercent" src/lib/calculations/payback.ts; then
+            echo "Motor já aplicado." | tee advanced-payback-apply.log
+          else
+            python3 .github/scripts/apply-advanced-payback.py 2>&1 | tee advanced-payback-apply.log
+          fi
+
+      - name: Publicar diagnóstico do aplicador
+        if: always() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.apply.outcome }}
+        shell: bash
+        run: |
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Aplicador do payback" \
+            --outcome "$OUTCOME" \
+            --log advanced-payback-apply.log
+
       - name: Configurar Node.js
+        if: github.event_name != 'push' || steps.apply.outcome == 'success'
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -33,6 +61,7 @@ jobs:
 
       - name: Instalar dependências
         id: install
+        if: github.event_name != 'push' || steps.apply.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
@@ -40,7 +69,7 @@ jobs:
           npm ci 2>&1 | tee install.log
 
       - name: Publicar diagnóstico da instalação
-        if: always()
+        if: always() && (github.event_name != 'push' || steps.apply.outcome == 'success')
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.install.outcome }}
@@ -121,6 +150,18 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
+
+      - name: Publicar motor validado
+        if: github.event_name == 'push' && steps.apply.outcome == 'success' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success' && !contains(steps.apply.outputs.*, 'Motor já aplicado.')
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain src tests)" ]; then
+            git config user.name "Sol Amigo Automation"
+            git config user.email "actions@github.com"
+            git add src tests
+            git commit -m "feat(payback): projetar fluxo de caixa e indicadores avançados"
+            git push
+          fi
 
       - name: Registrar conclusão informativa
         if: always()
