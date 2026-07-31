@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,36 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-
-      - name: Aplicar motor avançado de payback
-        id: advancedpayback
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          if grep -q "internalRateOfReturnPercent" src/lib/calculations/payback.ts; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          elif [ -f docs/.advanced-payback-error.log ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            set +e
-            python3 .github/scripts/apply-advanced-payback.py > advanced-payback-apply.log 2>&1
-            exit_code=$?
-            set -e
-            if [ "$exit_code" -ne 0 ]; then
-              mkdir -p docs
-              cp advanced-payback-apply.log docs/.advanced-payback-error.log
-              git config user.name "Sol Amigo Automation"
-              git config user.email "actions@github.com"
-              git add docs/.advanced-payback-error.log
-              git commit -m "chore: registrar erro do aplicador de payback"
-              git push
-              echo "changed=false" >> "$GITHUB_OUTPUT"
-            elif [ -n "$(git status --porcelain src tests)" ]; then
-              echo "changed=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "changed=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -151,16 +121,6 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
-
-      - name: Publicar motor validado
-        if: steps.advancedpayback.outputs.changed == 'true' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
-        shell: bash
-        run: |
-          git config user.name "Sol Amigo Automation"
-          git config user.email "actions@github.com"
-          git add src tests
-          git commit -m "feat(payback): projetar fluxo de caixa e indicadores avançados"
-          git push
 
       - name: Registrar conclusão informativa
         if: always()
