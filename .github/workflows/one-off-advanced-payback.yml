@@ -3,8 +3,6 @@ name: One-off advanced payback
 on:
   push:
     branches: [main]
-    paths:
-      - 'docs/.apply-advanced-payback'
 
 permissions:
   contents: write
@@ -23,8 +21,19 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Verificar necessidade da alteração
+        id: needed
+        shell: bash
+        run: |
+          if grep -q "internalRateOfReturnPercent" src/lib/calculations/payback.ts; then
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Aplicar alterações
         id: apply
+        if: steps.needed.outputs.value == 'true'
         shell: bash
         run: |
           set +e
@@ -38,7 +47,7 @@ jobs:
           fi
 
       - name: Registrar erro do aplicador
-        if: steps.apply.outputs.exit_code != '0'
+        if: steps.needed.outputs.value == 'true' && steps.apply.outputs.exit_code != '0'
         shell: bash
         run: |
           git config user.name "Sol Amigo Automation"
@@ -49,23 +58,23 @@ jobs:
           exit 1
 
       - name: Instalar dependências
-        if: steps.apply.outputs.exit_code == '0'
+        if: steps.needed.outputs.value == 'true' && steps.apply.outputs.exit_code == '0'
         run: npm ci
 
       - name: Verificar TypeScript
-        if: steps.apply.outputs.exit_code == '0'
+        if: steps.needed.outputs.value == 'true' && steps.apply.outputs.exit_code == '0'
         run: npm run typecheck
 
       - name: Executar testes
-        if: steps.apply.outputs.exit_code == '0'
+        if: steps.needed.outputs.value == 'true' && steps.apply.outputs.exit_code == '0'
         run: npm run test
 
       - name: Gerar build
-        if: steps.apply.outputs.exit_code == '0'
+        if: steps.needed.outputs.value == 'true' && steps.apply.outputs.exit_code == '0'
         run: npm run build:app
 
       - name: Publicar motor validado
-        if: steps.apply.outputs.exit_code == '0'
+        if: steps.needed.outputs.value == 'true' && steps.apply.outputs.exit_code == '0'
         shell: bash
         run: |
           git config user.name "Sol Amigo Automation"
