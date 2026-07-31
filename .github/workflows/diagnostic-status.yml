@@ -32,9 +32,23 @@ jobs:
         run: |
           if grep -q "internalRateOfReturnPercent" src/lib/calculations/payback.ts; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
+          elif [ -f docs/.advanced-payback-error.log ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            python3 .github/scripts/apply-advanced-payback.py
-            if [ -n "$(git status --porcelain src tests)" ]; then
+            set +e
+            python3 .github/scripts/apply-advanced-payback.py > advanced-payback-apply.log 2>&1
+            exit_code=$?
+            set -e
+            if [ "$exit_code" -ne 0 ]; then
+              mkdir -p docs
+              cp advanced-payback-apply.log docs/.advanced-payback-error.log
+              git config user.name "Sol Amigo Automation"
+              git config user.email "actions@github.com"
+              git add docs/.advanced-payback-error.log
+              git commit -m "chore: registrar erro do aplicador de payback"
+              git push
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            elif [ -n "$(git status --porcelain src tests)" ]; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
             else
               echo "changed=false" >> "$GITHUB_OUTPUT"
