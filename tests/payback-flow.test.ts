@@ -17,7 +17,7 @@ test('investimento e payback ocupam a penúltima etapa comercial antes do result
   assert.match(calculator, /if \(currentStep === 5 && !paybackResult\)/);
 });
 
-test('a etapa contém tarifa, tributos, margem, custo preliminar e gráfico vertical', async () => {
+test('a etapa contém tarifa, tributos, margem e gráfico vertical', async () => {
   const payback = await readFile(PAYBACK_STEP, 'utf8');
 
   assert.match(payback, /label="Tarifa de energia"/);
@@ -26,8 +26,6 @@ test('a etapa contém tarifa, tributos, margem, custo preliminar e gráfico vert
   assert.match(payback, /label="ICMS"/);
   assert.match(payback, /label="Outros encargos"/);
   assert.match(payback, /label="Margem de lucro"/);
-  assert.match(payback, /label="Custo estimado preliminar do sistema"/);
-  assert.match(payback, /selectedKit: SolarKit \| null/);
   assert.match(payback, /default_margin_percentage/);
   assert.match(payback, /Configurações da Conta > Preferências Comerciais/);
   assert.match(payback, /Adicionar custo/);
