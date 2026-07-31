@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -24,18 +24,6 @@ jobs:
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
-
-      - name: Aplicar preço direto da proposta
-        id: directprice
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          python3 .github/scripts/apply-direct-proposal-price.py
-          if [ -n "$(git status --porcelain src tests)" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -133,16 +121,6 @@ jobs:
             --context "Diagnóstico / Build" \
             --outcome "$OUTCOME" \
             --log build.log
-
-      - name: Publicar alteração validada
-        if: steps.directprice.outputs.changed == 'true' && steps.typecheck.outcome == 'success' && steps.tests.outcome == 'success' && steps.build.outcome == 'success'
-        shell: bash
-        run: |
-          git config user.name "Sol Amigo Automation"
-          git config user.email "actions@github.com"
-          git add src tests
-          git commit -m "feat(payback): usar preço direto independente do kit"
-          git push
 
       - name: Registrar conclusão informativa
         if: always()
