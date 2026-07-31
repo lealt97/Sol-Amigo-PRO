@@ -36,9 +36,7 @@ test('a fatura é persistida no rascunho e na proposta final', async () => {
 test('a normalização preserva a referência e evita ciclo infinito entre filho e pai', async () => {
   const source = await readFile(PAYBACK_STEP, 'utf8');
 
-  assert.match(
-    source,
-    /form\.proposalPrice === proposalPrice[\s\S]*form\.averageMonthlyBillAmount === averageMonthlyBillAmount/,
-  );
+  assert.match(source, /const unchanged = Object\.entries\(normalized\)\.every/);
+  assert.match(source, /return unchanged \? form : normalized/);
   assert.doesNotMatch(source, /const normalizeForm = .*=> \(\{[\s\S]*\.\.\.form/);
 });
