@@ -34,12 +34,12 @@ export type ProposalDraftPaybackForm = {
   tariffCentsPerKwh: string;
   averageMonthlyBillAmount?: string;
   proposalPrice?: string;
-  estimatedSystemCost?: string; // Campo legado: migrado automaticamente para proposalPrice.
+  estimatedSystemCost?: string;
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;
   otherTariffsPercent: string;
-  marginPercentage?: string; // Campo legado: a margem agora é calculada pelo preço informado.
+  marginPercentage?: string;
   additionalCosts: ProposalDraftAdditionalCost[];
 };
 
