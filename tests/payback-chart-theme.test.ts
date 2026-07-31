@@ -34,9 +34,9 @@ test('motor de cores cria papéis semânticos para gráficos', async () => {
   assert.match(source, /setCssVar\('--color-chart-marker', palette\.chartMarker\)/);
 });
 
-test('gráfico de payback consome a paleta semântica em todos os elementos', async () => {
+test('gráfico de payback consome a paleta semântica nas séries nominal e descontada', async () => {
   const source = await readFile(PAYBACK, 'utf8');
-  const titleIndex = source.indexOf('Saldo acumulado em 25 anos');
+  const titleIndex = source.indexOf('Fluxo de caixa acumulado em {result.analysisYears} anos');
   const start = source.lastIndexOf('          <Card\n', titleIndex);
   const end = source.indexOf('</Card>', titleIndex);
 
@@ -62,8 +62,13 @@ test('gráfico de payback consome a paleta semântica em todos os elementos', as
   }
 
   assert.match(source, /const paybackMarkerYear =/);
-  assert.match(chart, /value: 'Payback'/);
+  assert.match(source, /const discountedPaybackMarkerYear =/);
+  assert.match(chart, /dataKey="cumulativeBalance"/);
+  assert.match(chart, /dataKey="discountedCumulativeBalance"/);
+  assert.match(chart, /value: 'Simples'/);
+  assert.match(chart, /value: 'Descontado'/);
   assert.match(chart, /Capital não recuperado/);
   assert.match(chart, /Retorno acumulado/);
-  assert.match(chart, /Marco do payback/);
+  assert.match(chart, /Payback simples/);
+  assert.match(chart, /Payback descontado/);
 });
