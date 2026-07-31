@@ -1,0 +1,75 @@
+name: One-off advanced payback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/.apply-advanced-payback'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Aplicar alterações
+        id: apply
+        shell: bash
+        run: |
+          set +e
+          python3 .github/scripts/apply-advanced-payback.py > advanced-payback-apply.log 2>&1
+          exit_code=$?
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          if [ "$exit_code" -ne 0 ]; then
+            mkdir -p docs
+            cp advanced-payback-apply.log docs/.advanced-payback-error.log
+          fi
+
+      - name: Registrar erro do aplicador
+        if: steps.apply.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          git config user.name "Sol Amigo Automation"
+          git config user.email "actions@github.com"
+          git add docs/.advanced-payback-error.log
+          git commit -m "chore: registrar erro do aplicador de payback"
+          git push
+          exit 1
+
+      - name: Instalar dependências
+        if: steps.apply.outputs.exit_code == '0'
+        run: npm ci
+
+      - name: Verificar TypeScript
+        if: steps.apply.outputs.exit_code == '0'
+        run: npm run typecheck
+
+      - name: Executar testes
+        if: steps.apply.outputs.exit_code == '0'
+        run: npm run test
+
+      - name: Gerar build
+        if: steps.apply.outputs.exit_code == '0'
+        run: npm run build:app
+
+      - name: Publicar motor validado
+        if: steps.apply.outputs.exit_code == '0'
+        shell: bash
+        run: |
+          git config user.name "Sol Amigo Automation"
+          git config user.email "actions@github.com"
+          git add src tests
+          git commit -m "feat(payback): projetar fluxo de caixa e indicadores avançados"
+          git push
