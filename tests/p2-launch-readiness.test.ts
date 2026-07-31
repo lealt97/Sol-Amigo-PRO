@@ -169,7 +169,7 @@ test('dimensionamento comercial mantém o contrato da pré-proposta', async () =
   assert.match(roofEditor, /Latitude da instalação \(opcional\)/);
   assert.match(roofEditor, /Área útil \(opcional\)/);
   assert.match(payback, /selectedKit: SolarKit \| null/);
-  assert.match(payback, /Custo estimado preliminar do sistema/);
+  assert.match(payback, /Preço da proposta/);
   assert.match(consumptionEngine, /resolveAverageMonthlyConsumptionKwh/);
   assert.match(engine, /requiredPowerKwp/);
   assert.match(engine, /selectedKitPowerKwp/);

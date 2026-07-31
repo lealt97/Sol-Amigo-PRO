@@ -21,7 +21,6 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
 import {
   calculatePayback,
   type PaybackResult,
@@ -31,7 +30,6 @@ import {
   CONNECTION_AVAILABILITY_KWH,
   type ConnectionType,
 } from '../../lib/calculations/professionalSizing';
-import { profileService } from '../../services/profileService';
 import type { ProposalDraftPaybackForm } from '../../types/proposalDraft';
 import type { SolarKit } from '../../types/solarKit';
 
@@ -69,25 +67,46 @@ const createCost = (): AdditionalCostDraft => ({
   amount: '',
 });
 
-const createDefaultForm = (margin = 20): PaybackFormState => ({
+const createDefaultForm = (): PaybackFormState => ({
   tariffCentsPerKwh: '100',
   averageMonthlyBillAmount: '',
+  proposalPrice: '',
   estimatedSystemCost: '',
   pisPercent: '0',
   cofinsPercent: '0',
   icmsPercent: '0',
   otherTariffsPercent: '0',
-  marginPercentage: String(margin),
+  marginPercentage: '',
   additionalCosts: [],
 });
 
 const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {
-  if (typeof form.averageMonthlyBillAmount === 'string' && typeof form.estimatedSystemCost === 'string') return form;
+  const proposalPrice = typeof form.proposalPrice === 'string'
+    ? form.proposalPrice
+    : typeof form.estimatedSystemCost === 'string'
+      ? form.estimatedSystemCost
+      : '';
+  const averageMonthlyBillAmount = typeof form.averageMonthlyBillAmount === 'string'
+    ? form.averageMonthlyBillAmount
+    : '';
+  const estimatedSystemCost = typeof form.estimatedSystemCost === 'string'
+    ? form.estimatedSystemCost
+    : '';
+  const marginPercentage = typeof form.marginPercentage === 'string' ? form.marginPercentage : '';
+
+  if (
+    form.proposalPrice === proposalPrice
+    && form.averageMonthlyBillAmount === averageMonthlyBillAmount
+    && form.estimatedSystemCost === estimatedSystemCost
+    && form.marginPercentage === marginPercentage
+  ) return form;
 
   return {
     ...form,
-    averageMonthlyBillAmount: typeof form.averageMonthlyBillAmount === 'string' ? form.averageMonthlyBillAmount : '',
-    estimatedSystemCost: typeof form.estimatedSystemCost === 'string' ? form.estimatedSystemCost : '',
+    proposalPrice,
+    averageMonthlyBillAmount,
+    estimatedSystemCost,
+    marginPercentage,
   };
 };
 
@@ -165,8 +184,7 @@ export function PaybackStep({
   onDraftChange?: (form: ProposalDraftPaybackForm) => void;
   onResultChange: (result: PaybackResult | null) => void;
 }) {
-  const { user } = useAuth();
-  const storageKey = `sol-amigo:payback:${selectedKit?.id ?? 'manual-estimate'}`;
+  const storageKey = 'sol-amigo:payback:direct-proposal-price';
   const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm()));
   const [hydrated, setHydrated] = useState(false);
 
@@ -193,20 +211,8 @@ export function PaybackStep({
         }
       }
 
-      let defaultMargin = 20;
-      if (user?.id) {
-        try {
-          const profile = await profileService.getProfile(user.id);
-          if (Number.isFinite(profile.default_margin_percentage)) {
-            defaultMargin = Number(profile.default_margin_percentage);
-          }
-        } catch {
-          defaultMargin = 20;
-        }
-      }
-
       if (active) {
-        setForm(createDefaultForm(defaultMargin));
+        setForm(createDefaultForm());
         setHydrated(true);
       }
     };
@@ -215,7 +221,7 @@ export function PaybackStep({
     return () => {
       active = false;
     };
-  }, [initialForm, storageKey, user?.id]);
+  }, [initialForm, storageKey]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -229,8 +235,8 @@ export function PaybackStep({
     try {
       return {
         result: calculatePayback({
-          kitCost: selectedKit?.cost_price ?? parseNumber(form.estimatedSystemCost || ''),
-          marginPercentage: parseNumber(form.marginPercentage),
+          proposalPrice: parseNumber(form.proposalPrice || form.estimatedSystemCost || ''),
+          kitCost: selectedKit?.cost_price ?? null,
           tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),
           averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()
             ? parseNumber(form.averageMonthlyBillAmount)
@@ -319,34 +325,26 @@ export function PaybackStep({
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-none">
           <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Base do investimento</p>
-            {selectedKit ? (
-              <>
-                <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
-                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo do kit</p>
-                    <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
-                  </div>
-                  {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Venda cadastrada</p>
-                      <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.sale_price)}</p>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="mt-3 space-y-4">
-                <p className="text-sm leading-6 text-slate-500">Nenhum kit foi definido. Informe um custo preliminar para calcular a pré-proposta.</p>
-                <PaybackField
-                  label="Custo estimado preliminar do sistema"
-                  value={form.estimatedSystemCost || ''}
-                  onChange={(value) => updateField('estimatedSystemCost', value)}
-                  prefix="R$"
-                  helper="Estimativa comercial sujeita à definição dos equipamentos e à vistoria técnica."
-                />
-              </div>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Valor comercial</p>
+            <div className="mt-4">
+              <PaybackField
+                label="Preço da proposta"
+                value={form.proposalPrice || form.estimatedSystemCost || ''}
+                onChange={(value) => updateField('proposalPrice', value)}
+                prefix="R$"
+                min={0.01}
+                helper="Informe o preço que será apresentado ao cliente. Este valor não depende da seleção de um kit."
+              />
+            </div>
+            {selectedKit?.sale_price != null && selectedKit.sale_price > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4"
+                onClick={() => updateField('proposalPrice', String(selectedKit.sale_price ?? ''))}
+              >
+                Usar preço de venda cadastrado: {currency.format(selectedKit.sale_price)}
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -361,6 +359,25 @@ export function PaybackStep({
           </CardContent>
         </Card>
       </div>
+
+      {selectedKit && (
+        <Card className="border-brand-blue/20 bg-brand-blue/5 shadow-none">
+          <CardContent className="p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Kit de referência — opcional</p>
+            <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
+            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo interno do kit</p>
+                <p className="mt-1 font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Função no cálculo</p>
+                <p className="mt-1 text-slate-600">Referência técnica e cálculo interno de rentabilidade.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
         <div className="flex items-center gap-3">
@@ -393,14 +410,6 @@ export function PaybackStep({
           <PaybackField label="COFINS" value={form.cofinsPercent} onChange={(value) => updateField('cofinsPercent', value)} suffix="%" />
           <PaybackField label="ICMS" value={form.icmsPercent} onChange={(value) => updateField('icmsPercent', value)} suffix="%" />
           <PaybackField label="Outros encargos" value={form.otherTariffsPercent} onChange={(value) => updateField('otherTariffsPercent', value)} suffix="%" />
-          <PaybackField
-            label="Margem de lucro"
-            value={form.marginPercentage}
-            onChange={(value) => updateField('marginPercentage', value)}
-            suffix="%"
-            max={99.99}
-            helper="Carregada de Configurações da Conta > Preferências Comerciais e editável somente nesta proposta."
-          />
         </div>
       </div>
 
@@ -463,11 +472,29 @@ export function PaybackStep({
       {result && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <PaybackSummary label="Investimento final" value={currency.format(result.totalInvestment)} highlight />
-            <PaybackSummary label="Lucro estimado" value={currency.format(result.profitAmount)} />
+            <PaybackSummary label="Preço da proposta" value={currency.format(result.totalInvestment)} highlight />
             <PaybackSummary label="Economia mensal" value={currency.format(result.monthlySavings)} />
             <PaybackSummary label="Economia anual" value={currency.format(result.annualSavings)} />
+            <PaybackSummary label="Payback" value={`${decimal.format(result.paybackYears)} anos`} />
           </div>
+
+          {result.hasCostBasis ? (
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+              <h3 className="font-bold text-brand-dark">Rentabilidade interna</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Calculada com o custo do kit de referência e os custos adicionais informados. Ela não altera o preço da proposta.
+              </p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                <PaybackSummary label="Custo direto" value={currency.format(result.directCost)} />
+                <PaybackSummary label="Lucro estimado" value={currency.format(result.profitAmount)} />
+                <PaybackSummary label="Margem efetiva" value={`${decimal.format(result.marginPercentage)}%`} />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-4 text-sm leading-6 text-slate-500">
+              O payback foi calculado pelo preço informado. A rentabilidade interna ficará disponível quando um kit de referência for selecionado.
+            </div>
+          )}
 
           {result.averageMonthlyBillAmount != null
             && result.estimatedResidualBillAmount != null

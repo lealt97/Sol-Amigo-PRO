@@ -17,7 +17,9 @@ test('pré-proposta não exige telhado nem kit e mantém ressalva de vistoria', 
   assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
   assert.match(calculator, /selectedKit\?\.name \?\? 'A definir após vistoria'/);
   assert.match(payback, /selectedKit: SolarKit \| null/);
-  assert.match(payback, /Custo estimado preliminar do sistema/);
+  assert.match(payback, /Preço da proposta/);
+  assert.match(payback, /não depende da seleção de um kit/);
+  assert.match(draft, /proposalPrice\?: string/);
   assert.match(draft, /estimatedSystemCost\?: string/);
   assert.match(technical, /Solução Técnica Preliminar/);
   assert.match(technical, /Esta é uma pré-proposta comercial/);

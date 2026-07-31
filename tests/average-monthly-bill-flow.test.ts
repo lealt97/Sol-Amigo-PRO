@@ -38,7 +38,7 @@ test('a normalização preserva a referência e evita ciclo infinito entre filho
 
   assert.match(
     source,
-    /typeof form\.averageMonthlyBillAmount === 'string' && typeof form\.estimatedSystemCost === 'string'\) return form/,
+    /form\.proposalPrice === proposalPrice[\s\S]*form\.averageMonthlyBillAmount === averageMonthlyBillAmount/,
   );
   assert.doesNotMatch(source, /const normalizeForm = .*=> \(\{[\s\S]*\.\.\.form/);
 });

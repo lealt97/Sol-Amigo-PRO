@@ -7,8 +7,8 @@ export type PaybackAdditionalCost = {
 };
 
 export type PaybackInput = {
-  kitCost: number;
-  marginPercentage: number;
+  proposalPrice: number;
+  kitCost?: number | null;
   tariffCentsPerKwh: number;
   averageMonthlyBillAmount?: number | null;
   monthlyAvailabilityConsumptionKwh?: number;
@@ -29,6 +29,7 @@ export type PaybackChartPoint = {
 
 export type PaybackResult = {
   kitCost: number;
+  hasCostBasis: boolean;
   additionalCostsTotal: number;
   directCost: number;
   marginPercentage: number;
@@ -86,17 +87,17 @@ export function classifyPayback(paybackYears: number): PaybackStatus {
 }
 
 export function calculatePayback(input: PaybackInput): PaybackResult {
-  assertPositive(input.kitCost, 'Preço do kit');
-  assertNonNegative(input.marginPercentage, 'Margem de lucro');
-  if (input.marginPercentage >= 100) {
-    throw new Error('Margem de lucro deve ser menor que 100%.');
-  }
+  assertPositive(input.proposalPrice, 'Preço da proposta');
+
+  const kitCost = input.kitCost ?? null;
+  if (kitCost != null) assertPositive(kitCost, 'Custo do kit');
 
   assertPositive(input.tariffCentsPerKwh, 'Tarifa de energia');
   const averageMonthlyBillAmount = input.averageMonthlyBillAmount ?? null;
   if (averageMonthlyBillAmount != null) {
     assertPositive(averageMonthlyBillAmount, 'Valor médio mensal da fatura');
   }
+
   const monthlyAvailabilityConsumptionKwh = input.monthlyAvailabilityConsumptionKwh ?? 0;
   assertNonNegative(monthlyAvailabilityConsumptionKwh, 'Custo de disponibilidade');
   assertNonNegative(input.pisPercent, 'PIS');
@@ -111,10 +112,13 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     return total + cost.amount;
   }, 0);
 
-  const directCost = input.kitCost + additionalCostsTotal;
-  const marginFraction = input.marginPercentage / 100;
-  const totalInvestment = directCost / (1 - marginFraction);
-  const profitAmount = totalInvestment - directCost;
+  const hasCostBasis = kitCost != null;
+  const directCost = hasCostBasis ? kitCost + additionalCostsTotal : input.proposalPrice;
+  const profitAmount = hasCostBasis ? input.proposalPrice - directCost : 0;
+  const marginPercentage = hasCostBasis
+    ? (profitAmount / input.proposalPrice) * 100
+    : 0;
+  const totalInvestment = input.proposalPrice;
 
   const totalTariffsPercent = input.pisPercent
     + input.cofinsPercent
@@ -158,10 +162,11 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
   }));
 
   return {
-    kitCost: round(input.kitCost),
+    kitCost: round(kitCost ?? 0),
+    hasCostBasis,
     additionalCostsTotal: round(additionalCostsTotal),
     directCost: round(directCost),
-    marginPercentage: round(input.marginPercentage),
+    marginPercentage: round(marginPercentage),
     profitAmount: round(profitAmount),
     totalInvestment: round(totalInvestment),
     totalTariffsPercent: round(totalTariffsPercent),

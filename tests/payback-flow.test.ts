@@ -10,7 +10,7 @@ test('investimento e payback ocupam a penúltima etapa comercial antes do result
 
   assert.match(
     calculator,
-    /id: 'kit', title: 'Kit de referência \(opcional\)'[\s\S]*id: 'payback', title: 'Investimento e payback'[\s\S]*id: 'result', title: 'Resultado'/,
+    /id: 'kit', title: 'Kit de referência \(opcional\)'[\s\S]*id: 'payback', title: 'Preço e payback'[\s\S]*id: 'result', title: 'Resultado'/,
   );
   assert.match(calculator, /currentStep === 5[\s\S]*<PaybackStep/);
   assert.match(calculator, /currentStep === 6[\s\S]*Resultado do dimensionamento/);
@@ -25,9 +25,9 @@ test('a etapa contém tarifa, tributos, margem e gráfico vertical', async () =>
   assert.match(payback, /label="COFINS"/);
   assert.match(payback, /label="ICMS"/);
   assert.match(payback, /label="Outros encargos"/);
-  assert.match(payback, /label="Margem de lucro"/);
-  assert.match(payback, /default_margin_percentage/);
-  assert.match(payback, /Configurações da Conta > Preferências Comerciais/);
+  assert.match(payback, /label="Preço da proposta"/);
+  assert.match(payback, /Este valor não depende da seleção de um kit/);
+  assert.doesNotMatch(payback, /label="Margem de lucro"/);
   assert.match(payback, /Adicionar custo/);
   assert.match(payback, /<BarChart/);
   assert.match(payback, /<Bar[\s\S]*dataKey="cumulativeBalance"[\s\S]*radius=\{0\}/);

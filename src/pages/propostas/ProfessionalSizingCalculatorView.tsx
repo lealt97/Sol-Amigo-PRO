@@ -83,7 +83,7 @@ const STEPS = [
   { id: 'irradiation', title: 'HSP e meta de geração' },
   { id: 'modules', title: 'Telhado (opcional)' },
   { id: 'kit', title: 'Kit de referência (opcional)' },
-  { id: 'payback', title: 'Investimento e payback' },
+  { id: 'payback', title: 'Preço e payback' },
   { id: 'result', title: 'Resultado' },
   { id: 'delivery', title: 'Gerar e enviar' },
 ] as const;
@@ -592,8 +592,11 @@ export function ProfessionalSizingCalculator() {
       : consumptionMode === 'loads'
         ? 'load_survey'
         : 'average';
-    const margin = paybackResult?.marginPercentage
-      ?? (paybackForm ? parseOptionalNumber(paybackForm.marginPercentage) : null);
+    const margin = selectedKit ? paybackResult?.marginPercentage ?? null : null;
+    const proposalPrice = paybackResult?.totalInvestment
+      ?? (paybackForm
+        ? parseOptionalNumber(paybackForm.proposalPrice || paybackForm.estimatedSystemCost || '')
+        : null);
     const tariff = paybackForm ? parseOptionalNumber(paybackForm.tariffCentsPerKwh) : null;
     const billAmount = paybackForm?.averageMonthlyBillAmount
       ? parseOptionalNumber(paybackForm.averageMonthlyBillAmount)
@@ -617,13 +620,13 @@ export function ProfessionalSizingCalculator() {
       module_height_m: selectedKit?.module_height_m ?? parseOptionalNumber(moduleHeightM),
       selected_solar_kit_id: selectedKit?.id ?? null,
       solar_kit_snapshot: selectedKit ? buildSolarKitSnapshot(selectedKit) : null,
-      kit_cost: paybackResult?.kitCost ?? selectedKit?.cost_price ?? null,
-      other_costs: paybackResult?.additionalCostsTotal ?? null,
+      kit_cost: selectedKit?.cost_price ?? null,
+      other_costs: selectedKit ? paybackResult?.additionalCostsTotal ?? null : null,
       margin_percentage: margin,
-      total_cost: paybackResult?.directCost ?? null,
-      gross_price: paybackResult?.totalInvestment ?? null,
-      final_price: paybackResult?.totalInvestment ?? null,
-      estimated_profit: paybackResult?.profitAmount ?? null,
+      total_cost: selectedKit ? paybackResult?.directCost ?? null : null,
+      gross_price: proposalPrice,
+      final_price: proposalPrice,
+      estimated_profit: selectedKit ? paybackResult?.profitAmount ?? null : null,
     };
   };
 
@@ -1173,7 +1176,7 @@ export function ProfessionalSizingCalculator() {
                 <div>
                   <h2 className="text-lg font-bold text-brand-dark">Kit solar de referência — opcional</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-300">
-                    Selecione um kit apenas quando ele já estiver definido. Sem kit, a pré-proposta usa a potência necessária calculada e um custo preliminar informado na próxima etapa.
+                    Selecione um kit apenas quando ele já estiver definido. Sem kit, a pré-proposta usa a potência necessária calculada e o preço informado diretamente na próxima etapa.
                   </p>
                 </div>
 
@@ -1185,7 +1188,7 @@ export function ProfessionalSizingCalculator() {
                   <EmptyState
                     icon={<PackageCheck className="h-9 w-9 text-slate-400" />}
                     title="Nenhum kit on-grid ativo"
-                    description="O cadastro de kit é opcional para a pré-proposta. Você pode continuar e informar um custo estimado na próxima etapa."
+                    description="O cadastro de kit é opcional para a pré-proposta. Você pode continuar e informar diretamente o preço da proposta na próxima etapa."
                     actionLabel="Abrir catálogo de kits"
                     onAction={() => navigate('/kits-solares')}
                   />
@@ -1376,7 +1379,7 @@ export function ProfessionalSizingCalculator() {
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <Summary label={selectedKit ? 'Kit de referência' : 'Equipamentos'} value={selectedKit?.name ?? 'A definir após vistoria'} />
                       <Summary label={selectedKit ? 'Potência do kit' : 'Potência preliminar'} value={`${number.format(selectedKit?.kit_power_kwp ?? result.requiredPowerKwp)} kWp`} />
-                      <Summary label="Investimento final" value={`R$ ${number.format(paybackResult.totalInvestment)}`} />
+                      <Summary label="Preço da proposta" value={`R$ ${number.format(paybackResult.totalInvestment)}`} />
                       <Summary label="Payback" value={`${number.format(paybackResult.paybackYears)} anos`} highlight />
                     </div>
 
@@ -1425,9 +1428,16 @@ export function ProfessionalSizingCalculator() {
                         <CardContent className="p-5">
                           <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Resultado financeiro</p>
                           <dl className="mt-4 space-y-3 text-sm">
-                            <PreviewRow label="Custo direto" value={`R$ ${number.format(paybackResult.directCost)}`} />
-                            <PreviewRow label="Lucro estimado" value={`R$ ${number.format(paybackResult.profitAmount)}`} />
-                            <PreviewRow label="Margem aplicada" value={`${number.format(paybackResult.marginPercentage)}%`} />
+                            <PreviewRow label="Preço da proposta" value={`R$ ${number.format(paybackResult.totalInvestment)}`} />
+                            {selectedKit ? (
+                              <>
+                                <PreviewRow label="Custo direto estimado" value={`R$ ${number.format(paybackResult.directCost)}`} />
+                                <PreviewRow label="Lucro estimado" value={`R$ ${number.format(paybackResult.profitAmount)}`} />
+                                <PreviewRow label="Margem efetiva" value={`${number.format(paybackResult.marginPercentage)}%`} />
+                              </>
+                            ) : (
+                              <PreviewRow label="Rentabilidade interna" value="Não calculada — kit não definido" />
+                            )}
                   {paybackResult.averageMonthlyBillAmount != null && (
                     <>
                       <PreviewRow label="Fatura média atual" value={`R$ ${number.format(paybackResult.averageMonthlyBillAmount)}`} />

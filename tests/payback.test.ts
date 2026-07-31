@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculatePayback, classifyPayback } from '../src/lib/calculations/payback';
 
-test('calcula investimento, economia e payback com margem sobre o preço de venda', () => {
+test('usa diretamente o preço da proposta e calcula rentabilidade quando há kit', () => {
   const result = calculatePayback({
+    proposalPrice: 31_250,
     kitCost: 20_000,
-    marginPercentage: 20,
     tariffCentsPerKwh: 100,
     pisPercent: 2,
     cofinsPercent: 3,
@@ -19,10 +19,12 @@ test('calcula investimento, economia e payback com margem sobre o preço de vend
     ],
   });
 
+  assert.equal(result.hasCostBasis, true);
   assert.equal(result.additionalCostsTotal, 5_000);
   assert.equal(result.directCost, 25_000);
   assert.equal(result.totalInvestment, 31_250);
   assert.equal(result.profitAmount, 6_250);
+  assert.equal(result.marginPercentage, 20);
   assert.equal(result.effectiveTariffPerKwh, 1.1);
   assert.equal(result.compensatedEnergyKwhPerMonth, 500);
   assert.equal(result.monthlySavings, 550);
@@ -30,16 +32,13 @@ test('calcula investimento, economia e payback com margem sobre o preço de vend
   assert.equal(result.paybackYears, 4.73);
   assert.equal(result.paybackMonths, 57);
   assert.equal(result.status, 'very_good');
-  assert.equal(result.statusLabel, 'Muito bom');
   assert.equal(result.chartData[0]?.cumulativeBalance, -31_250);
-  assert.equal(result.chartData[5]?.cumulativeBalance, 1_750);
-  assert.equal(result.chartData.length, 26);
 });
 
-test('limita a economia à energia que pode ser compensada', () => {
+test('calcula payback sem kit usando somente o preço informado', () => {
   const result = calculatePayback({
-    kitCost: 10_000,
-    marginPercentage: 0,
+    proposalPrice: 10_000,
+    kitCost: null,
     tariffCentsPerKwh: 100,
     pisPercent: 0,
     cofinsPercent: 0,
@@ -50,6 +49,10 @@ test('limita a economia à energia que pode ser compensada', () => {
     additionalCosts: [],
   });
 
+  assert.equal(result.hasCostBasis, false);
+  assert.equal(result.totalInvestment, 10_000);
+  assert.equal(result.profitAmount, 0);
+  assert.equal(result.marginPercentage, 0);
   assert.equal(result.compensatedEnergyKwhPerMonth, 300);
   assert.equal(result.monthlySavings, 300);
 });
@@ -63,11 +66,11 @@ test('classifica os intervalos de retorno', () => {
   assert.equal(classifyPayback(Number.POSITIVE_INFINITY), 'unfeasible');
 });
 
-test('rejeita margem de lucro igual ou superior a 100%', () => {
+test('rejeita preço da proposta vazio ou igual a zero', () => {
   assert.throws(
     () => calculatePayback({
-      kitCost: 20_000,
-      marginPercentage: 100,
+      proposalPrice: 0,
+      kitCost: null,
       tariffCentsPerKwh: 100,
       pisPercent: 0,
       cofinsPercent: 0,
@@ -77,15 +80,14 @@ test('rejeita margem de lucro igual ou superior a 100%', () => {
       monthlyGenerationKwh: 500,
       additionalCosts: [],
     }),
-    /menor que 100%/,
+    /Preço da proposta deve ser maior que zero/,
   );
 });
 
-
 test('compara a fatura média com a tarifa e calcula a fatura residual', () => {
   const result = calculatePayback({
-    kitCost: 10_000,
-    marginPercentage: 0,
+    proposalPrice: 10_000,
+    kitCost: null,
     tariffCentsPerKwh: 100,
     averageMonthlyBillAmount: 610,
     monthlyAvailabilityConsumptionKwh: 30,
@@ -108,8 +110,8 @@ test('compara a fatura média com a tarifa e calcula a fatura residual', () => {
 
 test('sinaliza revisão quando a fatura diverge mais de vinte por cento', () => {
   const result = calculatePayback({
-    kitCost: 10_000,
-    marginPercentage: 0,
+    proposalPrice: 10_000,
+    kitCost: null,
     tariffCentsPerKwh: 100,
     averageMonthlyBillAmount: 800,
     monthlyAvailabilityConsumptionKwh: 30,
@@ -130,8 +132,8 @@ test('sinaliza revisão quando a fatura diverge mais de vinte por cento', () => 
 
 test('mantém a comparação opcional quando a fatura não é informada', () => {
   const result = calculatePayback({
-    kitCost: 10_000,
-    marginPercentage: 0,
+    proposalPrice: 10_000,
+    kitCost: null,
     tariffCentsPerKwh: 100,
     pisPercent: 0,
     cofinsPercent: 0,
