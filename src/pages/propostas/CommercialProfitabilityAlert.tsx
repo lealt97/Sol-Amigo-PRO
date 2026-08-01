@@ -35,11 +35,33 @@ export function CommercialProfitabilityAlert({
   result,
   targetMarginPercentage,
 }: CommercialProfitabilityAlertProps) {
-  const analysis = evaluateCommercialProfitability({
-    proposalPrice: result.totalInvestment,
-    directCost: result.hasCostBasis ? result.directCost : null,
-    targetMarginPercentage,
-  });
+  let analysis: ReturnType<typeof evaluateCommercialProfitability>;
+
+  try {
+    analysis = evaluateCommercialProfitability({
+      proposalPrice: result.totalInvestment,
+      directCost: result.hasCostBasis ? result.directCost : null,
+      targetMarginPercentage,
+    });
+  } catch (error) {
+    return (
+      <div
+        className={`mt-4 flex items-start gap-3 rounded-xl border p-4 text-sm leading-6 ${ALERT_STYLES.danger}`}
+        role="alert"
+      >
+        <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider opacity-75">Alerta comercial interno</p>
+          <p className="mt-1 font-bold">Revise a margem mínima esperada</p>
+          <p className="mt-1 text-xs leading-5">
+            {error instanceof Error
+              ? error.message
+              : 'A meta comercial informada não pode ser usada nesta análise.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (analysis.status === 'unavailable') {
     return (
