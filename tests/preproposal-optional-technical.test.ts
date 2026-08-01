@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('pré-proposta não exige telhado nem kit e mantém ressalva de vistoria', async () => {
+test('pré-proposta não exige telhado, kit ou base interna no preço manual', async () => {
   const [calculator, payback, draft, technical, publicPage] = await Promise.all([
     readFile('src/pages/propostas/ProfessionalSizingCalculatorView.tsx', 'utf8'),
     readFile('src/pages/propostas/PaybackStep.tsx', 'utf8'),
@@ -19,7 +19,9 @@ test('pré-proposta não exige telhado nem kit e mantém ressalva de vistoria', 
   assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
   assert.match(calculator, /selectedKit\?\.name \?\? 'A definir após vistoria'/);
   assert.match(payback, /selectedKit: SolarKit \| null/);
-  assert.match(payback, /Custo estimado do sistema/);
+  assert.match(payback, /Base interna de custos/);
+  assert.match(payback, /base interna é obrigatória apenas quando o preço for calculado pela margem/i);
+  assert.match(payback, /O payback está sendo calculado pelo preço comercial/i);
   assert.match(payback, /Margem de lucro/);
   assert.match(draft, /pricingMode\?: 'margin' \| 'manual'/);
   assert.match(draft, /flowLayout\?: 'kit-in-payback'/);
