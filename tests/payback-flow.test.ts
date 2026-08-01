@@ -49,6 +49,16 @@ test('o motor usa payback simples oficial com fluxo de caixa mensal', async () =
   assert.match(calculation, /aggregateAnnualChart\(monthlyData, analysisYears\)/);
 });
 
+test('a interface apresenta o retorno oficial em anos e meses', async () => {
+  const payback = await readFile(PAYBACK_STEP, 'utf8');
+
+  assert.match(payback, /formatPaybackPeriod/);
+  assert.match(payback, /Prazo de retorno projetado/);
+  assert.match(payback, /result\.paybackMonths/);
+  assert.match(payback, /calculado mês a mês/);
+  assert.match(payback, /o gráfico consolida os resultados por ano/);
+});
+
 test('a etapa apresenta todas as classificações solicitadas', async () => {
   const calculation = await readFile('src/lib/calculations/payback.ts', 'utf8');
 
