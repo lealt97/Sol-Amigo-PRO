@@ -5,7 +5,7 @@ import test from 'node:test';
 test('pré-proposta não exige telhado, kit ou base interna no preço manual', async () => {
   const [calculator, payback, draft, technical, publicPage] = await Promise.all([
     readFile('src/pages/propostas/ProfessionalSizingCalculatorView.tsx', 'utf8'),
-    readFile('src/pages/propostas/PaybackStep.tsx', 'utf8'),
+    readFile('src/pages/propostas/PaybackStepRegulatory.tsx', 'utf8'),
     readFile('src/types/proposalDraft.ts', 'utf8'),
     readFile('src/components/pdf/sections/TechnicalSection.tsx', 'utf8'),
     readFile('src/pages/public/PublicProposal.tsx', 'utf8'),
