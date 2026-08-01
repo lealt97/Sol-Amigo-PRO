@@ -27,6 +27,7 @@ import {
   type PaybackResult,
   type PaybackStatus,
 } from '../../lib/calculations/payback';
+import { resolveProposalPricing } from '../../lib/calculations/proposalPricing';
 import {
   CONNECTION_AVAILABILITY_KWH,
   type ConnectionType,
@@ -271,29 +272,35 @@ export function PaybackStep({
         description: cost.description.trim() || 'Custo adicional',
         amount: parseNumber(cost.amount || '0'),
       }));
-      const baseSystemCost = selectedKit?.cost_price ?? parseNumber(form.estimatedSystemCost || '');
-      if (!Number.isFinite(baseSystemCost) || baseSystemCost <= 0) {
-        throw new Error(selectedKit
-          ? 'O kit selecionado precisa possuir um custo válido.'
-          : 'Informe o custo estimado do sistema para calcular preço, lucro e margem.');
-      }
-
       const additionalCostsTotal = additionalCosts.reduce((total, cost) => total + cost.amount, 0);
-      const directCost = baseSystemCost + additionalCostsTotal;
-      const requestedMargin = parseNumber(form.marginPercentage || '30');
-      if (pricingMode === 'margin' && (!Number.isFinite(requestedMargin) || requestedMargin < 0 || requestedMargin >= 100)) {
-        throw new Error('A margem de lucro deve estar entre 0% e 99,99%.');
+      const kitCost = selectedKit ? Number(selectedKit.cost_price) : null;
+      if (selectedKit && (!Number.isFinite(kitCost) || (kitCost ?? 0) <= 0)) {
+        throw new Error('O kit selecionado precisa possuir um custo válido.');
       }
 
-      const proposalPrice = pricingMode === 'margin'
-        ? directCost / (1 - requestedMargin / 100)
-        : parseNumber(form.proposalPrice || '');
+      const parsedManualSystemCost = parseNumber(form.estimatedSystemCost || '');
+      const manualSystemCost = !selectedKit
+        && Number.isFinite(parsedManualSystemCost)
+        && parsedManualSystemCost > 0
+          ? parsedManualSystemCost
+          : null;
+      const baseSystemCost = kitCost ?? manualSystemCost;
+      const requestedMargin = parseNumber(form.marginPercentage || '30');
+      const pricing = resolveProposalPricing({
+        pricingMode,
+        proposalPrice: pricingMode === 'manual'
+          ? parseNumber(form.proposalPrice || '')
+          : null,
+        baseSystemCost,
+        additionalCostsTotal,
+        requestedMarginPercentage: pricingMode === 'margin' ? requestedMargin : null,
+      });
 
       return {
         result: calculatePayback({
-          proposalPrice,
-          kitCost: selectedKit?.cost_price ?? null,
-          manualSystemCost: selectedKit ? null : baseSystemCost,
+          proposalPrice: pricing.proposalPrice,
+          kitCost,
+          manualSystemCost: selectedKit ? null : manualSystemCost,
           tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),
           averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()
             ? parseNumber(form.averageMonthlyBillAmount)
@@ -406,7 +413,7 @@ export function PaybackStep({
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-none">
           <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Base de custos</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Base interna de custos</p>
             {selectedKit ? (
               <>
                 <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
@@ -426,15 +433,17 @@ export function PaybackStep({
             ) : (
               <div className="mt-3 space-y-4">
                 <p className="text-sm leading-6 text-slate-500">
-                  Sem kit cadastrado, informe uma estimativa do custo dos equipamentos e serviços principais.
+                  Sem kit cadastrado, a base interna é obrigatória apenas quando o preço for calculado pela margem.
                 </p>
                 <PaybackField
-                  label="Custo estimado do sistema"
+                  label="Base interna de custos"
                   value={form.estimatedSystemCost || ''}
                   onChange={(value) => updateField('estimatedSystemCost', value)}
                   prefix="R$"
                   min={0.01}
-                  helper="Esse valor forma a base para calcular preço, lucro e margem, mesmo sem um kit definido."
+                  helper={pricingMode === 'margin'
+                    ? 'Obrigatória para formar o preço pela margem. Inclua aqui os equipamentos e serviços principais.'
+                    : 'Opcional. Serve somente para calcular lucro e margem; não altera o preço comercial nem o payback.'}
                 />
               </div>
             )}
@@ -477,7 +486,7 @@ export function PaybackStep({
               : 'border-brand-border bg-brand-gray/20 hover:border-brand-blue/30'}`}
           >
             <p className="font-bold text-brand-dark">Informar preço manual</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Digite o preço final e veja a margem efetiva calculada pelo sistema.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Digite o preço final para o cliente. A base interna de custos é opcional.</p>
           </button>
         </div>
 
@@ -499,22 +508,30 @@ export function PaybackStep({
               onChange={(value) => updateField('proposalPrice', value)}
               prefix="R$"
               min={0.01}
-              helper="O lucro e a margem efetiva serão calculados usando a base de custos informada."
+              helper="Este é o investimento usado no payback. O valor não depende da base interna de custos."
             />
           )}
 
           {result && (
             <div className="rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">
-                {pricingMode === 'margin' ? 'Preço calculado' : 'Margem calculada'}
+                {pricingMode === 'margin'
+                  ? 'Preço calculado'
+                  : result.hasCostBasis
+                    ? 'Margem calculada'
+                    : 'Preço comercial'}
               </p>
               <p className="mt-2 text-2xl font-bold text-brand-dark">
                 {pricingMode === 'margin'
                   ? currency.format(result.totalInvestment)
-                  : `${decimal.format(result.marginPercentage)}%`}
+                  : result.hasCostBasis
+                    ? `${decimal.format(result.marginPercentage)}%`
+                    : currency.format(result.totalInvestment)}
               </p>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Custo direto de {currency.format(result.directCost)} e lucro estimado de {currency.format(result.profitAmount)}.
+                {result.hasCostBasis
+                  ? `Custo direto de ${currency.format(result.directCost)} e lucro bruto estimado de ${currency.format(result.profitAmount)}.`
+                  : 'O payback está sendo calculado pelo preço comercial. Informe uma base interna para calcular lucro e margem.'}
               </p>
             </div>
           )}
@@ -572,7 +589,6 @@ export function PaybackStep({
         </div>
       </div>
 
-
       <details className="rounded-xl border border-brand-border bg-brand-gray/20 p-5">
         <summary className="cursor-pointer font-bold text-brand-dark">Premissas financeiras avançadas</summary>
         <p className="mt-2 text-xs leading-5 text-slate-500">
@@ -593,8 +609,12 @@ export function PaybackStep({
       <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-bold text-brand-dark">Custos adicionais</h3>
-            <p className="mt-1 text-xs text-slate-500">Inclua instalação, projeto, homologação, frete, estrutura ou outros custos.</p>
+            <h3 className="font-bold text-brand-dark">Custos adicionais internos</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {pricingMode === 'margin'
+                ? 'Somam-se à base interna e influenciam o preço calculado pela margem.'
+                : 'São usados apenas na rentabilidade interna e não alteram o preço comercial informado.'}
+            </p>
           </div>
           <Button type="button" variant="outline" className="gap-2" onClick={addCost}>
             <Plus className="h-4 w-4" /> Adicionar custo
@@ -666,17 +686,17 @@ export function PaybackStep({
             <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
               <h3 className="font-bold text-brand-dark">Rentabilidade interna</h3>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Calculada com a base de custos do kit ou com o custo estimado informado, somada aos custos adicionais.
+                Calculada com a base de custos do kit ou com a base interna informada, somada aos custos adicionais.
               </p>
               <div className="mt-5 grid gap-4 sm:grid-cols-3">
                 <PaybackSummary label="Custo direto" value={currency.format(result.directCost)} />
-                <PaybackSummary label="Lucro estimado" value={currency.format(result.profitAmount)} />
+                <PaybackSummary label="Lucro bruto estimado" value={currency.format(result.profitAmount)} />
                 <PaybackSummary label="Margem efetiva" value={`${decimal.format(result.marginPercentage)}%`} />
               </div>
             </div>
           ) : (
             <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-4 text-sm leading-6 text-slate-500">
-              Informe uma base de custos válida para calcular lucro e margem da proposta.
+              O payback foi calculado normalmente pelo preço comercial. Informe uma base interna de custos somente se desejar calcular lucro e margem.
             </div>
           )}
 
