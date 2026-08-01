@@ -99,6 +99,23 @@ jobs:
             --outcome "$OUTCOME" \
             --log tests.log
 
+      - name: Identificar teste residual
+        if: steps.tests.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          grep -E '^not ok [0-9]+ - ' tests.log | tail -n 1 > failing-test.log || true
+          if [ ! -s failing-test.log ]; then
+            echo "Teste residual não identificado" > failing-test.log
+          fi
+          python3 .github/scripts/publish-diagnostic-status.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --context "Diagnóstico / Teste residual" \
+            --outcome "failure" \
+            --log failing-test.log
+
       - name: Gerar build de produção
         id: build
         if: steps.install.outcome == 'success'
