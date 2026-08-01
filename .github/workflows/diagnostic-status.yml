@@ -136,6 +136,20 @@ jobs:
             --outcome "$OUTCOME" \
             --log tests.log
 
+      - name: Registrar log completo da falha
+        if: github.event_name == 'push' && steps.tests.outcome == 'failure'
+        shell: bash
+        run: |
+          mkdir -p docs
+          cp tests.log docs/.integration-test-failure.log
+          git config user.name "Sol Amigo Automation"
+          git config user.email "actions@github.com"
+          git add docs/.integration-test-failure.log
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: registrar falha dos testes de kit e margem"
+            git push
+          fi
+
       - name: Gerar build de produção
         id: build
         if: steps.install.outcome == 'success'
