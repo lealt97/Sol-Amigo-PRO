@@ -16,6 +16,11 @@ const decimal = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 });
 
+const energy = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 type PaybackStepProps = {
   selectedKit: SolarKit | null;
   connectionType: ConnectionType;
@@ -36,6 +41,21 @@ function useStableInitialForm(form: ProposalDraftPaybackForm | null | undefined)
   }
 
   return reference.current.value;
+}
+
+function EnergySummary({ label, value, highlight = false }: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl border p-4 ${
+      highlight ? 'border-brand-blue/30 bg-brand-blue/10' : 'border-brand-border bg-brand-gray/40'
+    }`}>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-brand-dark">{energy.format(value)} kWh</p>
+    </div>
+  );
 }
 
 export function PaybackStep({
@@ -66,6 +86,45 @@ export function PaybackStep({
         onDraftChange={onDraftChange}
         onResultChange={handleResultChange}
       />
+
+      {result && (
+        <section className="rounded-xl border border-brand-blue/30 bg-brand-blue/5 p-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">
+              Sistema de Compensação de Energia Elétrica
+            </p>
+            <h3 className="mt-1 font-bold text-brand-dark">Fluxo de energia e banco de créditos</h3>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              A geração é dividida entre autoconsumo instantâneo e energia injetada. Os excedentes entram no banco,
+              os créditos mais antigos são utilizados primeiro e expiram após {result.creditValidityMonths} meses.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <EnergySummary label="Autoconsumo médio mensal" value={result.selfConsumedEnergyKwhPerMonth} />
+            <EnergySummary label="Injeção média mensal" value={result.injectedEnergyKwhPerMonth} />
+            <EnergySummary label="Créditos usados por mês" value={result.creditsUsedKwhPerMonth} />
+            <EnergySummary label="Saldo após o 1º ano" value={result.creditBalanceEndFirstYearKwh} highlight />
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <EnergySummary label="Créditos gerados por mês" value={result.creditsGeneratedKwhPerMonth} />
+            <EnergySummary label="Consumo ainda vindo da rede" value={result.uncompensatedGridConsumptionKwhPerMonth} />
+            <EnergySummary label="Maior saldo projetado" value={result.maxCreditBalanceKwh} />
+            <EnergySummary label="Créditos expirados no horizonte" value={result.lifetimeExpiredCreditsKwh} />
+          </div>
+
+          {result.lifetimeExpiredCreditsKwh > 0 && (
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+              <p className="font-bold">Há créditos que não serão aproveitados dentro da validade legal.</p>
+              <p className="mt-1 text-xs leading-5">
+                A projeção indica {energy.format(result.lifetimeExpiredCreditsKwh)} kWh expirados. Revise o
+                dimensionamento, o autoconsumo ou a alocação dos excedentes para outras unidades elegíveis.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {result?.averageMonthlyBillAmount != null
         && result.estimatedResidualBillAmount != null
