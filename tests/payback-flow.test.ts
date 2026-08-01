@@ -19,7 +19,7 @@ test('kit deixa de ser etapa e passa a integrar preço e payback', async () => {
   assert.match(calculator, /Sem kit cadastrado — informar custo estimado/);
 });
 
-test('a etapa separa preço comercial da base interna e mantém análise financeira avançada', async () => {
+test('a etapa oferece preço por margem ou manual e mantém análise financeira avançada', async () => {
   const payback = await readFile(PAYBACK_STEP, 'utf8');
 
   assert.match(payback, /Calcular pela margem/);
@@ -27,8 +27,6 @@ test('a etapa separa preço comercial da base interna e mantém análise finance
   assert.match(payback, /label=\"Margem de lucro\"/);
   assert.match(payback, /label=\"Preço da proposta\"/);
   assert.match(payback, /label=\"Base interna de custos\"/);
-  assert.match(payback, /não altera o preço comercial nem o payback/i);
-  assert.match(payback, /base interna é obrigatória apenas quando o preço for calculado pela margem/i);
   assert.match(payback, /defaultMargin = 30/);
   assert.match(payback, /profile\.default_margin_percentage/);
   assert.match(payback, /manualSystemCost/);
@@ -38,6 +36,17 @@ test('a etapa separa preço comercial da base interna e mantém análise finance
   assert.match(payback, /<BarChart/);
   assert.match(payback, /dataKey=\"cumulativeBalance\"/);
   assert.match(payback, /dataKey=\"discountedCumulativeBalance\"/);
+});
+
+test('o motor usa payback simples oficial com fluxo de caixa mensal', async () => {
+  const calculation = await readFile('src/lib/calculations/payback.ts', 'utf8');
+
+  assert.match(calculation, /OFFICIAL_PAYBACK_METHOD = 'simple'/);
+  assert.match(calculation, /PAYBACK_CASH_FLOW_RESOLUTION = 'monthly'/);
+  assert.match(calculation, /monthlyData: PaybackMonthlyPoint\[\]/);
+  assert.match(calculation, /for \(let month = 1; month <= analysisMonths; month \+= 1\)/);
+  assert.match(calculation, /simplePaybackMonthsExact = crossingPeriods/);
+  assert.match(calculation, /aggregateAnnualChart\(monthlyData, analysisYears\)/);
 });
 
 test('a etapa apresenta todas as classificações solicitadas', async () => {
