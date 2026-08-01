@@ -3,8 +3,10 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const VIEW = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
+const PAYBACK_EXPERIENCE = 'src/pages/propostas/PaybackStep.tsx';
 const PAYBACK_STEP = 'src/pages/propostas/PaybackStepRegulatory.tsx';
 const PAYBACK_ENGINE = 'src/lib/calculations/paybackEngine.ts';
+const COMMERCIAL_ALERT = 'src/pages/propostas/CommercialProfitabilityAlert.tsx';
 
 test('kit deixa de ser etapa e passa a integrar preço e payback', async () => {
   const calculator = await readFile(VIEW, 'utf8');
@@ -25,7 +27,7 @@ test('a etapa oferece preço por margem ou manual e mantém análise financeira 
 
   assert.match(payback, /Calcular pela margem/);
   assert.match(payback, /Informar preço manual/);
-  assert.match(payback, /label="Margem de lucro"/);
+  assert.match(payback, /label="Margem de lucro desejada"/);
   assert.match(payback, /label="Preço da proposta"/);
   assert.match(payback, /label="Base interna de custos"/);
   assert.match(payback, /defaultMargin = 30/);
@@ -34,8 +36,30 @@ test('a etapa oferece preço por margem ou manual e mantém análise financeira 
   assert.match(payback, /Adicionar custo/);
   assert.match(payback, /Payback descontado/);
   assert.match(payback, /TIR estimada/);
-  assert.match(payback, /dataKey="cumulativeBalance"/);
-  assert.match(payback, /dataKey="discountedCumulativeBalance"/);
+});
+
+test('a experiência final separa informações do cliente e dados comerciais internos', async () => {
+  const experience = await readFile(PAYBACK_EXPERIENCE, 'utf8');
+  const commercialAlert = await readFile(COMMERCIAL_ALERT, 'utf8');
+
+  assert.match(experience, /Resumo final da proposta/);
+  assert.match(experience, /Visível ao cliente/);
+  assert.match(experience, /Dados internos separados/);
+  assert.match(experience, /Preço comercial/);
+  assert.match(experience, /Retorno projetado/);
+  assert.match(experience, /Economia mensal estimada/);
+  assert.match(experience, /Uso interno — não incluir na proposta/);
+  assert.match(experience, /Configuração comercial e regulatória/);
+  assert.match(experience, /Perfil mensal de energia/);
+  assert.match(experience, /Banco de créditos/);
+  assert.match(experience, /Comparação da fatura/);
+  assert.match(experience, /aria-label="Navegação da etapa de preço e payback"/);
+
+  assert.match(commercialAlert, /Segurança comercial da venda/);
+  assert.match(commercialAlert, /Ação comercial recomendada/);
+  assert.match(commercialAlert, /Margem efetiva \/ meta/);
+  assert.match(commercialAlert, /Venda protegida/);
+  assert.match(commercialAlert, /Requer revisão/);
 });
 
 test('o motor usa payback simples oficial com fluxo de caixa mensal', async () => {
