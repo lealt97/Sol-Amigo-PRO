@@ -133,6 +133,15 @@ const parseNumber = (value: string) => {
   return normalized ? Number(normalized) : Number.NaN;
 };
 
+const formatPaybackPeriod = (months: number, analysisYears: number) => {
+  if (!Number.isFinite(months)) return `Acima de ${analysisYears} anos`;
+  const completedYears = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  if (completedYears === 0) return `${remainingMonths} ${remainingMonths === 1 ? 'mês' : 'meses'}`;
+  if (remainingMonths === 0) return `${completedYears} ${completedYears === 1 ? 'ano' : 'anos'}`;
+  return `${completedYears} ${completedYears === 1 ? 'ano' : 'anos'} e ${remainingMonths} ${remainingMonths === 1 ? 'mês' : 'meses'}`;
+};
+
 function PaybackField({
   label,
   value,
@@ -387,9 +396,9 @@ export function PaybackStep({
   };
   const chartProjectionLastYear = result?.chartData[result.chartData.length - 1]?.year ?? 0;
   const paybackMarkerYear = result
-    && Number.isFinite(result.simplePaybackYears)
-    && result.simplePaybackYears <= chartProjectionLastYear
-      ? Math.ceil(result.simplePaybackYears)
+    && Number.isFinite(result.paybackYears)
+    && result.paybackYears <= chartProjectionLastYear
+      ? Math.ceil(result.paybackYears)
       : null;
   const discountedPaybackMarkerYear = result
     && Number.isFinite(result.discountedPaybackYears)
@@ -594,15 +603,15 @@ export function PaybackStep({
         <p className="mt-2 text-xs leading-5 text-slate-500">
           Ajuste as hipóteses usadas no fluxo de caixa. Os valores iniciais são referências editáveis da pré-proposta e devem ser adequados à distribuidora, ao contrato e ao perfil do cliente.
         </p>
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <PaybackField label="Horizonte de análise" value={form.analysisYears || '25'} onChange={(value) => updateField('analysisYears', value)} suffix="anos" min={1} max={40} />
-          <PaybackField label="Reajuste anual da tarifa" value={form.annualTariffEscalationPercent || '4.5'} onChange={(value) => updateField('annualTariffEscalationPercent', value)} suffix="% a.a." min={-20} max={100} helper="Projeção de aumento da tarifa; não é garantia de reajuste futuro." />
+          <PaybackField label="Reajuste anual da tarifa" value={form.annualTariffEscalationPercent || '4.5'} onChange={(value) => updateField('annualTariffEscalationPercent', value)} suffix="% a.a." min={-20} max={100} />
           <PaybackField label="Degradação anual da geração" value={form.annualGenerationDegradationPercent || '0.5'} onChange={(value) => updateField('annualGenerationDegradationPercent', value)} suffix="% a.a." min={0} max={10} />
-          <PaybackField label="Operação e manutenção anual" value={form.annualOperationMaintenancePercent || '0.5'} onChange={(value) => updateField('annualOperationMaintenancePercent', value)} suffix="% do preço" min={0} max={20} />
-          <PaybackField label="Taxa de desconto / TMA" value={form.discountRatePercent || '8'} onChange={(value) => updateField('discountRatePercent', value)} suffix="% a.a." min={0} max={100} helper="Usada no VPL e no payback descontado." />
-          <PaybackField label="Fator efetivo de compensação" value={form.compensationFactorPercent || '100'} onChange={(value) => updateField('compensationFactorPercent', value)} suffix="%" min={0} max={100} helper="Reduza quando nem toda a energia compensada tiver o mesmo valor econômico da tarifa." />
-          <PaybackField label="Ano de troca do inversor" value={form.inverterReplacementYear || ''} onChange={(value) => updateField('inverterReplacementYear', value)} suffix="ano" min={1} max={40} helper="Opcional. Deixe vazio quando não quiser provisionar a substituição." />
-          <PaybackField label="Custo estimado da troca" value={form.inverterReplacementCost || ''} onChange={(value) => updateField('inverterReplacementCost', value)} prefix="R$" min={0} />
+          <PaybackField label="Operação e manutenção" value={form.annualOperationMaintenancePercent || '0.5'} onChange={(value) => updateField('annualOperationMaintenancePercent', value)} suffix="% a.a." min={0} max={20} helper="Percentual anual sobre o preço da proposta, distribuído mês a mês no fluxo de caixa." />
+          <PaybackField label="Taxa mínima de atratividade" value={form.discountRatePercent || '8'} onChange={(value) => updateField('discountRatePercent', value)} suffix="% a.a." min={0} max={100} />
+          <PaybackField label="Fator efetivo de compensação" value={form.compensationFactorPercent || '100'} onChange={(value) => updateField('compensationFactorPercent', value)} suffix="%" min={0} max={100} helper="Reduza quando nem toda a energia gerada representar crédito ou economia integral." />
+          <PaybackField label="Ano de substituição do inversor" value={form.inverterReplacementYear || ''} onChange={(value) => updateField('inverterReplacementYear', value)} suffix="ano" min={1} max={40} />
+          <PaybackField label="Custo de substituição do inversor" value={form.inverterReplacementCost || ''} onChange={(value) => updateField('inverterReplacementCost', value)} prefix="R$" min={0} />
         </div>
       </details>
 
@@ -669,8 +678,8 @@ export function PaybackStep({
       {result && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <PaybackSummary label="Payback simples" value={Number.isFinite(result.simplePaybackYears) ? `${decimal.format(result.simplePaybackYears)} anos` : 'Não recuperado'} />
-            <PaybackSummary label="Payback descontado" value={Number.isFinite(result.discountedPaybackYears) ? `${decimal.format(result.discountedPaybackYears)} anos` : `Acima de ${result.analysisYears} anos`} highlight />
+            <PaybackSummary label="Prazo de retorno projetado" value={formatPaybackPeriod(result.paybackMonths, result.analysisYears)} highlight />
+            <PaybackSummary label="Payback descontado" value={formatPaybackPeriod(result.discountedPaybackMonths, result.analysisYears)} />
             <PaybackSummary label={`VPL em ${result.analysisYears} anos`} value={currency.format(result.netPresentValue)} />
             <PaybackSummary label="TIR estimada" value={result.internalRateOfReturnPercent == null ? 'Não calculável' : `${decimal.format(result.internalRateOfReturnPercent)}% a.a.`} />
           </div>
@@ -753,7 +762,7 @@ export function PaybackStep({
               <p className="text-xs font-bold uppercase tracking-wider opacity-75">Viabilidade financeira projetada</p>
               <h3 className="mt-1 text-xl font-bold">{result.statusLabel}</h3>
               <p className="mt-2 text-sm leading-6">
-                Payback simples de <strong>{Number.isFinite(result.simplePaybackYears) ? `${decimal.format(result.simplePaybackYears)} anos` : 'não recuperado'}</strong> e payback descontado de <strong>{Number.isFinite(result.discountedPaybackYears) ? `${decimal.format(result.discountedPaybackYears)} anos` : `mais de ${result.analysisYears} anos`}</strong>. VPL projetado: <strong>{currency.format(result.netPresentValue)}</strong>.
+                Prazo de retorno projetado de <strong>{formatPaybackPeriod(result.paybackMonths, result.analysisYears)}</strong>, calculado mês a mês. O payback descontado é de <strong>{formatPaybackPeriod(result.discountedPaybackMonths, result.analysisYears)}</strong> e funciona como análise complementar. VPL projetado: <strong>{currency.format(result.netPresentValue)}</strong>.
               </p>
             </div>
           </div>
@@ -778,7 +787,7 @@ export function PaybackStep({
                 </span>
                 <div>
                   <h3 className="font-bold text-brand-dark">Fluxo de caixa acumulado em {result.analysisYears} anos</h3>
-                  <p className="mt-1 text-xs text-slate-500">Compare o saldo nominal com o saldo descontado pela TMA informada.</p>
+                  <p className="mt-1 text-xs text-slate-500">O cálculo ocorre mês a mês; o gráfico consolida os resultados por ano.</p>
                 </div>
               </div>
 
@@ -833,7 +842,7 @@ export function PaybackStep({
                         strokeDasharray="5 4"
                         strokeWidth={2}
                         label={{
-                          value: 'Simples',
+                          value: 'Retorno projetado',
                           position: 'insideTopRight',
                           fill: 'var(--color-chart-positive, var(--color-brand-blue))',
                           fontSize: 12,
@@ -906,7 +915,7 @@ export function PaybackStep({
                 {paybackMarkerYear != null && (
                   <span className="inline-flex items-center gap-2">
                     <span className="w-5 border-t-2 border-dashed" style={{ borderColor: 'var(--color-chart-positive, var(--color-brand-blue))' }} />
-                    Payback simples
+                    Retorno projetado
                   </span>
                 )}
                 {discountedPaybackMarkerYear != null && (
