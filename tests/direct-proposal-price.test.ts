@@ -4,9 +4,9 @@ import test from 'node:test';
 
 test('preço pode ser formado por margem ou informado manualmente', async () => {
   const [payback, pricing, engine, calculator, draft] = await Promise.all([
-    readFile('src/pages/propostas/PaybackStep.tsx', 'utf8'),
+    readFile('src/pages/propostas/PaybackStepRegulatory.tsx', 'utf8'),
     readFile('src/lib/calculations/proposalPricing.ts', 'utf8'),
-    readFile('src/lib/calculations/payback.ts', 'utf8'),
+    readFile('src/lib/calculations/paybackEngine.ts', 'utf8'),
     readFile('src/pages/propostas/ProfessionalSizingCalculatorView.tsx', 'utf8'),
     readFile('src/types/proposalDraft.ts', 'utf8'),
   ]);
@@ -23,7 +23,7 @@ test('preço pode ser formado por margem ou informado manualmente', async () => 
   assert.match(pricing, /assertPositive\(proposalPrice, 'Preço da proposta'\)/);
   assert.match(engine, /proposalPrice: number/);
   assert.match(engine, /manualSystemCost\?: number \| null/);
-  assert.match(engine, /const totalInvestment = input\.proposalPrice/);
+  assert.match(engine, /totalInvestment: round\(input\.proposalPrice\)/);
   assert.match(engine, /const hasCostBasis = baseSystemCost != null/);
   assert.match(calculator, /Preço e payback/);
   assert.match(calculator, /final_price: proposalPrice/);
