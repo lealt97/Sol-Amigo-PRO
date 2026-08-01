@@ -39,6 +39,17 @@ export const GD2_FIO_B_TRANSITION_PERCENT: Readonly<Record<number, number>> = Ob
   2028: 90,
 });
 
+const assertRequiredTariffComponent = (
+  incidencePercent: number,
+  tariffCentsPerKwh: number,
+  field: string,
+) => {
+  if (incidencePercent <= 0) return;
+  if (!Number.isFinite(tariffCentsPerKwh) || tariffCentsPerKwh <= 0) {
+    throw new Error(`${field} deve ser maior que zero quando houver incidência regulatória.`);
+  }
+};
+
 export function resolveDistributedGenerationIncidence(
   regime: DistributedGenerationRegime,
   calendarYear: number,
@@ -123,6 +134,23 @@ export function calculateDistributedGenerationCharge(
   input: DistributedGenerationChargeInput,
 ): DistributedGenerationChargeResult {
   const incidence = resolveDistributedGenerationIncidence(input.regime, input.calendarYear, input);
+
+  assertRequiredTariffComponent(
+    incidence.fioBPercent,
+    input.fioBTariffCentsPerKwh,
+    'Componente tarifária Fio B',
+  );
+  assertRequiredTariffComponent(
+    incidence.fioAPercent,
+    input.fioATariffCentsPerKwh,
+    'Componente tarifária Fio A',
+  );
+  assertRequiredTariffComponent(
+    incidence.sectorChargesPercent,
+    input.sectorChargesCentsPerKwh,
+    'Encargos P&D, EE e TFSEE',
+  );
+
   const compensatedEnergy = Math.max(0, input.gridCompensatedEnergyKwh);
   const escalationFactor = Math.max(0, input.tariffEscalationFactor);
   const fioBTariffPerKwh = Math.max(0, input.fioBTariffCentsPerKwh) / 100 * escalationFactor;
