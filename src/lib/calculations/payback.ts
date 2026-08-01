@@ -155,18 +155,14 @@ const resolveMonthlyProfile = (
   field: string,
 ) => {
   if (profile == null) return Array.from({ length: 12 }, () => fallbackValue);
-  if (profile.length !== 12) {
-    throw new Error(`${field} deve possuir exatamente 12 meses.`);
-  }
+  if (profile.length !== 12) throw new Error(`${field} deve possuir exatamente 12 meses.`);
 
   profile.forEach((value, index) => {
     assertNonNegative(value, `${field} — mês ${index + 1}`);
   });
-
   if (!profile.some((value) => value > 0)) {
     throw new Error(`${field} deve possuir pelo menos um mês maior que zero.`);
   }
-
   return [...profile];
 };
 
@@ -181,16 +177,13 @@ const crossingPeriods = (
   for (let index = 1; index < points.length; index += 1) {
     const previous = points[index - 1];
     const current = points[index];
-    if (!previous || !current) continue;
-    if (current[field] < 0) continue;
+    if (!previous || !current || current[field] < 0) continue;
     if (previous[field] >= 0) return previous.month;
 
     const movement = current[field] - previous[field];
     if (movement <= 0) return current.month;
-    const fraction = Math.min(1, Math.max(0, -previous[field] / movement));
-    return previous.month + fraction;
+    return previous.month + Math.min(1, Math.max(0, -previous[field] / movement));
   }
-
   return Number.POSITIVE_INFINITY;
 };
 
@@ -200,34 +193,51 @@ const ceilPeriod = (value: number) => (
 
 const calculatePeriodicIrr = (cashFlows: number[]) => {
   const npvAt = (rate: number) => cashFlows.reduce(
-    (total, cashFlow, period) => total + (cashFlow / ((1 + rate) ** period)),
+    (total, cashFlow, period) => total + cashFlow / ((1 + rate) ** period),
     0,
   );
 
-  let lower = -0.9999;
-  let upper = 10;
-  let lowerValue = npvAt(lower);
-  let upperValue = npvAt(upper);
-  if (!Number.isFinite(lowerValue) || !Number.isFinite(upperValue) || lowerValue * upperValue > 0) {
-    return null;
+  const candidateRates = [
+    -0.9, -0.5, -0.25, -0.1, -0.05, -0.01,
+    0, 0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10,
+  ];
+  let previousRate: number | null = null;
+  let previousValue: number | null = null;
+  let lower: number | null = null;
+  let upper: number | null = null;
+
+  for (const rate of candidateRates) {
+    const value = npvAt(rate);
+    if (!Number.isFinite(value)) continue;
+    if (Math.abs(value) < 0.000001) return rate;
+    if (previousRate != null && previousValue != null && previousValue * value < 0) {
+      lower = previousRate;
+      upper = rate;
+      break;
+    }
+    previousRate = rate;
+    previousValue = value;
   }
 
+  if (lower == null || upper == null) return null;
+  let lowerBound: number = lower;
+  let upperBound: number = upper;
+  let lowerValue = npvAt(lowerBound);
+
   for (let iteration = 0; iteration < 200; iteration += 1) {
-    const midpoint = (lower + upper) / 2;
+    const midpoint = (lowerBound + upperBound) / 2;
     const midpointValue = npvAt(midpoint);
     if (!Number.isFinite(midpointValue)) return null;
     if (Math.abs(midpointValue) < 0.000001) return midpoint;
 
     if (lowerValue * midpointValue <= 0) {
-      upper = midpoint;
-      upperValue = midpointValue;
+      upperBound = midpoint;
     } else {
-      lower = midpoint;
+      lowerBound = midpoint;
       lowerValue = midpointValue;
     }
   }
-
-  return (lower + upper) / 2;
+  return (lowerBound + upperBound) / 2;
 };
 
 const aggregateAnnualChart = (
@@ -271,7 +281,6 @@ const aggregateAnnualChart = (
       discountedCumulativeBalance: lastMonth.discountedCumulativeBalance,
     });
   }
-
   return chartData;
 };
 
@@ -294,9 +303,7 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
 
   assertPositive(input.tariffCentsPerKwh, 'Tarifa de energia');
   const averageMonthlyBillAmount = input.averageMonthlyBillAmount ?? null;
-  if (averageMonthlyBillAmount != null) {
-    assertPositive(averageMonthlyBillAmount, 'Valor médio mensal da fatura');
-  }
+  if (averageMonthlyBillAmount != null) assertPositive(averageMonthlyBillAmount, 'Valor médio mensal da fatura');
 
   const monthlyAvailabilityConsumptionKwh = input.monthlyAvailabilityConsumptionKwh ?? 0;
   assertNonNegative(monthlyAvailabilityConsumptionKwh, 'Custo de disponibilidade');
@@ -342,14 +349,10 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     assertNonNegative(cost.amount, cost.description || 'Custo adicional');
     return total + cost.amount;
   }, 0);
-
   const hasCostBasis = baseSystemCost != null;
   const directCost = hasCostBasis ? baseSystemCost + additionalCostsTotal : input.proposalPrice;
   const profitAmount = hasCostBasis ? input.proposalPrice - directCost : 0;
-  const marginPercentage = hasCostBasis
-    ? (profitAmount / input.proposalPrice) * 100
-    : 0;
-  const totalInvestment = input.proposalPrice;
+  const marginPercentage = hasCostBasis ? (profitAmount / input.proposalPrice) * 100 : 0;
 
   const totalTariffsPercent = input.pisPercent
     + input.cofinsPercent
@@ -360,9 +363,8 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
   const monthlyDiscountRate = annualRateToMonthlyRate(discountRatePercent);
   const monthlyTariffEscalationRate = annualRateToMonthlyRate(annualTariffEscalationPercent);
   const annualGenerationRetention = 1 - annualGenerationDegradationPercent / 100;
-  const monthlyOperationMaintenanceCost = (
-    input.proposalPrice * (annualOperationMaintenancePercent / 100)
-  ) / 12;
+  const monthlyOperationMaintenanceCost = input.proposalPrice
+    * (annualOperationMaintenancePercent / 100) / 12;
   const replacementMonth = inverterReplacementYear == null
     ? null
     : Math.trunc(inverterReplacementYear) * 12;
@@ -391,23 +393,17 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     cumulativeBalance,
     discountedCumulativeBalance,
   }];
-
   const cashFlows = [-input.proposalPrice];
 
   for (let month = 1; month <= analysisMonths; month += 1) {
     const monthOfYear = ((month - 1) % 12) + 1;
     const year = Math.floor((month - 1) / 12) + 1;
     const generationFactor = annualGenerationRetention ** ((month - 1) / 12);
-    const generationKwh = (generationProfile[monthOfYear - 1] ?? input.monthlyGenerationKwh)
-      * generationFactor;
+    const generationKwh = (generationProfile[monthOfYear - 1] ?? input.monthlyGenerationKwh) * generationFactor;
     const compensableConsumptionKwh = consumptionProfile[monthOfYear - 1]
       ?? input.monthlyCompensableConsumptionKwh;
-    const compensatedEnergyKwh = Math.min(
-      compensableConsumptionKwh,
-      generationKwh,
-    ) * compensationFraction;
-    const tariffPerKwh = effectiveTariffPerKwh
-      * ((1 + monthlyTariffEscalationRate) ** (month - 1));
+    const compensatedEnergyKwh = Math.min(compensableConsumptionKwh, generationKwh) * compensationFraction;
+    const tariffPerKwh = effectiveTariffPerKwh * ((1 + monthlyTariffEscalationRate) ** (month - 1));
     const grossSavings = compensatedEnergyKwh * tariffPerKwh;
     const replacementCost = inverterReplacementCost > 0 && replacementMonth === month
       ? inverterReplacementCost
@@ -449,9 +445,7 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
 
   const annualSavings = sum(firstYearMonths.map((point) => point.grossSavings));
   const monthlySavings = annualSavings / 12;
-  const compensatedEnergyKwhPerMonth = sum(
-    firstYearMonths.map((point) => point.compensatedEnergyKwh),
-  ) / 12;
+  const compensatedEnergyKwhPerMonth = sum(firstYearMonths.map((point) => point.compensatedEnergyKwh)) / 12;
   const firstYearGenerationKwh = sum(firstYearMonths.map((point) => point.generationKwh));
   const lastYearGenerationKwh = sum(lastYearMonths.map((point) => point.generationKwh));
 
@@ -470,18 +464,15 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     : ((averageMonthlyBillAmount - estimatedResidualBillAmount) / averageMonthlyBillAmount) * 100;
   const billReferenceDifferencePercent = averageMonthlyBillAmount == null
     ? null
-    : (Math.abs(averageMonthlyBillAmount - estimatedEnergyBillAmount)
-      / Math.max(averageMonthlyBillAmount, estimatedEnergyBillAmount)) * 100;
+    : Math.abs(averageMonthlyBillAmount - estimatedEnergyBillAmount)
+      / Math.max(averageMonthlyBillAmount, estimatedEnergyBillAmount) * 100;
   const billReferenceStatus: BillReferenceStatus = billReferenceDifferencePercent == null
     ? 'not_informed'
-    : billReferenceDifferencePercent <= 20
-      ? 'consistent'
-      : 'review';
+    : billReferenceDifferencePercent <= 20 ? 'consistent' : 'review';
 
   const simplePaybackMonthsExact = crossingPeriods(monthlyData, 'cumulativeBalance');
   const discountedPaybackMonthsExact = crossingPeriods(monthlyData, 'discountedCumulativeBalance');
-  const officialPaybackMonthsExact = simplePaybackMonthsExact;
-  const officialPaybackYears = officialPaybackMonthsExact / 12;
+  const officialPaybackYears = simplePaybackMonthsExact / 12;
   const status = classifyPayback(officialPaybackYears);
   const monthlyIrr = calculatePeriodicIrr(cashFlows);
   const internalRateOfReturnPercent = monthlyIrr == null
@@ -497,7 +488,7 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     directCost: round(directCost),
     marginPercentage: round(marginPercentage),
     profitAmount: round(profitAmount),
-    totalInvestment: round(totalInvestment),
+    totalInvestment: round(input.proposalPrice),
     totalTariffsPercent: round(totalTariffsPercent),
     effectiveTariffPerKwh: round(effectiveTariffPerKwh, 4),
     estimatedEnergyBillAmount: round(estimatedEnergyBillAmount),
@@ -512,7 +503,7 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     paybackMethod: OFFICIAL_PAYBACK_METHOD,
     cashFlowResolution: PAYBACK_CASH_FLOW_RESOLUTION,
     paybackYears: round(officialPaybackYears, 2),
-    paybackMonths: ceilPeriod(officialPaybackMonthsExact),
+    paybackMonths: ceilPeriod(simplePaybackMonthsExact),
     simplePaybackYears: round(simplePaybackMonthsExact / 12, 2),
     simplePaybackMonths: ceilPeriod(simplePaybackMonthsExact),
     discountedPaybackYears: round(discountedPaybackMonthsExact / 12, 2),
