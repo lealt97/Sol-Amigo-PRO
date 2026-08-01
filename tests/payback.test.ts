@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculatePayback, classifyPayback } from '../src/lib/calculations/payback';
+import {
+  calculatePayback,
+  classifyPayback,
+  OFFICIAL_PAYBACK_METHOD,
+} from '../src/lib/calculations/payback';
 
 const BASE_INPUT = {
   proposalPrice: 30_000,
@@ -15,7 +19,7 @@ const BASE_INPUT = {
   additionalCosts: [{ description: 'Instalação', amount: 3_000 }],
 };
 
-test('projeta fluxo de caixa, payback simples, descontado, VPL e TIR', () => {
+test('projeta fluxo de caixa, payback oficial, descontado, VPL e TIR', () => {
   const result = calculatePayback({
     ...BASE_INPUT,
     analysisYears: 25,
@@ -26,8 +30,12 @@ test('projeta fluxo de caixa, payback simples, descontado, VPL e TIR', () => {
     compensationFactorPercent: 100,
   });
 
+  assert.equal(result.paybackMethod, OFFICIAL_PAYBACK_METHOD);
+  assert.equal(result.paybackYears, result.simplePaybackYears);
+  assert.equal(result.paybackMonths, result.simplePaybackMonths);
   assert.equal(result.simplePaybackYears, 5);
   assert.ok(result.discountedPaybackYears > result.simplePaybackYears);
+  assert.equal(result.status, classifyPayback(result.paybackYears));
   assert.ok(result.netPresentValue > 0);
   assert.ok((result.internalRateOfReturnPercent ?? 0) > 0);
   assert.equal(result.chartData.length, 26);
@@ -37,6 +45,24 @@ test('projeta fluxo de caixa, payback simples, descontado, VPL e TIR', () => {
   assert.equal(result.directCost, 23_000);
   assert.equal(result.profitAmount, 7_000);
   assert.equal(result.marginPercentage, 23.33);
+});
+
+test('classifica a viabilidade pelo payback simples oficial, não pelo descontado', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    analysisYears: 25,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 18,
+    compensationFactorPercent: 100,
+  });
+
+  assert.equal(result.paybackYears, 5);
+  assert.equal(result.simplePaybackYears, 5);
+  assert.ok(result.discountedPaybackYears > 10);
+  assert.equal(result.status, 'very_good');
+  assert.equal(result.statusLabel, 'Muito bom');
 });
 
 test('aplica degradação, reajuste tarifário, O&M e troca do inversor por ano', () => {
@@ -122,7 +148,6 @@ test('classifica os intervalos de retorno', () => {
   assert.equal(classifyPayback(10.01), 'unfeasible');
   assert.equal(classifyPayback(Number.POSITIVE_INFINITY), 'unfeasible');
 });
-
 
 test('calcula lucro e margem usando custo manual quando não há kit', () => {
   const result = calculatePayback({
