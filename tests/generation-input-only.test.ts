@@ -64,16 +64,17 @@ test('a aba opcional do telhado recebe as águas e continua usando dimensões do
   assert.match(calculator, /Os módulos do kit não cabem na área útil do telhado/);
 });
 
-test('a configuração opcional das águas permanece antes da seleção opcional do kit', async () => {
+test('a configuração opcional das águas permanece antes da etapa financeira integrada', async () => {
   const calculator = await readFile(CALCULATOR_VIEW, 'utf8');
 
   assert.match(
     calculator,
-    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Telhado \(opcional\)'[\s\S]*id: 'kit', title: 'Kit de referência \(opcional\)'/,
+    /id: 'irradiation'[\s\S]*id: 'modules', title: 'Telhado \(opcional\)'[\s\S]*id: 'payback', title: 'Preço e payback'/,
   );
+  assert.doesNotMatch(calculator, /id: 'kit'/);
   assert.match(
     calculator,
-    /currentStep === 3[\s\S]*Dados do telhado — opcional[\s\S]*currentStep === 4[\s\S]*Kit solar de referência — opcional/,
+    /currentStep === 3[\s\S]*Dados do telhado — opcional[\s\S]*currentStep === 4[\s\S]*Composição técnica da proposta[\s\S]*<PaybackStep/,
   );
   assert.match(calculator, /if \(currentStep === 3\) \{[\s\S]*hasRoofTechnicalData/);
   assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
