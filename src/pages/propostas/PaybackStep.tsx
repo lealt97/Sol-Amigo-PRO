@@ -248,16 +248,17 @@ export function PaybackStep({
 
   return (
     <div className="space-y-6">
-      <PaybackStepRegulatory
-        key={profileKey}
-        selectedKit={selectedKit}
-        connectionType={connectionType}
-        monthlyCompensableConsumptionKwh={monthlyCompensableConsumptionKwh}
-        monthlyGenerationKwh={monthlyGenerationKwh}
-        initialForm={stableInitialForm}
-        onDraftChange={handleDraftChange}
-        onResultChange={handleResultChange}
-      />
+      <div key={profileKey}>
+        <PaybackStepRegulatory
+          selectedKit={selectedKit}
+          connectionType={connectionType}
+          monthlyCompensableConsumptionKwh={monthlyCompensableConsumptionKwh}
+          monthlyGenerationKwh={monthlyGenerationKwh}
+          initialForm={stableInitialForm}
+          onDraftChange={handleDraftChange}
+          onResultChange={handleResultChange}
+        />
+      </div>
 
       <section className="rounded-xl border border-brand-border bg-brand-surface p-5">
         <div>
