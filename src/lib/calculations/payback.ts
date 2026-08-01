@@ -1,6 +1,9 @@
 export type PaybackStatus = 'excellent' | 'very_good' | 'good' | 'regular' | 'unfeasible';
 export type BillReferenceStatus = 'not_informed' | 'consistent' | 'review';
 
+export const OFFICIAL_PAYBACK_METHOD = 'simple' as const;
+export type OfficialPaybackMethod = typeof OFFICIAL_PAYBACK_METHOD;
+
 export type PaybackAdditionalCost = {
   description: string;
   amount: number;
@@ -63,6 +66,7 @@ export type PaybackResult = {
   compensatedEnergyKwhPerMonth: number;
   monthlySavings: number;
   annualSavings: number;
+  paybackMethod: OfficialPaybackMethod;
   paybackYears: number;
   paybackMonths: number;
   simplePaybackYears: number;
@@ -345,10 +349,8 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
 
   const simplePaybackYears = crossingYears(chartData, 'cumulativeBalance');
   const discountedPaybackYears = crossingYears(chartData, 'discountedCumulativeBalance');
-  const evaluationPaybackYears = Number.isFinite(discountedPaybackYears)
-    ? discountedPaybackYears
-    : simplePaybackYears;
-  const status = classifyPayback(evaluationPaybackYears);
+  const officialPaybackYears = simplePaybackYears;
+  const status = classifyPayback(officialPaybackYears);
   const internalRateOfReturnPercent = calculateIrr(cashFlows);
 
   return {
@@ -371,8 +373,9 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     compensatedEnergyKwhPerMonth: round(compensatedEnergyKwhPerMonth),
     monthlySavings: round(monthlySavings),
     annualSavings: round(annualSavings),
-    paybackYears: round(simplePaybackYears, 2),
-    paybackMonths: Number.isFinite(simplePaybackYears) ? Math.ceil(simplePaybackYears * 12) : Number.POSITIVE_INFINITY,
+    paybackMethod: OFFICIAL_PAYBACK_METHOD,
+    paybackYears: round(officialPaybackYears, 2),
+    paybackMonths: Number.isFinite(officialPaybackYears) ? Math.ceil(officialPaybackYears * 12) : Number.POSITIVE_INFINITY,
     simplePaybackYears: round(simplePaybackYears, 2),
     simplePaybackMonths: Number.isFinite(simplePaybackYears) ? Math.ceil(simplePaybackYears * 12) : Number.POSITIVE_INFINITY,
     discountedPaybackYears: round(discountedPaybackYears, 2),
