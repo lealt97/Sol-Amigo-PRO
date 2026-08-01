@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const VIEW = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
-const PAYBACK_STEP = 'src/pages/propostas/PaybackStep.tsx';
+const PAYBACK_STEP = 'src/pages/propostas/PaybackStepRegulatory.tsx';
 const PAYBACK_ENGINE = 'src/lib/calculations/paybackEngine.ts';
 
 test('kit deixa de ser etapa e passa a integrar preço e payback', async () => {
@@ -65,6 +65,18 @@ test('o motor separa autoconsumo, energia compensada e encargos da geração dis
   assert.match(calculation, /gridCompensatedEnergyKwh/);
   assert.match(calculation, /distributedGenerationCharges/);
   assert.match(calculation, /usesPostTransitionAssumption/);
+});
+
+test('a interface permite enquadrar GD e informar as componentes tarifárias', async () => {
+  const payback = await readFile(PAYBACK_STEP, 'utf8');
+
+  assert.match(payback, /Enquadramento da geração distribuída e Fio B/);
+  assert.match(payback, /GD I — direito adquirido até 2045/);
+  assert.match(payback, /GD II — transição do art\. 27/);
+  assert.match(payback, /GD III — minigeração especial acima de 500 kW/);
+  assert.match(payback, /Componente tarifária Fio B/);
+  assert.match(payback, /Autoconsumo instantâneo/);
+  assert.match(payback, /60% do Fio B/);
 });
 
 test('a etapa apresenta todas as classificações solicitadas', async () => {
