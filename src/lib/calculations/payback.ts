@@ -3,6 +3,8 @@ export type BillReferenceStatus = 'not_informed' | 'consistent' | 'review';
 
 export const OFFICIAL_PAYBACK_METHOD = 'simple' as const;
 export type OfficialPaybackMethod = typeof OFFICIAL_PAYBACK_METHOD;
+export const PAYBACK_CASH_FLOW_RESOLUTION = 'monthly' as const;
+export type PaybackCashFlowResolution = typeof PAYBACK_CASH_FLOW_RESOLUTION;
 
 export type PaybackAdditionalCost = {
   description: string;
@@ -22,6 +24,8 @@ export type PaybackInput = {
   otherTariffsPercent: number;
   monthlyCompensableConsumptionKwh: number;
   monthlyGenerationKwh: number;
+  monthlyCompensableConsumptionProfileKwh?: number[] | null;
+  monthlyGenerationProfileKwh?: number[] | null;
   additionalCosts: PaybackAdditionalCost[];
   analysisYears?: number;
   annualTariffEscalationPercent?: number;
@@ -31,6 +35,23 @@ export type PaybackInput = {
   compensationFactorPercent?: number;
   inverterReplacementYear?: number | null;
   inverterReplacementCost?: number;
+};
+
+export type PaybackMonthlyPoint = {
+  month: number;
+  year: number;
+  monthOfYear: number;
+  generationKwh: number;
+  compensableConsumptionKwh: number;
+  compensatedEnergyKwh: number;
+  tariffPerKwh: number;
+  grossSavings: number;
+  operationMaintenanceCost: number;
+  replacementCost: number;
+  netCashFlow: number;
+  discountedCashFlow: number;
+  cumulativeBalance: number;
+  discountedCumulativeBalance: number;
 };
 
 export type PaybackChartPoint = {
@@ -67,6 +88,7 @@ export type PaybackResult = {
   monthlySavings: number;
   annualSavings: number;
   paybackMethod: OfficialPaybackMethod;
+  cashFlowResolution: PaybackCashFlowResolution;
   paybackYears: number;
   paybackMonths: number;
   simplePaybackYears: number;
@@ -89,6 +111,7 @@ export type PaybackResult = {
   compensationFactorPercent: number;
   status: PaybackStatus;
   statusLabel: string;
+  monthlyData: PaybackMonthlyPoint[];
   chartData: PaybackChartPoint[];
 };
 
@@ -105,6 +128,8 @@ const round = (value: number, decimals = 2) => {
   const factor = 10 ** decimals;
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
+
+const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
 const assertNonNegative = (value: number, field: string) => {
   if (!Number.isFinite(value) || value < 0) {
@@ -124,8 +149,33 @@ const assertBetween = (value: number, min: number, max: number, field: string) =
   }
 };
 
-const crossingYears = (
-  points: PaybackChartPoint[],
+const resolveMonthlyProfile = (
+  profile: number[] | null | undefined,
+  fallbackValue: number,
+  field: string,
+) => {
+  if (profile == null) return Array.from({ length: 12 }, () => fallbackValue);
+  if (profile.length !== 12) {
+    throw new Error(`${field} deve possuir exatamente 12 meses.`);
+  }
+
+  profile.forEach((value, index) => {
+    assertNonNegative(value, `${field} — mês ${index + 1}`);
+  });
+
+  if (!profile.some((value) => value > 0)) {
+    throw new Error(`${field} deve possuir pelo menos um mês maior que zero.`);
+  }
+
+  return [...profile];
+};
+
+const annualRateToMonthlyRate = (annualPercent: number) => (
+  (1 + annualPercent / 100) ** (1 / 12) - 1
+);
+
+const crossingPeriods = (
+  points: PaybackMonthlyPoint[],
   field: 'cumulativeBalance' | 'discountedCumulativeBalance',
 ) => {
   for (let index = 1; index < points.length; index += 1) {
@@ -133,20 +183,24 @@ const crossingYears = (
     const current = points[index];
     if (!previous || !current) continue;
     if (current[field] < 0) continue;
-    if (previous[field] >= 0) return previous.year;
+    if (previous[field] >= 0) return previous.month;
 
     const movement = current[field] - previous[field];
-    if (movement <= 0) return current.year;
+    if (movement <= 0) return current.month;
     const fraction = Math.min(1, Math.max(0, -previous[field] / movement));
-    return previous.year + fraction;
+    return previous.month + fraction;
   }
 
   return Number.POSITIVE_INFINITY;
 };
 
-const calculateIrr = (cashFlows: number[]) => {
+const ceilPeriod = (value: number) => (
+  Number.isFinite(value) ? Math.ceil(value - 0.000000001) : Number.POSITIVE_INFINITY
+);
+
+const calculatePeriodicIrr = (cashFlows: number[]) => {
   const npvAt = (rate: number) => cashFlows.reduce(
-    (total, cashFlow, year) => total + (cashFlow / ((1 + rate) ** year)),
+    (total, cashFlow, period) => total + (cashFlow / ((1 + rate) ** period)),
     0,
   );
 
@@ -162,7 +216,7 @@ const calculateIrr = (cashFlows: number[]) => {
     const midpoint = (lower + upper) / 2;
     const midpointValue = npvAt(midpoint);
     if (!Number.isFinite(midpointValue)) return null;
-    if (Math.abs(midpointValue) < 0.000001) return midpoint * 100;
+    if (Math.abs(midpointValue) < 0.000001) return midpoint;
 
     if (lowerValue * midpointValue <= 0) {
       upper = midpoint;
@@ -173,7 +227,52 @@ const calculateIrr = (cashFlows: number[]) => {
     }
   }
 
-  return ((lower + upper) / 2) * 100;
+  return (lower + upper) / 2;
+};
+
+const aggregateAnnualChart = (
+  monthlyData: PaybackMonthlyPoint[],
+  analysisYears: number,
+): PaybackChartPoint[] => {
+  const initial = monthlyData[0];
+  if (!initial) throw new Error('Não foi possível iniciar o fluxo de caixa mensal.');
+
+  const chartData: PaybackChartPoint[] = [{
+    year: 0,
+    generationKwh: 0,
+    tariffPerKwh: initial.tariffPerKwh,
+    grossSavings: 0,
+    operationMaintenanceCost: 0,
+    replacementCost: 0,
+    netCashFlow: initial.netCashFlow,
+    discountedCashFlow: initial.discountedCashFlow,
+    cumulativeBalance: initial.cumulativeBalance,
+    discountedCumulativeBalance: initial.discountedCumulativeBalance,
+  }];
+
+  for (let year = 1; year <= analysisYears; year += 1) {
+    const firstMonthIndex = (year - 1) * 12 + 1;
+    const months = monthlyData.slice(firstMonthIndex, firstMonthIndex + 12);
+    const lastMonth = months[months.length - 1];
+    if (months.length !== 12 || !lastMonth) {
+      throw new Error(`Não foi possível consolidar o ano ${year} do fluxo de caixa.`);
+    }
+
+    chartData.push({
+      year,
+      generationKwh: sum(months.map((point) => point.generationKwh)),
+      tariffPerKwh: sum(months.map((point) => point.tariffPerKwh)) / months.length,
+      grossSavings: sum(months.map((point) => point.grossSavings)),
+      operationMaintenanceCost: sum(months.map((point) => point.operationMaintenanceCost)),
+      replacementCost: sum(months.map((point) => point.replacementCost)),
+      netCashFlow: sum(months.map((point) => point.netCashFlow)),
+      discountedCashFlow: sum(months.map((point) => point.discountedCashFlow)),
+      cumulativeBalance: lastMonth.cumulativeBalance,
+      discountedCumulativeBalance: lastMonth.discountedCumulativeBalance,
+    });
+  }
+
+  return chartData;
 };
 
 export function classifyPayback(paybackYears: number): PaybackStatus {
@@ -228,6 +327,17 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     assertBetween(Math.trunc(inverterReplacementYear), 1, analysisYears, 'Ano de substituição do inversor');
   }
 
+  const consumptionProfile = resolveMonthlyProfile(
+    input.monthlyCompensableConsumptionProfileKwh,
+    input.monthlyCompensableConsumptionKwh,
+    'Perfil mensal de consumo compensável',
+  );
+  const generationProfile = resolveMonthlyProfile(
+    input.monthlyGenerationProfileKwh,
+    input.monthlyGenerationKwh,
+    'Perfil mensal de geração',
+  );
+
   const additionalCostsTotal = input.additionalCosts.reduce((total, cost) => {
     assertNonNegative(cost.amount, cost.description || 'Custo adicional');
     return total + cost.amount;
@@ -247,10 +357,16 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     + input.otherTariffsPercent;
   const effectiveTariffPerKwh = (input.tariffCentsPerKwh / 100) * (1 + totalTariffsPercent / 100);
   const compensationFraction = compensationFactorPercent / 100;
-  const discountRate = discountRatePercent / 100;
-  const degradationRate = annualGenerationDegradationPercent / 100;
-  const tariffEscalationRate = annualTariffEscalationPercent / 100;
-  const annualOperationMaintenanceCost = input.proposalPrice * (annualOperationMaintenancePercent / 100);
+  const monthlyDiscountRate = annualRateToMonthlyRate(discountRatePercent);
+  const monthlyTariffEscalationRate = annualRateToMonthlyRate(annualTariffEscalationPercent);
+  const annualGenerationRetention = 1 - annualGenerationDegradationPercent / 100;
+  const monthlyOperationMaintenanceCost = (
+    input.proposalPrice * (annualOperationMaintenancePercent / 100)
+  ) / 12;
+  const replacementMonth = inverterReplacementYear == null
+    ? null
+    : Math.trunc(inverterReplacementYear) * 12;
+  const analysisMonths = analysisYears * 12;
 
   let cumulativeBalance = -input.proposalPrice;
   let discountedCumulativeBalance = -input.proposalPrice;
@@ -259,9 +375,13 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
   let totalOperationMaintenanceCost = 0;
   let totalReplacementCost = 0;
 
-  const chartData: PaybackChartPoint[] = [{
+  const monthlyData: PaybackMonthlyPoint[] = [{
+    month: 0,
     year: 0,
+    monthOfYear: 0,
     generationKwh: 0,
+    compensableConsumptionKwh: 0,
+    compensatedEnergyKwh: 0,
     tariffPerKwh: effectiveTariffPerKwh,
     grossSavings: 0,
     operationMaintenanceCost: 0,
@@ -274,38 +394,45 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
 
   const cashFlows = [-input.proposalPrice];
 
-  for (let year = 1; year <= analysisYears; year += 1) {
-    const generationFactor = (1 - degradationRate) ** (year - 1);
-    const tariffFactor = (1 + tariffEscalationRate) ** (year - 1);
-    const monthlyGenerationYear = input.monthlyGenerationKwh * generationFactor;
-    const compensatedEnergyKwhPerMonth = Math.min(
-      input.monthlyCompensableConsumptionKwh,
-      monthlyGenerationYear,
+  for (let month = 1; month <= analysisMonths; month += 1) {
+    const monthOfYear = ((month - 1) % 12) + 1;
+    const year = Math.floor((month - 1) / 12) + 1;
+    const generationFactor = annualGenerationRetention ** ((month - 1) / 12);
+    const generationKwh = (generationProfile[monthOfYear - 1] ?? input.monthlyGenerationKwh)
+      * generationFactor;
+    const compensableConsumptionKwh = consumptionProfile[monthOfYear - 1]
+      ?? input.monthlyCompensableConsumptionKwh;
+    const compensatedEnergyKwh = Math.min(
+      compensableConsumptionKwh,
+      generationKwh,
     ) * compensationFraction;
-    const tariffPerKwh = effectiveTariffPerKwh * tariffFactor;
-    const grossSavings = compensatedEnergyKwhPerMonth * tariffPerKwh * 12;
-    const replacementCost = inverterReplacementCost > 0
-      && inverterReplacementYear != null
-      && year === Math.trunc(inverterReplacementYear)
+    const tariffPerKwh = effectiveTariffPerKwh
+      * ((1 + monthlyTariffEscalationRate) ** (month - 1));
+    const grossSavings = compensatedEnergyKwh * tariffPerKwh;
+    const replacementCost = inverterReplacementCost > 0 && replacementMonth === month
       ? inverterReplacementCost
       : 0;
-    const netCashFlow = grossSavings - annualOperationMaintenanceCost - replacementCost;
-    const discountedCashFlow = netCashFlow / ((1 + discountRate) ** year);
+    const netCashFlow = grossSavings - monthlyOperationMaintenanceCost - replacementCost;
+    const discountedCashFlow = netCashFlow / ((1 + monthlyDiscountRate) ** month);
 
     cumulativeBalance += netCashFlow;
     discountedCumulativeBalance += discountedCashFlow;
     lifetimeGrossSavings += grossSavings;
     lifetimeNetSavings += netCashFlow;
-    totalOperationMaintenanceCost += annualOperationMaintenanceCost;
+    totalOperationMaintenanceCost += monthlyOperationMaintenanceCost;
     totalReplacementCost += replacementCost;
     cashFlows.push(netCashFlow);
 
-    chartData.push({
+    monthlyData.push({
+      month,
       year,
-      generationKwh: monthlyGenerationYear * 12,
+      monthOfYear,
+      generationKwh,
+      compensableConsumptionKwh,
+      compensatedEnergyKwh,
       tariffPerKwh,
       grossSavings,
-      operationMaintenanceCost: annualOperationMaintenanceCost,
+      operationMaintenanceCost: monthlyOperationMaintenanceCost,
       replacementCost,
       netCashFlow,
       discountedCashFlow,
@@ -314,16 +441,20 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     });
   }
 
-  const firstYear = chartData[1];
-  const lastYear = chartData[chartData.length - 1];
-  if (!firstYear || !lastYear) throw new Error('Não foi possível projetar o fluxo de caixa.');
+  const firstYearMonths = monthlyData.slice(1, 13);
+  const lastYearMonths = monthlyData.slice(-12);
+  if (firstYearMonths.length !== 12 || lastYearMonths.length !== 12) {
+    throw new Error('Não foi possível projetar o fluxo de caixa mensal.');
+  }
 
-  const compensatedEnergyKwhPerMonth = Math.min(
-    input.monthlyCompensableConsumptionKwh,
-    input.monthlyGenerationKwh,
-  ) * compensationFraction;
-  const monthlySavings = compensatedEnergyKwhPerMonth * effectiveTariffPerKwh;
-  const annualSavings = monthlySavings * 12;
+  const annualSavings = sum(firstYearMonths.map((point) => point.grossSavings));
+  const monthlySavings = annualSavings / 12;
+  const compensatedEnergyKwhPerMonth = sum(
+    firstYearMonths.map((point) => point.compensatedEnergyKwh),
+  ) / 12;
+  const firstYearGenerationKwh = sum(firstYearMonths.map((point) => point.generationKwh));
+  const lastYearGenerationKwh = sum(lastYearMonths.map((point) => point.generationKwh));
+
   const estimatedEnergyBillAmount = (
     input.monthlyCompensableConsumptionKwh + monthlyAvailabilityConsumptionKwh
   ) * effectiveTariffPerKwh;
@@ -347,11 +478,16 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
       ? 'consistent'
       : 'review';
 
-  const simplePaybackYears = crossingYears(chartData, 'cumulativeBalance');
-  const discountedPaybackYears = crossingYears(chartData, 'discountedCumulativeBalance');
-  const officialPaybackYears = simplePaybackYears;
+  const simplePaybackMonthsExact = crossingPeriods(monthlyData, 'cumulativeBalance');
+  const discountedPaybackMonthsExact = crossingPeriods(monthlyData, 'discountedCumulativeBalance');
+  const officialPaybackMonthsExact = simplePaybackMonthsExact;
+  const officialPaybackYears = officialPaybackMonthsExact / 12;
   const status = classifyPayback(officialPaybackYears);
-  const internalRateOfReturnPercent = calculateIrr(cashFlows);
+  const monthlyIrr = calculatePeriodicIrr(cashFlows);
+  const internalRateOfReturnPercent = monthlyIrr == null
+    ? null
+    : (((1 + monthlyIrr) ** 12) - 1) * 100;
+  const chartData = aggregateAnnualChart(monthlyData, analysisYears);
 
   return {
     kitCost: round(kitCost ?? 0),
@@ -374,20 +510,21 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     monthlySavings: round(monthlySavings),
     annualSavings: round(annualSavings),
     paybackMethod: OFFICIAL_PAYBACK_METHOD,
+    cashFlowResolution: PAYBACK_CASH_FLOW_RESOLUTION,
     paybackYears: round(officialPaybackYears, 2),
-    paybackMonths: Number.isFinite(officialPaybackYears) ? Math.ceil(officialPaybackYears * 12) : Number.POSITIVE_INFINITY,
-    simplePaybackYears: round(simplePaybackYears, 2),
-    simplePaybackMonths: Number.isFinite(simplePaybackYears) ? Math.ceil(simplePaybackYears * 12) : Number.POSITIVE_INFINITY,
-    discountedPaybackYears: round(discountedPaybackYears, 2),
-    discountedPaybackMonths: Number.isFinite(discountedPaybackYears) ? Math.ceil(discountedPaybackYears * 12) : Number.POSITIVE_INFINITY,
+    paybackMonths: ceilPeriod(officialPaybackMonthsExact),
+    simplePaybackYears: round(simplePaybackMonthsExact / 12, 2),
+    simplePaybackMonths: ceilPeriod(simplePaybackMonthsExact),
+    discountedPaybackYears: round(discountedPaybackMonthsExact / 12, 2),
+    discountedPaybackMonths: ceilPeriod(discountedPaybackMonthsExact),
     netPresentValue: round(discountedCumulativeBalance),
     internalRateOfReturnPercent: internalRateOfReturnPercent == null ? null : round(internalRateOfReturnPercent, 2),
     lifetimeGrossSavings: round(lifetimeGrossSavings),
     lifetimeNetSavings: round(lifetimeNetSavings),
     totalOperationMaintenanceCost: round(totalOperationMaintenanceCost),
     totalReplacementCost: round(totalReplacementCost),
-    firstYearGenerationKwh: round(firstYear.generationKwh),
-    lastYearGenerationKwh: round(lastYear.generationKwh),
+    firstYearGenerationKwh: round(firstYearGenerationKwh),
+    lastYearGenerationKwh: round(lastYearGenerationKwh),
     analysisYears,
     annualTariffEscalationPercent: round(annualTariffEscalationPercent),
     annualGenerationDegradationPercent: round(annualGenerationDegradationPercent),
@@ -396,6 +533,20 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     compensationFactorPercent: round(compensationFactorPercent),
     status,
     statusLabel: PAYBACK_STATUS_LABELS[status],
+    monthlyData: monthlyData.map((point) => ({
+      ...point,
+      generationKwh: round(point.generationKwh),
+      compensableConsumptionKwh: round(point.compensableConsumptionKwh),
+      compensatedEnergyKwh: round(point.compensatedEnergyKwh),
+      tariffPerKwh: round(point.tariffPerKwh, 4),
+      grossSavings: round(point.grossSavings),
+      operationMaintenanceCost: round(point.operationMaintenanceCost),
+      replacementCost: round(point.replacementCost),
+      netCashFlow: round(point.netCashFlow),
+      discountedCashFlow: round(point.discountedCashFlow),
+      cumulativeBalance: round(point.cumulativeBalance),
+      discountedCumulativeBalance: round(point.discountedCumulativeBalance),
+    })),
     chartData: chartData.map((point) => ({
       ...point,
       generationKwh: round(point.generationKwh),
