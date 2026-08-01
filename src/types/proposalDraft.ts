@@ -55,6 +55,8 @@ export type ProposalDraftPaybackForm = {
   postTransitionFioBPercent?: string;
   postTransitionFioAPercent?: string;
   postTransitionSectorChargesPercent?: string;
+  generationProfileMode?: 'uniform' | 'monthly';
+  monthlyGenerationProfileKwh?: string[];
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;
