@@ -46,6 +46,35 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Inventariar verificações antigas do wizard
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          matches = []
+          for path in Path('tests').rglob('*.test.ts'):
+              lines = path.read_text(encoding='utf-8').splitlines()
+              for index, line in enumerate(lines):
+                  if "id: 'irradiation'" in line or ("id: 'kit'" in line and 'doesNotMatch' not in line):
+                      start = max(0, index - 4)
+                      end = min(len(lines), index + 7)
+                      matches.append(f'### {path}:{index + 1}\n' + '\n'.join(lines[start:end]))
+          Path('docs').mkdir(exist_ok=True)
+          Path('docs/.wizard-test-inventory.log').write_text(
+              '\n\n'.join(matches) if matches else 'Nenhuma expectativa antiga encontrada.\n',
+              encoding='utf-8',
+          )
+          PY
+          git config user.name "Sol Amigo Automation"
+          git config user.email "actions@github.com"
+          git add docs/.wizard-test-inventory.log
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: registrar inventário dos testes do wizard"
+            git push
+          fi
+
       - name: Publicar diagnóstico do aplicador
         if: always() && github.event_name == 'push'
         env:
