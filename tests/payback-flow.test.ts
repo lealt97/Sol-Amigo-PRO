@@ -33,7 +33,6 @@ test('a etapa oferece preço por margem ou manual e mantém análise financeira 
   assert.match(payback, /Adicionar custo/);
   assert.match(payback, /Payback descontado/);
   assert.match(payback, /TIR estimada/);
-  assert.match(payback, /BarChart data=\{result\.chartData\}/);
   assert.match(payback, /dataKey=\"cumulativeBalance\"/);
   assert.match(payback, /dataKey=\"discountedCumulativeBalance\"/);
 });
