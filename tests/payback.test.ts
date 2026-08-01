@@ -40,7 +40,7 @@ test('projeta fluxo mensal, payback oficial, consolidação anual, VPL e TIR', (
   assert.ok(result.discountedPaybackYears > result.simplePaybackYears);
   assert.equal(result.status, classifyPayback(result.paybackYears));
   assert.ok(result.netPresentValue > 0);
-  assert.ok((result.internalRateOfReturnPercent ?? 0) > 0);
+  assert.equal(result.internalRateOfReturnPercent, 21.76);
   assert.equal(result.monthlyData.length, 301);
   assert.equal(result.monthlyData[0]?.cumulativeBalance, -30_000);
   assert.equal(result.monthlyData[60]?.cumulativeBalance, 0);
