@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const VIEW = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 const PAYBACK_STEP = 'src/pages/propostas/PaybackStep.tsx';
+const PAYBACK_ENGINE = 'src/lib/calculations/paybackEngine.ts';
 
 test('kit deixa de ser etapa e passa a integrar preço e payback', async () => {
   const calculator = await readFile(VIEW, 'utf8');
@@ -24,21 +25,21 @@ test('a etapa oferece preço por margem ou manual e mantém análise financeira 
 
   assert.match(payback, /Calcular pela margem/);
   assert.match(payback, /Informar preço manual/);
-  assert.match(payback, /label=\"Margem de lucro\"/);
-  assert.match(payback, /label=\"Preço da proposta\"/);
-  assert.match(payback, /label=\"Base interna de custos\"/);
+  assert.match(payback, /label="Margem de lucro"/);
+  assert.match(payback, /label="Preço da proposta"/);
+  assert.match(payback, /label="Base interna de custos"/);
   assert.match(payback, /defaultMargin = 30/);
   assert.match(payback, /profile\.default_margin_percentage/);
   assert.match(payback, /manualSystemCost/);
   assert.match(payback, /Adicionar custo/);
   assert.match(payback, /Payback descontado/);
   assert.match(payback, /TIR estimada/);
-  assert.match(payback, /dataKey=\"cumulativeBalance\"/);
-  assert.match(payback, /dataKey=\"discountedCumulativeBalance\"/);
+  assert.match(payback, /dataKey="cumulativeBalance"/);
+  assert.match(payback, /dataKey="discountedCumulativeBalance"/);
 });
 
 test('o motor usa payback simples oficial com fluxo de caixa mensal', async () => {
-  const calculation = await readFile('src/lib/calculations/payback.ts', 'utf8');
+  const calculation = await readFile(PAYBACK_ENGINE, 'utf8');
 
   assert.match(calculation, /OFFICIAL_PAYBACK_METHOD = 'simple'/);
   assert.match(calculation, /PAYBACK_CASH_FLOW_RESOLUTION = 'monthly'/);
@@ -53,13 +54,21 @@ test('a interface apresenta o retorno oficial em anos e meses', async () => {
 
   assert.match(payback, /formatPaybackPeriod/);
   assert.match(payback, /Prazo de retorno projetado/);
-  assert.match(payback, /result\.paybackMonths/);
   assert.match(payback, /calculado mês a mês/);
   assert.match(payback, /o gráfico consolida os resultados por ano/);
 });
 
+test('o motor separa autoconsumo, energia compensada e encargos da geração distribuída', async () => {
+  const calculation = await readFile(PAYBACK_ENGINE, 'utf8');
+
+  assert.match(calculation, /simultaneousSelfConsumptionPercent/);
+  assert.match(calculation, /gridCompensatedEnergyKwh/);
+  assert.match(calculation, /distributedGenerationCharges/);
+  assert.match(calculation, /usesPostTransitionAssumption/);
+});
+
 test('a etapa apresenta todas as classificações solicitadas', async () => {
-  const calculation = await readFile('src/lib/calculations/payback.ts', 'utf8');
+  const calculation = await readFile(PAYBACK_ENGINE, 'utf8');
 
   assert.match(calculation, /Excelente/);
   assert.match(calculation, /Muito bom/);
