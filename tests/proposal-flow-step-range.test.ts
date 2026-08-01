@@ -3,9 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const VIEW = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
-const MIGRATION = 'supabase/migrations/20260726010000_expand_proposals_flow_step_range.sql';
+const MIGRATION = 'supabase/migrations/20260731223000_reduce_proposals_flow_step_range.sql';
 
-test('o banco aceita a oitava e última etapa do Wizard de propostas', async () => {
+test('o banco aceita a sétima e última etapa do Wizard de propostas', async () => {
   const [view, migration] = await Promise.all([
     readFile(VIEW, 'utf8'),
     readFile(MIGRATION, 'utf8'),
@@ -13,7 +13,7 @@ test('o banco aceita a oitava e última etapa do Wizard de propostas', async () 
 
   const stepEntries = view.match(/\{ id: '[^']+', title: '[^']+' \}/g) ?? [];
 
-  assert.equal(stepEntries.length, 8);
+  assert.equal(stepEntries.length, 7);
   assert.match(view, /flowStep: STEPS\.length - 1/);
-  assert.match(migration, /flow_step >= 0 and flow_step <= 7/i);
+  assert.match(migration, /flow_step >= 0 and flow_step <= 6/i);
 });
