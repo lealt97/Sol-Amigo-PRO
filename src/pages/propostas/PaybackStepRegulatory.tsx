@@ -25,6 +25,7 @@ import {
 import { profileService } from '../../services/profileService';
 import type { ProposalDraftPaybackForm } from '../../types/proposalDraft';
 import type { SolarKit } from '../../types/solarKit';
+import { CommercialProfitabilityAlert } from './CommercialProfitabilityAlert';
 
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -369,6 +370,7 @@ export function PaybackStep({
   };
 
   const result = calculation.result;
+  const targetMarginPercentage = parseOptionalNumber(form.marginPercentage, 30);
   const chartProjectionLastYear = result?.chartData.at(-1)?.year ?? 0;
   const paybackMarkerYear = result && Number.isFinite(result.paybackYears) && result.paybackYears <= chartProjectionLastYear
     ? Math.ceil(result.paybackYears)
@@ -441,7 +443,14 @@ export function PaybackStep({
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {pricingMode === 'margin' ? (
-            <Field label="Margem de lucro" value={form.marginPercentage || '30'} onChange={(value) => updateField('marginPercentage', value)} suffix="%" max={99.99} />
+            <Field
+              label="Margem de lucro desejada"
+              value={form.marginPercentage || '30'}
+              onChange={(value) => updateField('marginPercentage', value)}
+              suffix="%"
+              max={99.99}
+              helper="Usada para formar o preço e como meta mínima da análise comercial."
+            />
           ) : (
             <Field label="Preço da proposta" value={form.proposalPrice || ''} onChange={(value) => updateField('proposalPrice', value)} prefix="R$" min={0.01} />
           )}
@@ -457,6 +466,24 @@ export function PaybackStep({
             </div>
           )}
         </div>
+        {pricingMode === 'manual' && (
+          <div className="mt-4 max-w-md">
+            <Field
+              label="Margem mínima esperada"
+              value={form.marginPercentage || '30'}
+              onChange={(value) => updateField('marginPercentage', value)}
+              suffix="%"
+              max={99.99}
+              helper="Não altera o preço manual. Serve apenas para detectar prejuízo ou margem abaixo da meta da conta."
+            />
+          </div>
+        )}
+        {result?.hasCostBasis && (
+          <CommercialProfitabilityAlert
+            result={result}
+            targetMarginPercentage={targetMarginPercentage}
+          />
+        )}
       </div>
 
       <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
