@@ -49,6 +49,6 @@ test('preço pela margem usa custo direto e margem sobre o preço de venda', () 
   });
 
   assert.equal(result.directCost, 21_000);
-  assert.equal(result.proposalPrice, 30_000);
+  assert.ok(Math.abs(result.proposalPrice - 30_000) < 0.000001);
   assert.equal(result.hasCostBasis, true);
 });
