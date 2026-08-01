@@ -19,14 +19,16 @@ test('kit deixa de ser etapa e passa a integrar preço e payback', async () => {
   assert.match(calculator, /Sem kit cadastrado — informar custo estimado/);
 });
 
-test('a etapa oferece preço por margem ou manual e mantém análise financeira avançada', async () => {
+test('a etapa separa preço comercial da base interna e mantém análise financeira avançada', async () => {
   const payback = await readFile(PAYBACK_STEP, 'utf8');
 
   assert.match(payback, /Calcular pela margem/);
   assert.match(payback, /Informar preço manual/);
   assert.match(payback, /label=\"Margem de lucro\"/);
   assert.match(payback, /label=\"Preço da proposta\"/);
-  assert.match(payback, /label=\"Custo estimado do sistema\"/);
+  assert.match(payback, /label=\"Base interna de custos\"/);
+  assert.match(payback, /não altera o preço comercial nem o payback/i);
+  assert.match(payback, /base interna é obrigatória apenas quando o preço for calculado pela margem/i);
   assert.match(payback, /defaultMargin = 30/);
   assert.match(payback, /profile\.default_margin_percentage/);
   assert.match(payback, /manualSystemCost/);
