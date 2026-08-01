@@ -32,7 +32,6 @@ PLAIN_REPLACEMENTS = [
 
 changed = []
 remaining_legacy_occurrences = []
-flow_limit_test_files = []
 
 for path in ROOT.rglob('*.test.ts'):
     source = path.read_text(encoding='utf-8')
@@ -52,9 +51,6 @@ for path in ROOT.rglob('*.test.ts'):
         path.write_text(updated, encoding='utf-8')
         changed.append(str(path))
 
-    if 'o banco aceita a oitava e última etapa do Wizard de propostas' in updated:
-        flow_limit_test_files.append(str(path))
-
     for line_number, line in enumerate(updated.splitlines(), start=1):
         if "id: 'kit'" in line and 'doesNotMatch' not in line:
             remaining_legacy_occurrences.append(f'{path}:{line_number}: {line.strip()}')
@@ -63,5 +59,3 @@ print('Adjusted legacy tests:', ', '.join(changed) if changed else 'none')
 if remaining_legacy_occurrences:
     print('Remaining standalone-kit expectations:')
     print('\n'.join(remaining_legacy_occurrences))
-if flow_limit_test_files:
-    raise RuntimeError('Flow limit test files: ' + ', '.join(flow_limit_test_files))
