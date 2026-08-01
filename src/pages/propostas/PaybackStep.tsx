@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BadgeCheck,
+  CircleDollarSign,
+  FileText,
+  LockKeyhole,
+  Settings2,
+  SunMedium,
+  WalletCards,
+} from 'lucide-react';
 import { useLocation, useParams } from 'react-router-dom';
 import type { PaybackResult } from '../../lib/calculations/payback';
 import { setActivePaybackProfiles } from '../../lib/calculations/paybackProfileContext';
@@ -73,6 +82,15 @@ const resolveStoredGenerationProfile = (
     : createUniformGenerationProfile(monthlyGenerationKwh)
 );
 
+const formatPaybackPeriod = (months: number, analysisYears: number) => {
+  if (!Number.isFinite(months)) return `Acima de ${analysisYears} anos`;
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  if (years === 0) return `${remainingMonths} ${remainingMonths === 1 ? 'mês' : 'meses'}`;
+  if (remainingMonths === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`;
+  return `${years} ${years === 1 ? 'ano' : 'anos'} e ${remainingMonths} ${remainingMonths === 1 ? 'mês' : 'meses'}`;
+};
+
 function EnergySummary({ label, value, highlight = false }: {
   label: string;
   value: number;
@@ -87,6 +105,52 @@ function EnergySummary({ label, value, highlight = false }: {
     </div>
   );
 }
+
+function ExecutiveMetric({ label, value, helper, highlight = false }: {
+  label: string;
+  value: string;
+  helper: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 ${
+      highlight
+        ? 'border-brand-blue/30 bg-brand-blue/10'
+        : 'border-brand-border bg-brand-surface'
+    }`}>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-brand-dark">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+const FLOW_LINKS = [
+  {
+    href: '#configuracao-comercial-regulatoria',
+    label: 'Configuração comercial e regulatória',
+    helper: 'Preço, custos, tarifa, tributos e Fio B',
+    icon: Settings2,
+  },
+  {
+    href: '#perfil-mensal-energia',
+    label: 'Perfil mensal de energia',
+    helper: 'Sazonalidade de consumo e geração',
+    icon: SunMedium,
+  },
+  {
+    href: '#banco-creditos',
+    label: 'Banco de créditos',
+    helper: 'Autoconsumo, injeção, uso e expiração',
+    icon: WalletCards,
+  },
+  {
+    href: '#comparacao-fatura',
+    label: 'Comparação da fatura',
+    helper: 'Economia, valor residual e consistência',
+    icon: FileText,
+  },
+] as const;
 
 export function PaybackStep({
   selectedKit,
@@ -248,7 +312,133 @@ export function PaybackStep({
 
   return (
     <div className="space-y-6">
-      <div key={profileKey}>
+      <section
+        aria-labelledby="resumo-final-proposta"
+        className="overflow-hidden rounded-2xl border border-brand-blue/30 bg-gradient-to-br from-brand-blue/10 via-brand-surface to-brand-surface"
+      >
+        <div className="border-b border-brand-blue/15 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-blue">Revisão executiva</p>
+              <h2 id="resumo-final-proposta" className="mt-2 text-xl font-bold text-brand-dark">
+                Resumo final da proposta
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Confira primeiro o que será apresentado ao cliente. Custos, lucro e margem permanecem separados em uma área identificada como uso interno.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                <FileText className="h-3.5 w-3.5" /> Visível ao cliente
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600">
+                <LockKeyhole className="h-3.5 w-3.5" /> Dados internos separados
+              </span>
+            </div>
+          </div>
+
+          {result ? (
+            <>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <ExecutiveMetric
+                  label="Preço comercial"
+                  value={currency.format(result.totalInvestment)}
+                  helper="Valor usado no payback e apresentado na proposta."
+                  highlight
+                />
+                <ExecutiveMetric
+                  label="Retorno projetado"
+                  value={formatPaybackPeriod(result.paybackMonths, result.analysisYears)}
+                  helper="Payback simples oficial, calculado mês a mês."
+                />
+                <ExecutiveMetric
+                  label="Economia mensal estimada"
+                  value={currency.format(result.monthlySavings)}
+                  helper="Após disponibilidade, encargos e premissas informadas."
+                />
+                <ExecutiveMetric
+                  label="Economia líquida no 1º ano"
+                  value={currency.format(result.annualSavings)}
+                  helper="Referência comercial para o primeiro ano da projeção."
+                />
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1.25fr_1fr]">
+                <div className={`rounded-2xl border p-4 ${
+                  result.status === 'unfeasible'
+                    ? 'border-red-200 bg-red-50 text-red-800'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider opacity-75">Leitura para o cliente</p>
+                      <p className="mt-1 font-bold">{result.statusLabel}</p>
+                      <p className="mt-1 text-xs leading-5">
+                        O investimento projetado retorna em {formatPaybackPeriod(result.paybackMonths, result.analysisYears)}, considerando o cenário tarifário, energético e regulatório configurado.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700">
+                  <div className="flex items-start gap-3">
+                    <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Uso interno — não incluir na proposta</p>
+                      {result.hasCostBasis ? (
+                        <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Custo</p>
+                            <p className="mt-1 text-sm font-bold text-brand-dark">{currency.format(result.directCost)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Lucro</p>
+                            <p className="mt-1 text-sm font-bold text-brand-dark">{currency.format(result.profitAmount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Margem</p>
+                            <p className="mt-1 text-sm font-bold text-brand-dark">{decimal.format(result.marginPercentage)}%</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs leading-5 text-slate-500">
+                          A análise do cliente está disponível. Informe uma base de custos para liberar a segurança comercial da venda.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-dashed border-brand-blue/30 bg-brand-surface/80 p-5 text-sm leading-6 text-slate-600">
+              Preencha ou revise a configuração abaixo. O resumo final será atualizado automaticamente quando o preço e as premissas permitirem um cálculo válido.
+            </div>
+          )}
+        </div>
+
+        <nav aria-label="Navegação da etapa de preço e payback" className="grid gap-px bg-brand-border sm:grid-cols-2 xl:grid-cols-4">
+          {FLOW_LINKS.map(({ href, label, helper, icon: Icon }, index) => (
+            <a
+              key={href}
+              href={href}
+              className="group flex gap-3 bg-brand-surface p-4 transition hover:bg-brand-blue/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-blue"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Bloco {index + 1}</span>
+                <span className="mt-0.5 block text-sm font-bold text-brand-dark group-hover:text-brand-blue">{label}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">{helper}</span>
+              </span>
+            </a>
+          ))}
+        </nav>
+      </section>
+
+      <div id="configuracao-comercial-regulatoria" className="scroll-mt-6" key={profileKey}>
         <PaybackStepRegulatory
           selectedKit={selectedKit}
           connectionType={connectionType}
@@ -260,7 +450,7 @@ export function PaybackStep({
         />
       </div>
 
-      <section className="rounded-xl border border-brand-border bg-brand-surface p-5">
+      <section id="perfil-mensal-energia" className="scroll-mt-6 rounded-xl border border-brand-border bg-brand-surface p-5">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Sazonalidade mensal</p>
           <h3 className="mt-1 font-bold text-brand-dark">Consumo e geração de janeiro a dezembro</h3>
@@ -326,7 +516,7 @@ export function PaybackStep({
       </section>
 
       {result && (
-        <section className="rounded-xl border border-brand-blue/30 bg-brand-blue/5 p-5">
+        <section id="banco-creditos" className="scroll-mt-6 rounded-xl border border-brand-blue/30 bg-brand-blue/5 p-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">
               Sistema de Compensação de Energia Elétrica
@@ -367,12 +557,17 @@ export function PaybackStep({
       {result?.averageMonthlyBillAmount != null
         && result.estimatedResidualBillAmount != null
         && result.estimatedBillReductionPercent != null && (
-        <section className="rounded-xl border border-brand-border bg-brand-surface p-5">
-          <div>
-            <h3 className="font-bold text-brand-dark">Preço da proposta e comparação da fatura</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              A tarifa continua sendo a base técnica do payback; a fatura média funciona como referência comercial.
-            </p>
+        <section id="comparacao-fatura" className="scroll-mt-6 rounded-xl border border-brand-border bg-brand-surface p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
+              <CircleDollarSign className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="font-bold text-brand-dark">Preço da proposta e comparação da fatura</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                A tarifa continua sendo a base técnica do payback; a fatura média funciona como referência comercial.
+              </p>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
