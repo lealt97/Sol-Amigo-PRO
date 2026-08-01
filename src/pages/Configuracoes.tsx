@@ -86,8 +86,13 @@ export function Configuracoes() {
 
       try {
         const data = await profileService.getProfile(user.id);
-        setProfile(data);
-        applyPlatformTheme(data.platform_theme || null);
+        const normalizedProfile: Profile = {
+          ...data,
+          default_margin_percentage: data.default_margin_percentage ?? 30,
+          default_validity_days: data.default_validity_days ?? 7,
+        };
+        setProfile(normalizedProfile);
+        applyPlatformTheme(normalizedProfile.platform_theme || null);
       } catch (err) {
         console.error('Error loading profile:', err);
         setLoadError(err);
@@ -844,8 +849,8 @@ export function Configuracoes() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-brand-dark">Margem de Lucro Padrão (%)</label>
-                  <input type="number" name="default_margin_percentage" value={profile.default_margin_percentage || ''} onChange={handleNumberChange} className={inputClassName} />
-                  <p className="text-xs text-slate-500">Esta margem será aplicada automaticamente ao criar uma nova proposta.</p>
+                  <input type="number" name="default_margin_percentage" min={0} max={99.99} step="0.01" value={profile.default_margin_percentage ?? 30} onChange={handleNumberChange} className={inputClassName} />
+                  <p className="text-xs text-slate-500">O padrão inicial é 30%. A margem é calculada sobre o preço de venda e pode ser alterada em cada proposta.</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-brand-dark">Validade Padrão da Proposta (Dias)</label>

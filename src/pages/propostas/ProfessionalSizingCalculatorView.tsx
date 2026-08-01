@@ -82,7 +82,6 @@ const STEPS = [
   { id: 'consumption', title: 'Consumo' },
   { id: 'irradiation', title: 'HSP e meta de geração' },
   { id: 'modules', title: 'Telhado (opcional)' },
-  { id: 'kit', title: 'Kit de referência (opcional)' },
   { id: 'payback', title: 'Preço e payback' },
   { id: 'result', title: 'Resultado' },
   { id: 'delivery', title: 'Gerar e enviar' },
@@ -231,7 +230,16 @@ export function ProfessionalSizingCalculator() {
   const gridVoltageV = String(selectedElectricalStandard.referenceVoltageV);
 
   function hydrateProposalDraft(state: ProposalDraftState, fallbackTitle = '', startAtBeginning = false) {
-    setCurrentStep(startAtBeginning ? 0 : clampProposalFlowStep(state.currentStep));
+    const rawStoredStep = Number(state.currentStep);
+    const boundedStoredStep = Number.isInteger(rawStoredStep)
+      ? Math.min(7, Math.max(0, rawStoredStep))
+      : 0;
+    const migratedStep = state.flowLayout === 'kit-in-payback'
+      ? boundedStoredStep
+      : boundedStoredStep >= 5
+        ? boundedStoredStep - 1
+        : boundedStoredStep;
+    setCurrentStep(startAtBeginning ? 0 : clampProposalFlowStep(migratedStep));
     setProposalTitle(state.proposalTitle || fallbackTitle);
     setSelectedClientId(state.selectedClientId);
     setConsumptionMode(state.consumptionMode as ConsumptionMode);
@@ -552,7 +560,7 @@ export function ProfessionalSizingCalculator() {
       }
     }
 
-    if (currentStep === 5 && !paybackResult) {
+    if (currentStep === 4 && !paybackResult) {
       toast.error('Revise os dados financeiros para calcular o payback.');
       return false;
     }
@@ -562,6 +570,7 @@ export function ProfessionalSizingCalculator() {
 
   const buildDraftState = (step: number): ProposalDraftState => ({
     version: PROPOSAL_DRAFT_VERSION,
+    flowLayout: 'kit-in-payback',
     currentStep: step,
     proposalTitle: proposalTitle.trim().replace(/\s+/g, ' '),
     selectedClientId,
@@ -592,7 +601,8 @@ export function ProfessionalSizingCalculator() {
       : consumptionMode === 'loads'
         ? 'load_survey'
         : 'average';
-    const margin = selectedKit ? paybackResult?.marginPercentage ?? null : null;
+    const hasCostBasis = paybackResult?.hasCostBasis === true;
+    const margin = hasCostBasis ? paybackResult?.marginPercentage ?? null : null;
     const proposalPrice = paybackResult?.totalInvestment
       ?? (paybackForm
         ? parseOptionalNumber(paybackForm.proposalPrice || paybackForm.estimatedSystemCost || '')
@@ -621,12 +631,12 @@ export function ProfessionalSizingCalculator() {
       selected_solar_kit_id: selectedKit?.id ?? null,
       solar_kit_snapshot: selectedKit ? buildSolarKitSnapshot(selectedKit) : null,
       kit_cost: selectedKit?.cost_price ?? null,
-      other_costs: selectedKit ? paybackResult?.additionalCostsTotal ?? null : null,
+      other_costs: hasCostBasis ? paybackResult?.additionalCostsTotal ?? null : null,
       margin_percentage: margin,
-      total_cost: selectedKit ? paybackResult?.directCost ?? null : null,
+      total_cost: hasCostBasis ? paybackResult?.directCost ?? null : null,
       gross_price: proposalPrice,
       final_price: proposalPrice,
-      estimated_profit: selectedKit ? paybackResult?.profitAmount ?? null : null,
+      estimated_profit: hasCostBasis ? paybackResult?.profitAmount ?? null : null,
     };
   };
 
@@ -1174,9 +1184,9 @@ export function ProfessionalSizingCalculator() {
             {currentStep === 4 && (
               <section className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-brand-dark">Kit solar de referência — opcional</h2>
+                  <h2 className="text-lg font-bold text-brand-dark">Composição técnica da proposta</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-300">
-                    Selecione um kit apenas quando ele já estiver definido. Sem kit, a pré-proposta usa a potência necessária calculada e o preço informado diretamente na próxima etapa.
+                    Escolha usar um kit cadastrado ou mantenha os equipamentos a definir. O custo, o preço, o lucro, a margem e o payback são configurados nesta mesma etapa.
                   </p>
                 </div>
 
@@ -1194,7 +1204,7 @@ export function ProfessionalSizingCalculator() {
                   />
                 ) : (
                   <label className="block space-y-2 rounded-xl border border-brand-light/30 bg-brand-gray/70 p-4">
-                    <span className="text-sm font-semibold text-brand-dark">Kit solar de referência (opcional)</span>
+                    <span className="text-sm font-semibold text-brand-dark">Usar kit cadastrado (opcional)</span>
                     <Select
                       className="border-brand-light/50 bg-brand-gray text-brand-dark shadow-inner focus-visible:ring-brand-light"
                       value={selectedKitId}
@@ -1203,7 +1213,7 @@ export function ProfessionalSizingCalculator() {
                         setPaybackResult(null);
                       }}
                     >
-                      <option value="">Selecione um kit cadastrado</option>
+                      <option value="">Sem kit cadastrado — informar custo estimado</option>
                       {kits.map((kit) => (
                         <option key={kit.id} value={kit.id}>
                           {kit.name} — {number.format(kit.kit_power_kwp)} kWp{kit.grid_connection_type ? ` — ${SOLAR_KIT_CONNECTION_TYPE_LABELS[kit.grid_connection_type]}` : ''}{kit.grid_voltage_v ? ` ${kit.grid_voltage_v} V` : ''}{!kit.module_height_m || !kit.module_width_m ? ' — dimensões pendentes' : ''}
@@ -1346,26 +1356,26 @@ export function ProfessionalSizingCalculator() {
                     </div>
                   </>
                 )}
+
+                <div className="border-t border-brand-border pt-7">
+                  {result ? (
+                    <PaybackStep
+                      selectedKit={selectedKit}
+                      connectionType={connectionType}
+                      monthlyCompensableConsumptionKwh={result.compensableMonthlyConsumptionKwh}
+                      monthlyGenerationKwh={result.selectedKitEstimatedMonthlyGenerationKwh ?? result.targetMonthlyGenerationKwh}
+                      initialForm={paybackForm}
+                      onDraftChange={setPaybackForm}
+                      onResultChange={setPaybackResult}
+                    />
+                  ) : (
+                    <ErrorState message="Informe consumo, HSP e rendimento-base antes de calcular o investimento e o payback." />
+                  )}
+                </div>
               </section>
             )}
 
             {currentStep === 5 && (
-              result ? (
-                <PaybackStep
-                  selectedKit={selectedKit}
-                  connectionType={connectionType}
-                  monthlyCompensableConsumptionKwh={result.compensableMonthlyConsumptionKwh}
-                  monthlyGenerationKwh={result.selectedKitEstimatedMonthlyGenerationKwh ?? result.targetMonthlyGenerationKwh}
-                  initialForm={paybackForm}
-                  onDraftChange={setPaybackForm}
-                  onResultChange={setPaybackResult}
-                />
-              ) : (
-                <ErrorState message="Informe consumo, HSP e rendimento-base antes de calcular o investimento e o payback." />
-              )
-            )}
-
-            {currentStep === 6 && (
               <section className="space-y-6">
                 <div>
                   <h2 className="text-lg font-bold text-brand-dark">Resultado do dimensionamento</h2>

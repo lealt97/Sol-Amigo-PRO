@@ -122,3 +122,24 @@ test('classifica os intervalos de retorno', () => {
   assert.equal(classifyPayback(10.01), 'unfeasible');
   assert.equal(classifyPayback(Number.POSITIVE_INFINITY), 'unfeasible');
 });
+
+
+test('calcula lucro e margem usando custo manual quando não há kit', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    proposalPrice: 20_000,
+    kitCost: null,
+    manualSystemCost: 12_000,
+    additionalCosts: [{ description: 'Instalação', amount: 2_000 }],
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 0,
+  });
+
+  assert.equal(result.hasCostBasis, true);
+  assert.equal(result.baseSystemCost, 12_000);
+  assert.equal(result.directCost, 14_000);
+  assert.equal(result.profitAmount, 6_000);
+  assert.equal(result.marginPercentage, 30);
+});

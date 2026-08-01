@@ -99,6 +99,8 @@ export const profileService = {
         id: userId,
         name: '',
         company_name: '',
+        default_margin_percentage: 30,
+        default_validity_days: 7,
       };
 
       const { data: newData, error: insertError } = await supabase

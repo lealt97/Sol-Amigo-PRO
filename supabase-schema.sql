@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   seller_name TEXT,
   seller_phone TEXT,
   seller_email TEXT,
-  default_margin_percentage NUMERIC,
-  default_validity_days INTEGER,
+  default_margin_percentage NUMERIC DEFAULT 30,
+  default_validity_days INTEGER DEFAULT 7,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );

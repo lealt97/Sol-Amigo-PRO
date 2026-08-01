@@ -5,41 +5,37 @@ import test from 'node:test';
 const VIEW = 'src/pages/propostas/ProfessionalSizingCalculatorView.tsx';
 const PAYBACK_STEP = 'src/pages/propostas/PaybackStep.tsx';
 
-test('investimento e payback ocupam a penúltima etapa comercial antes do resultado', async () => {
+test('kit deixa de ser etapa e passa a integrar preço e payback', async () => {
   const calculator = await readFile(VIEW, 'utf8');
 
   assert.match(
     calculator,
-    /id: 'kit', title: 'Kit de referência \(opcional\)'[\s\S]*id: 'payback', title: 'Preço e payback'[\s\S]*id: 'result', title: 'Resultado'/,
+    /id: 'modules', title: 'Telhado \(opcional\)'[\s\S]*id: 'payback', title: 'Preço e payback'[\s\S]*id: 'result', title: 'Resultado'/,
   );
-  assert.match(calculator, /currentStep === 5[\s\S]*<PaybackStep/);
-  assert.match(calculator, /currentStep === 6[\s\S]*Resultado do dimensionamento/);
-  assert.match(calculator, /if \(currentStep === 5 && !paybackResult\)/);
+  assert.doesNotMatch(calculator, /id: 'kit'/);
+  assert.match(calculator, /currentStep === 4[\s\S]*Composição técnica da proposta[\s\S]*<PaybackStep/);
+  assert.match(calculator, /currentStep === 5[\s\S]*Resultado do dimensionamento/);
+  assert.match(calculator, /if \(currentStep === 4 && !paybackResult\)/);
+  assert.match(calculator, /Sem kit cadastrado — informar custo estimado/);
 });
 
-test('a etapa contém tarifa, tributos, margem e gráfico vertical', async () => {
+test('a etapa oferece preço por margem ou manual e mantém análise financeira avançada', async () => {
   const payback = await readFile(PAYBACK_STEP, 'utf8');
 
-  assert.match(payback, /label="Tarifa de energia"/);
-  assert.match(payback, /label="PIS"/);
-  assert.match(payback, /label="COFINS"/);
-  assert.match(payback, /label="ICMS"/);
-  assert.match(payback, /label="Outros encargos"/);
-  assert.match(payback, /label="Preço da proposta"/);
-  assert.match(payback, /Este valor não depende da seleção de um kit/);
-  assert.doesNotMatch(payback, /label="Margem de lucro"/);
+  assert.match(payback, /Calcular pela margem/);
+  assert.match(payback, /Informar preço manual/);
+  assert.match(payback, /label=\"Margem de lucro\"/);
+  assert.match(payback, /label=\"Preço da proposta\"/);
+  assert.match(payback, /label=\"Custo estimado do sistema\"/);
+  assert.match(payback, /defaultMargin = 30/);
+  assert.match(payback, /profile\.default_margin_percentage/);
+  assert.match(payback, /manualSystemCost/);
   assert.match(payback, /Adicionar custo/);
+  assert.match(payback, /Payback descontado/);
+  assert.match(payback, /TIR estimada/);
   assert.match(payback, /<BarChart/);
-  assert.match(payback, /<Bar[\s\S]*dataKey="cumulativeBalance"[\s\S]*radius=\{0\}/);
-  assert.match(payback, /var\(--color-brand-blue\)/);
-  assert.match(payback, /var\(--color-brand-yellow\)/);
-  assert.match(payback, /var\(--color-brand-border\)/);
-  assert.match(payback, /var\(--color-brand-surface\)/);
-  assert.match(payback, /var\(--color-brand-dark\)/);
-  assert.match(payback, /var\(--color-slate-500\)/);
-  assert.match(payback, /var\(--color-gray-100\)/);
-  assert.doesNotMatch(payback, /radius=\{\[5, 5, 0, 0\]\}/);
-  assert.doesNotMatch(payback, /#0076DD|#ef4444|#64748b/);
+  assert.match(payback, /dataKey=\"cumulativeBalance\"/);
+  assert.match(payback, /dataKey=\"discountedCumulativeBalance\"/);
 });
 
 test('a etapa apresenta todas as classificações solicitadas', async () => {

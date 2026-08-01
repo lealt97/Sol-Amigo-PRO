@@ -163,7 +163,8 @@ test('dimensionamento comercial mantém o contrato da pré-proposta', async () =
   assert.match(calculator, /Histórico de 12 meses/);
   assert.match(calculator, /Levantamento de cargas/);
   assert.match(calculator, /Telhado \(opcional\)/);
-  assert.match(calculator, /Kit de referência \(opcional\)/);
+  assert.doesNotMatch(calculator, /id: 'kit'/);
+  assert.match(calculator, /Composição técnica da proposta/);
   assert.match(calculator, /hasRoofTechnicalData && !roofOrientationResult/);
   assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
   assert.match(roofEditor, /Latitude da instalação \(opcional\)/);

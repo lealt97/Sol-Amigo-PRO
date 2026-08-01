@@ -12,15 +12,17 @@ test('pré-proposta não exige telhado nem kit e mantém ressalva de vistoria', 
   ]);
 
   assert.match(calculator, /Telhado \(opcional\)/);
-  assert.match(calculator, /Kit de referência \(opcional\)/);
+  assert.doesNotMatch(calculator, /id: 'kit'/);
+  assert.match(calculator, /Composição técnica da proposta/);
+  assert.match(calculator, /Sem kit cadastrado — informar custo estimado/);
   assert.match(calculator, /hasRoofTechnicalData && !roofOrientationResult/);
   assert.doesNotMatch(calculator, /toast\.error\('Selecione um kit on-grid cadastrado\.'/);
   assert.match(calculator, /selectedKit\?\.name \?\? 'A definir após vistoria'/);
   assert.match(payback, /selectedKit: SolarKit \| null/);
-  assert.match(payback, /Preço da proposta/);
-  assert.match(payback, /não depende da seleção de um kit/);
-  assert.match(draft, /proposalPrice\?: string/);
-  assert.match(draft, /estimatedSystemCost\?: string/);
+  assert.match(payback, /Custo estimado do sistema/);
+  assert.match(payback, /Margem de lucro/);
+  assert.match(draft, /pricingMode\?: 'margin' \| 'manual'/);
+  assert.match(draft, /flowLayout\?: 'kit-in-payback'/);
   assert.match(technical, /Solução Técnica Preliminar/);
   assert.match(technical, /Esta é uma pré-proposta comercial/);
   assert.match(publicPage, /Pré-proposta Comercial/);

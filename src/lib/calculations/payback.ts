@@ -9,6 +9,7 @@ export type PaybackAdditionalCost = {
 export type PaybackInput = {
   proposalPrice: number;
   kitCost?: number | null;
+  manualSystemCost?: number | null;
   tariffCentsPerKwh: number;
   averageMonthlyBillAmount?: number | null;
   monthlyAvailabilityConsumptionKwh?: number;
@@ -45,6 +46,7 @@ export type PaybackChartPoint = {
 export type PaybackResult = {
   kitCost: number;
   hasCostBasis: boolean;
+  baseSystemCost: number;
   additionalCostsTotal: number;
   directCost: number;
   marginPercentage: number;
@@ -183,6 +185,9 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
 
   const kitCost = input.kitCost ?? null;
   if (kitCost != null) assertPositive(kitCost, 'Custo do kit');
+  const manualSystemCost = input.manualSystemCost ?? null;
+  if (manualSystemCost != null) assertPositive(manualSystemCost, 'Custo estimado do sistema');
+  const baseSystemCost = kitCost ?? manualSystemCost;
 
   assertPositive(input.tariffCentsPerKwh, 'Tarifa de energia');
   const averageMonthlyBillAmount = input.averageMonthlyBillAmount ?? null;
@@ -224,8 +229,8 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
     return total + cost.amount;
   }, 0);
 
-  const hasCostBasis = kitCost != null;
-  const directCost = hasCostBasis ? kitCost + additionalCostsTotal : input.proposalPrice;
+  const hasCostBasis = baseSystemCost != null;
+  const directCost = hasCostBasis ? baseSystemCost + additionalCostsTotal : input.proposalPrice;
   const profitAmount = hasCostBasis ? input.proposalPrice - directCost : 0;
   const marginPercentage = hasCostBasis
     ? (profitAmount / input.proposalPrice) * 100
@@ -349,6 +354,7 @@ export function calculatePayback(input: PaybackInput): PaybackResult {
   return {
     kitCost: round(kitCost ?? 0),
     hasCostBasis,
+    baseSystemCost: round(baseSystemCost ?? 0),
     additionalCostsTotal: round(additionalCostsTotal),
     directCost: round(directCost),
     marginPercentage: round(marginPercentage),

@@ -21,6 +21,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   calculatePayback,
   type PaybackResult,
@@ -30,6 +31,7 @@ import {
   CONNECTION_AVAILABILITY_KWH,
   type ConnectionType,
 } from '../../lib/calculations/professionalSizing';
+import { profileService } from '../../services/profileService';
 import type { ProposalDraftPaybackForm } from '../../types/proposalDraft';
 import type { SolarKit } from '../../types/solarKit';
 
@@ -67,10 +69,11 @@ const createCost = (): AdditionalCostDraft => ({
   amount: '',
 });
 
-const createDefaultForm = (): PaybackFormState => ({
+const createDefaultForm = (margin = 30): PaybackFormState => ({
   tariffCentsPerKwh: '100',
   averageMonthlyBillAmount: '',
   proposalPrice: '',
+  pricingMode: 'margin',
   estimatedSystemCost: '',
   analysisYears: '25',
   annualTariffEscalationPercent: '4.5',
@@ -84,18 +87,25 @@ const createDefaultForm = (): PaybackFormState => ({
   cofinsPercent: '0',
   icmsPercent: '0',
   otherTariffsPercent: '0',
-  marginPercentage: '',
+  marginPercentage: String(margin),
   additionalCosts: [],
 });
 
-const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {
+const normalizeForm = (form: ProposalDraftPaybackForm, defaultMargin = 30): PaybackFormState => {
+  const proposalPrice = typeof form.proposalPrice === 'string'
+    ? form.proposalPrice
+    : typeof form.estimatedSystemCost === 'string'
+      ? form.estimatedSystemCost
+      : '';
+  const pricingMode = form.pricingMode === 'margin' || form.pricingMode === 'manual'
+    ? form.pricingMode
+    : proposalPrice.trim()
+      ? 'manual'
+      : 'margin';
   const normalized = {
     ...form,
-    proposalPrice: typeof form.proposalPrice === 'string'
-      ? form.proposalPrice
-      : typeof form.estimatedSystemCost === 'string'
-        ? form.estimatedSystemCost
-        : '',
+    proposalPrice,
+    pricingMode,
     averageMonthlyBillAmount: typeof form.averageMonthlyBillAmount === 'string' ? form.averageMonthlyBillAmount : '',
     estimatedSystemCost: typeof form.estimatedSystemCost === 'string' ? form.estimatedSystemCost : '',
     analysisYears: typeof form.analysisYears === 'string' ? form.analysisYears : '25',
@@ -106,7 +116,9 @@ const normalizeForm = (form: ProposalDraftPaybackForm): PaybackFormState => {
     compensationFactorPercent: typeof form.compensationFactorPercent === 'string' ? form.compensationFactorPercent : '100',
     inverterReplacementYear: typeof form.inverterReplacementYear === 'string' ? form.inverterReplacementYear : '12',
     inverterReplacementCost: typeof form.inverterReplacementCost === 'string' ? form.inverterReplacementCost : '',
-    marginPercentage: typeof form.marginPercentage === 'string' ? form.marginPercentage : '',
+    marginPercentage: typeof form.marginPercentage === 'string' && form.marginPercentage.trim()
+      ? form.marginPercentage
+      : String(defaultMargin),
   };
 
   const unchanged = Object.entries(normalized).every(([key, value]) => (
@@ -189,8 +201,9 @@ export function PaybackStep({
   onDraftChange?: (form: ProposalDraftPaybackForm) => void;
   onResultChange: (result: PaybackResult | null) => void;
 }) {
-  const storageKey = 'sol-amigo:payback:direct-proposal-price';
-  const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm()));
+  const { user } = useAuth();
+  const storageKey = 'sol-amigo:payback:pricing-v2';
+  const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm(30), 30));
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -198,8 +211,22 @@ export function PaybackStep({
 
     const hydrate = async () => {
       setHydrated(false);
+      let defaultMargin = 30;
+
+      if (user?.id) {
+        try {
+          const profile = await profileService.getProfile(user.id);
+          const configuredMargin = Number(profile.default_margin_percentage);
+          if (Number.isFinite(configuredMargin) && configuredMargin >= 0 && configuredMargin < 100) {
+            defaultMargin = configuredMargin;
+          }
+        } catch {
+          defaultMargin = 30;
+        }
+      }
+
       if (initialForm) {
-        if (active) setForm(normalizeForm(initialForm));
+        if (active) setForm(normalizeForm(initialForm, defaultMargin));
         if (active) setHydrated(true);
         return;
       }
@@ -208,7 +235,7 @@ export function PaybackStep({
       if (saved) {
         try {
           const parsed = JSON.parse(saved) as PaybackFormState;
-          if (active) setForm(normalizeForm(parsed));
+          if (active) setForm(normalizeForm(parsed, defaultMargin));
           if (active) setHydrated(true);
           return;
         } catch {
@@ -217,7 +244,7 @@ export function PaybackStep({
       }
 
       if (active) {
-        setForm(createDefaultForm());
+        setForm(createDefaultForm(defaultMargin));
         setHydrated(true);
       }
     };
@@ -226,7 +253,7 @@ export function PaybackStep({
     return () => {
       active = false;
     };
-  }, [initialForm, storageKey]);
+  }, [initialForm, storageKey, user?.id]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -234,14 +261,39 @@ export function PaybackStep({
     onDraftChange?.(form);
   }, [form, hydrated, onDraftChange, storageKey]);
 
+  const pricingMode = form.pricingMode === 'manual' ? 'manual' : 'margin';
+
   const calculation = useMemo(() => {
     if (!hydrated) return { result: null, error: null };
 
     try {
+      const additionalCosts = form.additionalCosts.map((cost) => ({
+        description: cost.description.trim() || 'Custo adicional',
+        amount: parseNumber(cost.amount || '0'),
+      }));
+      const baseSystemCost = selectedKit?.cost_price ?? parseNumber(form.estimatedSystemCost || '');
+      if (!Number.isFinite(baseSystemCost) || baseSystemCost <= 0) {
+        throw new Error(selectedKit
+          ? 'O kit selecionado precisa possuir um custo válido.'
+          : 'Informe o custo estimado do sistema para calcular preço, lucro e margem.');
+      }
+
+      const additionalCostsTotal = additionalCosts.reduce((total, cost) => total + cost.amount, 0);
+      const directCost = baseSystemCost + additionalCostsTotal;
+      const requestedMargin = parseNumber(form.marginPercentage || '30');
+      if (pricingMode === 'margin' && (!Number.isFinite(requestedMargin) || requestedMargin < 0 || requestedMargin >= 100)) {
+        throw new Error('A margem de lucro deve estar entre 0% e 99,99%.');
+      }
+
+      const proposalPrice = pricingMode === 'margin'
+        ? directCost / (1 - requestedMargin / 100)
+        : parseNumber(form.proposalPrice || '');
+
       return {
         result: calculatePayback({
-          proposalPrice: parseNumber(form.proposalPrice || form.estimatedSystemCost || ''),
+          proposalPrice,
           kitCost: selectedKit?.cost_price ?? null,
+          manualSystemCost: selectedKit ? null : baseSystemCost,
           tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),
           averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()
             ? parseNumber(form.averageMonthlyBillAmount)
@@ -253,10 +305,7 @@ export function PaybackStep({
           otherTariffsPercent: parseNumber(form.otherTariffsPercent),
           monthlyCompensableConsumptionKwh,
           monthlyGenerationKwh,
-          additionalCosts: form.additionalCosts.map((cost) => ({
-            description: cost.description.trim() || 'Custo adicional',
-            amount: parseNumber(cost.amount || '0'),
-          })),
+          additionalCosts,
           analysisYears: parseNumber(form.analysisYears || '25'),
           annualTariffEscalationPercent: parseNumber(form.annualTariffEscalationPercent || '4.5'),
           annualGenerationDegradationPercent: parseNumber(form.annualGenerationDegradationPercent || '0.5'),
@@ -284,7 +333,8 @@ export function PaybackStep({
     hydrated,
     monthlyCompensableConsumptionKwh,
     monthlyGenerationKwh,
-    selectedKit?.cost_price,
+    pricingMode,
+    selectedKit,
   ]);
 
   useEffect(() => {
@@ -319,6 +369,15 @@ export function PaybackStep({
   };
 
   const result = calculation.result;
+  const switchPricingMode = (mode: 'margin' | 'manual') => {
+    setForm((current) => ({
+      ...current,
+      pricingMode: mode,
+      proposalPrice: mode === 'manual' && !current.proposalPrice?.trim() && result
+        ? String(result.totalInvestment)
+        : current.proposalPrice,
+    }));
+  };
   const chartProjectionLastYear = result?.chartData[result.chartData.length - 1]?.year ?? 0;
   const paybackMarkerYear = result
     && Number.isFinite(result.simplePaybackYears)
@@ -347,26 +406,37 @@ export function PaybackStep({
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="shadow-none">
           <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Valor comercial</p>
-            <div className="mt-4">
-              <PaybackField
-                label="Preço da proposta"
-                value={form.proposalPrice || form.estimatedSystemCost || ''}
-                onChange={(value) => updateField('proposalPrice', value)}
-                prefix="R$"
-                min={0.01}
-                helper="Informe o preço que será apresentado ao cliente. Este valor não depende da seleção de um kit."
-              />
-            </div>
-            {selectedKit?.sale_price != null && selectedKit.sale_price > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-4"
-                onClick={() => updateField('proposalPrice', String(selectedKit.sale_price ?? ''))}
-              >
-                Usar preço de venda cadastrado: {currency.format(selectedKit.sale_price)}
-              </Button>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Base de custos</p>
+            {selectedKit ? (
+              <>
+                <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
+                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo do kit</p>
+                    <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
+                  </div>
+                  {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Venda cadastrada</p>
+                      <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.sale_price)}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="mt-3 space-y-4">
+                <p className="text-sm leading-6 text-slate-500">
+                  Sem kit cadastrado, informe uma estimativa do custo dos equipamentos e serviços principais.
+                </p>
+                <PaybackField
+                  label="Custo estimado do sistema"
+                  value={form.estimatedSystemCost || ''}
+                  onChange={(value) => updateField('estimatedSystemCost', value)}
+                  prefix="R$"
+                  min={0.01}
+                  helper="Esse valor forma a base para calcular preço, lucro e margem, mesmo sem um kit definido."
+                />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -382,24 +452,91 @@ export function PaybackStep({
         </Card>
       </div>
 
-      {selectedKit && (
-        <Card className="border-brand-blue/20 bg-brand-blue/5 shadow-none">
-          <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Kit de referência — opcional</p>
-            <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
-            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo interno do kit</p>
-                <p className="mt-1 font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Função no cálculo</p>
-                <p className="mt-1 text-slate-600">Referência técnica e cálculo interno de rentabilidade.</p>
-              </div>
+      <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Formação do preço</p>
+          <h3 className="mt-1 font-bold text-brand-dark">Escolha como definir o valor da proposta</h3>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => switchPricingMode('margin')}
+            className={`rounded-xl border p-4 text-left transition ${pricingMode === 'margin'
+              ? 'border-brand-blue bg-brand-blue/10 ring-1 ring-brand-blue/20'
+              : 'border-brand-border bg-brand-gray/20 hover:border-brand-blue/30'}`}
+          >
+            <p className="font-bold text-brand-dark">Calcular pela margem</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">O preço é formado automaticamente a partir do custo total e da margem desejada.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => switchPricingMode('manual')}
+            className={`rounded-xl border p-4 text-left transition ${pricingMode === 'manual'
+              ? 'border-brand-blue bg-brand-blue/10 ring-1 ring-brand-blue/20'
+              : 'border-brand-border bg-brand-gray/20 hover:border-brand-blue/30'}`}
+          >
+            <p className="font-bold text-brand-dark">Informar preço manual</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Digite o preço final e veja a margem efetiva calculada pelo sistema.</p>
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {pricingMode === 'margin' ? (
+            <PaybackField
+              label="Margem de lucro"
+              value={form.marginPercentage || '30'}
+              onChange={(value) => updateField('marginPercentage', value)}
+              suffix="%"
+              min={0}
+              max={99.99}
+              helper="Carregada de Configurações da Conta > Preferências Comerciais. É margem sobre o preço de venda, não simples acréscimo sobre o custo."
+            />
+          ) : (
+            <PaybackField
+              label="Preço da proposta"
+              value={form.proposalPrice || ''}
+              onChange={(value) => updateField('proposalPrice', value)}
+              prefix="R$"
+              min={0.01}
+              helper="O lucro e a margem efetiva serão calculados usando a base de custos informada."
+            />
+          )}
+
+          {result && (
+            <div className="rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">
+                {pricingMode === 'margin' ? 'Preço calculado' : 'Margem calculada'}
+              </p>
+              <p className="mt-2 text-2xl font-bold text-brand-dark">
+                {pricingMode === 'margin'
+                  ? currency.format(result.totalInvestment)
+                  : `${decimal.format(result.marginPercentage)}%`}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Custo direto de {currency.format(result.directCost)} e lucro estimado de {currency.format(result.profitAmount)}.
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </div>
+
+        {selectedKit?.sale_price != null && selectedKit.sale_price > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4"
+            onClick={() => {
+              setForm((current) => ({
+                ...current,
+                pricingMode: 'manual',
+                proposalPrice: String(selectedKit.sale_price ?? ''),
+              }));
+            }}
+          >
+            Usar preço de venda cadastrado: {currency.format(selectedKit.sale_price)}
+          </Button>
+        )}
+      </div>
 
       <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
         <div className="flex items-center gap-3">
@@ -529,7 +666,7 @@ export function PaybackStep({
             <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
               <h3 className="font-bold text-brand-dark">Rentabilidade interna</h3>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Calculada com o custo do kit de referência e os custos adicionais informados. Ela não altera o preço da proposta.
+                Calculada com a base de custos do kit ou com o custo estimado informado, somada aos custos adicionais.
               </p>
               <div className="mt-5 grid gap-4 sm:grid-cols-3">
                 <PaybackSummary label="Custo direto" value={currency.format(result.directCost)} />
@@ -539,7 +676,7 @@ export function PaybackStep({
             </div>
           ) : (
             <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-4 text-sm leading-6 text-slate-500">
-              O payback foi calculado pelo preço informado. A rentabilidade interna ficará disponível quando um kit de referência for selecionado.
+              Informe uma base de custos válida para calcular lucro e margem da proposta.
             </div>
           )}
 

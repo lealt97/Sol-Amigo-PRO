@@ -34,6 +34,7 @@ export type ProposalDraftPaybackForm = {
   tariffCentsPerKwh: string;
   averageMonthlyBillAmount?: string;
   proposalPrice?: string;
+  pricingMode?: 'margin' | 'manual';
   estimatedSystemCost?: string;
   analysisYears?: string;
   annualTariffEscalationPercent?: string;
@@ -53,6 +54,7 @@ export type ProposalDraftPaybackForm = {
 
 export type ProposalDraftStateV1 = {
   version: typeof PROPOSAL_DRAFT_VERSION;
+  flowLayout?: 'kit-in-payback';
   currentStep: number;
   proposalTitle?: string;
   selectedClientId: string;
