@@ -9,6 +9,10 @@ PLAIN_REPLACEMENTS = [
         "assert.doesNotMatch(calculator, /id: 'kit'/);\n  assert.match(calculator, /Composição técnica da proposta/);",
     ),
     (
+        "assert.match(calculator, /Kit solar de referência — opcional/);",
+        "assert.doesNotMatch(calculator, /id: 'kit'/);\n  assert.match(calculator, /Composição técnica da proposta/);",
+    ),
+    (
         "assert.match(payback, /Custo estimado preliminar do sistema/);",
         "assert.match(payback, /Custo estimado do sistema/);",
     ),
@@ -43,13 +47,6 @@ for path in ROOT.rglob('*.test.ts'):
         "id: 'payback'",
         updated,
         flags=re.DOTALL,
-    )
-
-    # Some older tests asserted the standalone step by its title only.
-    updated = re.sub(
-        r"\s*assert\.match\(calculator, /Kit(?: solar)? de referência \\(opcional\\\)/\);",
-        "\n  assert.doesNotMatch(calculator, /id: 'kit'/);\n  assert.match(calculator, /Composição técnica da proposta/);",
-        updated,
     )
 
     if updated != source:
