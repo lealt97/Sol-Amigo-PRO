@@ -39,6 +39,7 @@ jobs:
             echo "Alteração já aplicada." | tee integrated-kit-margin.log
           else
             python3 .github/scripts/apply-integrated-kit-margin.py 2>&1 | tee integrated-kit-margin.log
+            python3 .github/scripts/fix-integrated-kit-tests.py 2>&1 | tee -a integrated-kit-margin.log
             if [ -n "$(git status --porcelain src tests supabase-schema.sql supabase/migrations)" ]; then
               echo "changed=true" >> "$GITHUB_OUTPUT"
             else
