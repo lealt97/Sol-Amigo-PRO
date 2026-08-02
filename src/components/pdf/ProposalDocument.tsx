@@ -97,23 +97,23 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
                 </Page>
               );
             case 'intro':
-              return <IntroPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><IntroPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'consumption':
-              return <ConsumptionPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><ConsumptionPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'technical':
-              return <TechnicalPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><TechnicalPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'kit':
-              return <KitPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><KitPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'roof':
-              return <RoofPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><RoofPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'timeline':
-              return <TimelinePage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><TimelinePage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'financial':
-              return <FinancialPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><FinancialPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'payback':
-              return <PaybackPage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><PaybackPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'acceptance':
-              return <AcceptancePage key={page.key} proposal={proposal} pageNumber={pageNumber} />;
+              return <React.Fragment key={page.key}><AcceptancePage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             default:
               return null;
           }
