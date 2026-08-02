@@ -39,6 +39,8 @@ test('editor de páginas navega pelo preview e mantém a capa obrigatória', asy
 
   assert.match(editor, /onNavigate\?\.\(page\.key\)/);
   assert.match(editor, /page\.key === 'cover'/);
+  assert.match(editor, /absolute left-0\.5 top-0\.5 h-5 w-5/);
+  assert.match(editor, /checked \? 'translate-x-5' : 'translate-x-0'/);
   assert.match(preview, /scrollToPage/);
   assert.match(preview, /data-pdf-page=\{page\.key\}/);
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
