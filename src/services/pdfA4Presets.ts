@@ -1,3 +1,4 @@
+import { createDefaultProposalPageConfig } from '../lib/pdf/proposalPageRegistry';
 import { PdfTemplatePreset } from '../types/pdfModels';
 
 // @ts-ignore
@@ -25,16 +26,7 @@ import svg11 from '../../public/pdf-assets/covers/A4 -11.svg?raw';
 // @ts-ignore
 import svg12 from '../../public/pdf-assets/covers/A4 -12.svg?raw';
 
-const pageConfig = {
-  order: ['cover', 'intro', 'technical', 'financial', 'payback'],
-  visiblePages: {
-    cover: true,
-    intro: true,
-    technical: true,
-    financial: true,
-    payback: true,
-  },
-};
+const pageConfig = createDefaultProposalPageConfig();
 
 const coverPath = (fileName: string) => `/pdf-assets/covers/${fileName}`;
 
