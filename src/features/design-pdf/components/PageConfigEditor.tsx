@@ -132,15 +132,15 @@ export function PageConfigEditor({
                     aria-checked={checked}
                     aria-label={`${checked ? 'Ocultar' : 'Exibir'} ${page.label}`}
                     onClick={() => togglePage(page.key)}
-                    className={`relative h-6 w-11 rounded-full border transition-colors ${
+                    className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
                       checked
                         ? 'border-brand-primary bg-brand-primary'
                         : 'border-brand-border bg-slate-800'
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                        checked ? 'translate-x-5' : 'translate-x-0.5'
+                      className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                        checked ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>
