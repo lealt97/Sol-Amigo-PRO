@@ -12,15 +12,36 @@ test('rota de criação recebe a calculadora por kit e edição permanece vazia'
   assert.doesNotMatch(app, /ProposalWizard/);
 });
 
-test('documento PDF mantém somente a página de capa sem sobreposição duplicada', async () => {
+test('documento PDF mantém a capa e renderiza as páginas configuradas da proposta', async () => {
   const document = await read('src/components/pdf/ProposalDocument.tsx');
+  const pages = await read('src/components/pdf/sections/ProposalPages.tsx');
 
   assert.match(document, /<CoverPage proposal=\{proposal\} \/>/);
   assert.match(document, /<Image src=\{coverImage\} style=\{styles\.coverImage\} \/>/);
+  assert.match(document, /getVisibleProposalPages\(pageConfig\)/);
+  assert.match(document, /<IntroPage/);
+  assert.match(document, /<ConsumptionPage/);
+  assert.match(document, /<TechnicalPage/);
+  assert.match(document, /<KitPage/);
+  assert.match(document, /<RoofPage/);
+  assert.match(document, /<TimelinePage/);
+  assert.match(document, /<FinancialPage/);
+  assert.match(document, /<PaybackPage/);
+  assert.match(document, /<AcceptancePage/);
+  assert.match(pages, /index % 2 === 0 \? '#FFFFFF' : theme\.primarySoft/);
   assert.doesNotMatch(document, /DynamicCoverOverlay/);
-  assert.equal((document.match(/<Page\b/g) || []).length, 1);
-  assert.doesNotMatch(document, /PageSection/);
-  assert.doesNotMatch(document, /IntroLetterSection|ExecutiveSummary|EnergyDiagnosisSection|SolarSolutionSection|EquipmentSection|GenerationSection|FinancialSection|TermsSection|WarrantyAndNextStepsSection|AcceptanceSection|PaybackSection/);
+});
+
+test('editor de páginas navega pelo preview e mantém a capa obrigatória', async () => {
+  const editor = await read('src/features/design-pdf/components/PageConfigEditor.tsx');
+  const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
+  const designEditor = await read('src/features/design-pdf/components/DesignPdfEditor.tsx');
+
+  assert.match(editor, /onNavigate\?\.\(page\.key\)/);
+  assert.match(editor, /page\.key === 'cover'/);
+  assert.match(preview, /scrollToPage/);
+  assert.match(preview, /data-pdf-page=\{page\.key\}/);
+  assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
 });
 
 test('textos dinâmicos da capa recebem ampliação controlada', async () => {
@@ -34,12 +55,14 @@ test('textos dinâmicos da capa recebem ampliação controlada', async () => {
   assert.match(coverEngine, /return enlargeDynamicCoverTexts\(svg\)/);
 });
 
-test('gerador aceita PDF de uma página sem alterar o sistema de capas', async () => {
+test('gerador usa tema e configuração de páginas do modelo selecionado', async () => {
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const app = await read('src/App.tsx');
 
   assert.match(generator, /generateSvgCoverImage\(selectedModel, enrichedProposal\)/);
   assert.match(generator, /coverImage=\{coverImage\}/);
+  assert.match(generator, /pdfTheme=\{selectedModel\?\.theme\}/);
+  assert.match(generator, /pageConfig=\{selectedModel\?\.page_config\}/);
   assert.match(generator, /minPages: 1/);
   assert.match(app, /path="design-pdf" element=\{<DesignPdf \/>\}/);
 });

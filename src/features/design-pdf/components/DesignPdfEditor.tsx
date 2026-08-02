@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Label } from '../../../components/ui/Label';
 import { useAuth } from '../../../contexts/AuthContext';
+import type { ProposalPageKey } from '../../../lib/pdf/proposalPageRegistry';
 import { profileService } from '../../../services/profileService';
 import { extractActiveLogo, extractAllLogos } from '../../../utils/logoHelper';
 import { pdfDesignService } from '../services/pdfDesignService';
@@ -13,7 +14,7 @@ import { getDefaultTransform, normalizeTransform } from './CoverPhotoFramingSele
 import { ColorEditor } from './ColorEditor';
 import { ImageEditor } from './ImageEditor';
 import { PageConfigEditor } from './PageConfigEditor';
-import { PdfPreview } from './PdfPreview';
+import { PdfPreview, type PdfPreviewHandle } from './PdfPreview';
 
 interface DesignPdfEditorProps {
   model: PdfUserModel;
@@ -25,6 +26,7 @@ type EditorTab = 'colors' | 'images' | 'pages';
 
 export function DesignPdfEditor({ model: initialModel, onClose, onSave }: DesignPdfEditorProps) {
   const { user } = useAuth();
+  const previewRef = useRef<PdfPreviewHandle | null>(null);
   const [availableLogos, setAvailableLogos] = useState<string[]>([]);
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
   const [logosLoaded, setLogosLoaded] = useState(false);
@@ -36,6 +38,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingCoverImage, setIsRemovingCoverImage] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('colors');
+  const [activePreviewPage, setActivePreviewPage] = useState<ProposalPageKey>('cover');
 
   useEffect(() => {
     async function loadLogos() {
@@ -151,8 +154,6 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
       try {
         await pdfDesignService.removeAsset(coverImageUrl, 'pdf-assets', user.id);
       } catch (storageError) {
-        // A referência já foi removida do modelo. Uma falha de limpeza no storage
-        // não deve recolocar uma imagem quebrada na interface.
         console.error('Error removing private PDF cover asset:', storageError);
       }
 
@@ -163,6 +164,11 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     } finally {
       setIsRemovingCoverImage(false);
     }
+  };
+
+  const handlePageNavigation = (pageKey: ProposalPageKey) => {
+    setActivePreviewPage(pageKey);
+    previewRef.current?.scrollToPage(pageKey);
   };
 
   const tabs: Array<{ id: EditorTab; label: string }> = [
@@ -211,12 +217,23 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
               onTransformReset={resetTransform}
             />
           )}
-          {activeTab === 'pages' && <PageConfigEditor pageConfig={model.page_config} onChange={(page_config) => setModel((prev) => ({ ...prev, page_config }))} />}
+          {activeTab === 'pages' && (
+            <PageConfigEditor
+              pageConfig={model.page_config}
+              activePageKey={activePreviewPage}
+              onNavigate={handlePageNavigation}
+              onChange={(page_config) => setModel((prev) => ({ ...prev, page_config }))}
+            />
+          )}
         </div>
       </aside>
 
       <main className="flex-1 min-w-0 bg-slate-900/80">
-        <PdfPreview model={model} />
+        <PdfPreview
+          ref={previewRef}
+          model={model}
+          onActivePageChange={setActivePreviewPage}
+        />
       </main>
     </div>
   );

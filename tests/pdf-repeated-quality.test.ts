@@ -14,6 +14,8 @@ import {
 } from '../src/lib/pdf/pdfQuality';
 import type { Proposal } from '../src/types/proposal';
 
+const EXPECTED_BASE_PROPOSAL_PAGE_COUNT = 5;
+
 function makeProposal(): Proposal {
   return {
     id: 'proposal-cover-1',
@@ -106,7 +108,7 @@ function makeDetailedCoverPng(width = 595, height = 842) {
   return `data:image/png;base64,${png.toString('base64')}`;
 }
 
-async function renderCover(proposal: Proposal, coverImage: string | null = null) {
+async function renderProposal(proposal: Proposal, coverImage: string | null = null) {
   const document = React.createElement(ProposalDocument, {
     proposal,
     coverImage,
@@ -166,34 +168,34 @@ test('rejeita um PDF que ultrapassa o limite absoluto', () => {
   );
 });
 
-test('PDF com capa rasterizada detalhada contém exatamente uma página', async () => {
-  const blob = await renderCover(makeProposal(), makeDetailedCoverPng());
+test('PDF com capa rasterizada detalhada preserva as páginas essenciais da proposta', async () => {
+  const blob = await renderProposal(makeProposal(), makeDetailedCoverPng());
   const metrics = await validatePdfBlob(blob, {
     minByteLength: 4_096,
     maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
-    minPages: 1,
+    minPages: EXPECTED_BASE_PROPOSAL_PAGE_COUNT,
   });
 
-  assert.equal(metrics.pageCount, 1);
+  assert.equal(metrics.pageCount, EXPECTED_BASE_PROPOSAL_PAGE_COUNT);
   assert.ok(metrics.imageCount >= 1);
   assert.ok(metrics.byteLength <= PDF_SIZE_LIMITS.recommendedMaxBytes);
 });
 
-test('três gerações preservam a estrutura da capa única', async () => {
+test('três gerações preservam a estrutura multipágina da proposta', async () => {
   const proposal = makeProposal();
   const proposalBeforeRendering = JSON.stringify(proposal);
   const coverImage = makeDetailedCoverPng();
   const generations: PdfQualityMetrics[] = [];
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const blob = await renderCover(proposal, coverImage);
+    const blob = await renderProposal(proposal, coverImage);
     const metrics = await validatePdfBlob(blob, {
       minByteLength: 4_096,
       maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
-      minPages: 1,
+      minPages: EXPECTED_BASE_PROPOSAL_PAGE_COUNT,
     });
 
-    assert.equal(metrics.pageCount, 1);
+    assert.equal(metrics.pageCount, EXPECTED_BASE_PROPOSAL_PAGE_COUNT);
     assert.equal(metrics.mimeType, 'application/pdf');
     assert.equal(metrics.hasPdfHeader, true);
     assert.equal(metrics.hasEofMarker, true);
