@@ -1,18 +1,18 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { ProposalDocument } from '../../components/pdf/ProposalDocument';
-import { Proposal } from '../../types/proposal';
 import { PdfUserModel } from '../../types/pdfModels';
+import { Proposal } from '../../types/proposal';
+import { monitoringService } from '../../services/monitoringService';
+import { pdfModelService } from '../../services/pdfModelService';
 import { supabase } from '../supabase/client';
 import { resolveStorageAssetUrl } from '../storage/privateAsset';
-import { pdfModelService } from '../../services/pdfModelService';
-import { monitoringService } from '../../services/monitoringService';
-import { generateSvgCoverImage } from './utils/svgToImage';
 import {
   createPdfGenerationOperations,
   type PdfMetadataInput,
 } from './pdfGenerationOperations';
 import { PDF_SIZE_LIMITS, validatePdfBlob } from './pdfQuality';
+import { generateSvgCoverImage } from './utils/svgToImage';
 
 async function resolvePdfModel(
   proposal: Proposal,
@@ -114,6 +114,7 @@ async function renderProposalPdf(
       proposal={enrichedProposal}
       coverImage={coverImage}
       pdfTheme={selectedModel?.theme}
+      pageConfig={selectedModel?.page_config}
     />,
   ).toBlob();
 
