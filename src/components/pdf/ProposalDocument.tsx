@@ -18,7 +18,7 @@ import {
   RoofPage,
   TechnicalPage,
   TimelinePage,
-} from './sections/ProposalPages';
+} from './sections/ProposalPagesWithVectorArt';
 
 const styles = StyleSheet.create({
   page: {
