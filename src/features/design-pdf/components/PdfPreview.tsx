@@ -18,7 +18,7 @@ import { extractActiveLogo } from '../../../utils/logoHelper';
 import { buildSvgTemplate } from '../engines/svgTemplateEngine';
 import { pdfDesignService } from '../services/pdfDesignService';
 import { PdfUserModel } from '../types/pdfDesignTypes';
-import { ProposalPreviewPage } from './ProposalPagesPreview';
+import { ProposalPreviewPage } from './ProposalPagesPreviewWithVectorArt';
 
 interface PdfPreviewProps {
   model: PdfUserModel;
