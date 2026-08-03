@@ -1,4 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import type { KeyboardEvent } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -103,7 +104,7 @@ export function UserModelCarousel({
               opacityStyle = 'opacity-0';
             }
 
-            const selectModelFromKeyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            const selectModelFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
               if (isActive || (event.key !== 'Enter' && event.key !== ' ')) return;
               event.preventDefault();
               onActiveIndexChange(index);
