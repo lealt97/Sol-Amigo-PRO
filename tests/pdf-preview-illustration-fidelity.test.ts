@@ -32,26 +32,31 @@ test('preview e exportação usam as mesmas superfícies e a mesma faixa do docu
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const pdfPages = await read('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx');
 
-  assert.match(preview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.match(preview, /renderProposalPdfBlob\([\s\S]*request\.proposal,[\s\S]*request\.model,[\s\S]*previewPageKey: request\.activePageKey/);
   assert.match(preview, /URL\.createObjectURL\(blob\)/);
   assert.doesNotMatch(preview, /previewParityCss/);
   assert.doesNotMatch(preview, /linear-gradient/);
   assert.doesNotMatch(preview, /function PreviewTopStripe/);
-  assert.match(generator, /<ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
+  assert.match(generator, /<ProposalDocument[\s\S]*proposal=\{proposal\}[\s\S]*previewPageKey=\{previewPageKey\}/);
   assert.match(pdfPages, /backgroundColor: t\.primary/);
   assert.match(pdfPages, /backgroundColor: t\.secondary/);
   assert.match(pdfPages, /backgroundColor: t\.accent/);
 });
 
-test('preview não possui mais uma ilustração paralela antes do processamento temático', async () => {
+test('preview prepara apenas a ilustração usada pela página ativa', async () => {
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const assets = await read('src/lib/pdf/renderProposalDocument.tsx');
 
   assert.match(preview, /import\('\.\.\/\.\.\/\.\.\/lib\/pdf\/generateProposalPdf'\)/);
-  assert.match(preview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.match(preview, /previewPageKey: request\.activePageKey/);
   assert.doesNotMatch(preview, /TimelineTallPreview/);
   assert.doesNotMatch(preview, /ProposalPagesPreviewWithVectorArt/);
-  assert.match(generator, /prepareProposalDocumentAssets\(\{ proposal, model \}\)/);
+  assert.match(generator, /prepareProposalDocumentAssets\(\{[\s\S]*previewPageKey/);
+  assert.match(assets, /prepareIllustrationsForPage/);
+  assert.match(assets, /case 'kit'/);
+  assert.match(assets, /case 'timeline'/);
+  assert.match(assets, /case 'financial'/);
+  assert.match(assets, /case 'payback'/);
   assert.match(assets, /buildProposalIllustrationImages\(resolvedTheme\)/);
 });
