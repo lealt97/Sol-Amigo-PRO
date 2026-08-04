@@ -44,11 +44,12 @@ test('editor de páginas navega no mesmo PDF usado pela exportação', async () 
   assert.match(editor, /absolute left-0\.5 top-0\.5 h-5 w-5/);
   assert.match(editor, /checked \? 'translate-x-5' : 'translate-x-0'/);
   assert.match(preview, /prepareProposalDocumentAssets\(\{ proposal: previewProposal, model \}\)/);
-  assert.match(preview, /usePDF\(\{ document \}\)/);
-  assert.match(preview, /<ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
+  assert.match(preview, /const document = <ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
+  assert.match(preview, /void pdf\(document\)/);
+  assert.match(preview, /URL\.createObjectURL\(blob\)/);
   assert.match(preview, /Visualização exata do PDF da proposta/);
   assert.match(preview, /zoom=page-width/);
-  assert.doesNotMatch(preview, /URL\.createObjectURL/);
+  assert.doesNotMatch(preview, /usePDF/);
   assert.doesNotMatch(preview, /ProposalPreviewPage/);
   assert.doesNotMatch(preview, /TimelineTallPreview/);
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
@@ -65,8 +66,8 @@ test('preview e exportação compartilham capa, artes e o mesmo ProposalDocument
   assert.match(sharedAssets, /pageConfig: model\?\.page_config \?\? null/);
   assert.doesNotMatch(sharedAssets, /from '@react-pdf\/renderer'/);
   assert.match(preview, /prepareProposalDocumentAssets/);
-  assert.match(preview, /usePDF/);
   assert.match(preview, /<ProposalDocument/);
+  assert.match(preview, /void pdf\(document\)/);
   assert.match(generator, /prepareProposalDocumentAssets/);
   assert.match(generator, /<ProposalDocument/);
   assert.match(generator, /const blob = await pdf\(/);
