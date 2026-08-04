@@ -43,27 +43,33 @@ test('editor de páginas navega no mesmo PDF usado pela exportação', async () 
   assert.match(editor, /page\.key === 'cover'/);
   assert.match(editor, /absolute left-0\.5 top-0\.5 h-5 w-5/);
   assert.match(editor, /checked \? 'translate-x-5' : 'translate-x-0'/);
-  assert.match(preview, /renderProposalDocumentBlob\(\{ proposal: previewProposal, model \}\)/);
+  assert.match(preview, /prepareProposalDocumentAssets\(\{ proposal: previewProposal, model \}\)/);
+  assert.match(preview, /usePDF\(\{ document \}\)/);
+  assert.match(preview, /<ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
   assert.match(preview, /Visualização exata do PDF da proposta/);
   assert.match(preview, /zoom=page-width/);
-  assert.match(preview, /URL\.createObjectURL\(blob\)/);
+  assert.doesNotMatch(preview, /URL\.createObjectURL/);
   assert.doesNotMatch(preview, /ProposalPreviewPage/);
   assert.doesNotMatch(preview, /TimelineTallPreview/);
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
 });
 
-test('preview e exportação compartilham capa, artes e documento', async () => {
-  const sharedRenderer = await read('src/lib/pdf/renderProposalDocument.tsx');
+test('preview e exportação compartilham capa, artes e o mesmo ProposalDocument', async () => {
+  const sharedAssets = await read('src/lib/pdf/renderProposalDocument.tsx');
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
 
-  assert.match(sharedRenderer, /generateSvgCoverImage\(model, proposal\)/);
-  assert.match(sharedRenderer, /buildProposalIllustrationImages\(resolvedTheme\)/);
-  assert.match(sharedRenderer, /<ProposalDocument/);
-  assert.match(sharedRenderer, /pageConfig=\{model\?\.page_config\}/);
-  assert.match(preview, /renderProposalDocumentBlob/);
-  assert.match(generator, /renderProposalDocumentBlob/);
-  assert.doesNotMatch(generator, /pdf\(/);
+  assert.match(sharedAssets, /generateSvgCoverImage\(model, proposal\)/);
+  assert.match(sharedAssets, /buildProposalIllustrationImages\(resolvedTheme\)/);
+  assert.match(sharedAssets, /pdfTheme: model\?\.theme \?\? null/);
+  assert.match(sharedAssets, /pageConfig: model\?\.page_config \?\? null/);
+  assert.doesNotMatch(sharedAssets, /from '@react-pdf\/renderer'/);
+  assert.match(preview, /prepareProposalDocumentAssets/);
+  assert.match(preview, /usePDF/);
+  assert.match(preview, /<ProposalDocument/);
+  assert.match(generator, /prepareProposalDocumentAssets/);
+  assert.match(generator, /<ProposalDocument/);
+  assert.match(generator, /const blob = await pdf\(/);
   assert.doesNotMatch(generator, /buildProposalIllustrationImages/);
 });
 
@@ -120,7 +126,7 @@ test('detecção de mobile usa capacidade de toque em vez da largura da tela', a
 
 test('ilustrações usam o motor de cores e o mesmo pipeline no preview e na exportação', async () => {
   const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
-  const sharedRenderer = await read('src/lib/pdf/renderProposalDocument.tsx');
+  const sharedAssets = await read('src/lib/pdf/renderProposalDocument.tsx');
   const document = await read('src/components/pdf/ProposalDocument.tsx');
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const pdfPages = await read('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx');
@@ -135,13 +141,13 @@ test('ilustrações usam o motor de cores e o mesmo pipeline no preview e na exp
   assert.match(engine, /imageSmoothingQuality = 'high'/);
   assert.match(engine, /outputWidth: 2100/);
   assert.match(engine, /buildProposalIllustrationImages/);
-  assert.match(sharedRenderer, /resolvePdfDocumentTheme\(model\?\.theme\)/);
-  assert.match(sharedRenderer, /buildProposalIllustrationImages\(resolvedTheme\)/);
-  assert.match(sharedRenderer, /illustrationImages=\{illustrationImages\}/);
+  assert.match(sharedAssets, /resolvePdfDocumentTheme\(model\?\.theme\)/);
+  assert.match(sharedAssets, /buildProposalIllustrationImages\(resolvedTheme\)/);
+  assert.match(sharedAssets, /illustrationImages,/);
   assert.match(document, /illustration=\{illustrationImages\.kit\}/);
   assert.match(document, /illustration=\{illustrationImages\.timeline\}/);
   assert.match(document, /illustration=\{illustrationImages\.financial\}/);
-  assert.match(preview, /renderProposalDocumentBlob/);
+  assert.match(preview, /prepareProposalDocumentAssets/);
   assert.doesNotMatch(preview, /applyPdfThemeToIllustration/);
   assert.doesNotMatch(preview, /ProposalPagesPreviewWithVectorArt/);
   assert.match(pdfPages, /function ArtStage/);
@@ -164,9 +170,10 @@ test('gerador usa o modelo selecionado e valida o PDF compartilhado', async () =
   const app = await read('src/App.tsx');
 
   assert.match(generator, /resolvePdfModel\(enrichedProposal, selectedModelId\)/);
-  assert.match(generator, /renderProposalDocumentBlob\(\{/);
+  assert.match(generator, /prepareProposalDocumentAssets\(\{/);
   assert.match(generator, /proposal: enrichedProposal/);
   assert.match(generator, /model: selectedModel/);
+  assert.match(generator, /<ProposalDocument proposal=\{enrichedProposal\} \{\.\.\.documentAssets\} \/>/);
   assert.match(generator, /minPages: 1/);
   assert.match(app, /path="design-pdf" element=\{<DesignPdf \/>\}/);
 });
