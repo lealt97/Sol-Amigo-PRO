@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { resolvePdfDocumentTheme, type PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import { useAuth } from '../../../contexts/AuthContext';
+import { urlToDataUrl } from '../../../lib/images/urlToDataUrl';
 import {
   getVisibleProposalPages,
   type ProposalPageKey,
@@ -58,7 +59,7 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
 ) {
   const { user } = useAuth();
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null);
   const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -84,16 +85,17 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
 
     async function resolveCoverImage() {
       if (!model.cover_image_url) {
-        setCoverImageUrl(null);
+        setCoverImageDataUrl(null);
         return;
       }
 
       try {
         const resolved = await pdfDesignService.resolveAssetUrl(model.cover_image_url, 900);
-        if (active) setCoverImageUrl(resolved);
+        const embedded = await urlToDataUrl(resolved);
+        if (active) setCoverImageDataUrl(embedded);
       } catch (error) {
         console.error('Error resolving private cover image in preview:', error);
-        if (active) setCoverImageUrl(null);
+        if (active) setCoverImageDataUrl(null);
       }
     }
 
@@ -142,12 +144,12 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
         date: new Date().toLocaleDateString('pt-BR'),
       },
       logoUrl: extractActiveLogo(model.logo_url) || profileLogo,
-      coverImageUrl,
+      coverImageUrl: coverImageDataUrl,
       logoTransform: model.logo_transform,
       coverImageTransform: model.cover_image_transform,
       modelId: model.id,
     });
-  }, [svgSource, preset, model, profileLogo, coverImageUrl]);
+  }, [svgSource, preset, model, profileLogo, coverImageDataUrl]);
 
   const scrollToPage = useCallback((pageKey: ProposalPageKey) => {
     const container = scrollContainerRef.current;
