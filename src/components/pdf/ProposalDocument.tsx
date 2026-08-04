@@ -1,9 +1,6 @@
 import React from 'react';
 import { Document, Image, Page, StyleSheet } from '@react-pdf/renderer';
-import {
-  getVisibleProposalPages,
-  type ProposalPageKey,
-} from '../../lib/pdf/proposalPageRegistry';
+import { getVisibleProposalPages } from '../../lib/pdf/proposalPageRegistry';
 import {
   defaultProposalIllustrationImages,
   type ProposalIllustrationImages,
@@ -46,36 +43,6 @@ interface ProposalDocumentProps {
   illustrationImages?: ProposalIllustrationImages;
 }
 
-function hasFinancialData(proposal: Proposal) {
-  return Number(proposal.final_price || proposal.gross_price || proposal.solar_kit_snapshot?.sale_price || 0) > 0;
-}
-
-function hasEnergyData(proposal: Proposal) {
-  return Number(
-    proposal.monthly_consumption_kwh ||
-      proposal.solar?.monthly_consumption_kwh ||
-      proposal.solar?.estimated_monthly_generation_kwh ||
-      0,
-  ) > 0;
-}
-
-function shouldRenderPage(pageKey: ProposalPageKey, proposal: Proposal) {
-  switch (pageKey) {
-    case 'kit':
-      return Boolean(proposal.solar_kit_snapshot);
-    case 'roof':
-      return Boolean(proposal.roof_image_url || proposal.roof_photo_url || proposal.roof_plan_image_url);
-    case 'financial':
-      return hasFinancialData(proposal);
-    case 'payback':
-      return hasFinancialData(proposal) || Number(proposal.solar?.annual_savings || proposal.solar?.monthly_savings || 0) > 0;
-    case 'consumption':
-      return hasEnergyData(proposal);
-    default:
-      return true;
-  }
-}
-
 export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
   proposal,
   coverImage,
@@ -83,7 +50,10 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
   pageConfig,
   illustrationImages = defaultProposalIllustrationImages,
 }) => {
-  const visiblePages = getVisibleProposalPages(pageConfig).filter(({ key }) => shouldRenderPage(key, proposal));
+  // A seleção feita no editor é a fonte de verdade. Uma página marcada como
+  // visível não pode desaparecer silenciosamente na exportação por ausência
+  // de algum dado opcional da proposta.
+  const visiblePages = getVisibleProposalPages(pageConfig);
 
   return (
     <Document>
