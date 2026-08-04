@@ -1,4 +1,4 @@
-import { usePDF } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer';
 import {
   forwardRef,
   useCallback,
@@ -191,21 +191,51 @@ function ExactPdfDocumentPreview({
   isPreparing,
   preparationError,
 }: ExactPdfDocumentPreviewProps) {
-  const document = useMemo(
-    () => <ProposalDocument proposal={proposal} {...documentAssets} />,
-    [documentAssets, proposal],
-  );
-  const [instance, updateInstance] = usePDF({ document });
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const pdfUrlRef = useRef<string | null>(null);
+  const renderSequenceRef = useRef(0);
 
   useEffect(() => {
-    updateInstance(document);
-  }, [document, updateInstance]);
+    const sequence = renderSequenceRef.current + 1;
+    renderSequenceRef.current = sequence;
+    setIsRendering(true);
+    setRenderError(null);
 
-  const iframeSource = instance.url
-    ? `${instance.url}#page=${activePageIndex + 1}&zoom=page-width&toolbar=0&navpanes=0`
+    const document = <ProposalDocument proposal={proposal} {...documentAssets} />;
+
+    void pdf(document)
+      .toBlob()
+      .then((blob) => {
+        if (renderSequenceRef.current !== sequence) return;
+
+        const nextUrl = URL.createObjectURL(blob);
+        const previousUrl = pdfUrlRef.current;
+        pdfUrlRef.current = nextUrl;
+        setPdfUrl(nextUrl);
+
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+      })
+      .catch((error) => {
+        if (renderSequenceRef.current !== sequence) return;
+        console.error('Error rendering exact PDF preview:', error);
+        setRenderError('Não foi possível atualizar a visualização do PDF.');
+      })
+      .finally(() => {
+        if (renderSequenceRef.current === sequence) setIsRendering(false);
+      });
+  }, [documentAssets, proposal]);
+
+  useEffect(() => () => {
+    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+  }, []);
+
+  const iframeSource = pdfUrl
+    ? `${pdfUrl}#page=${activePageIndex + 1}&zoom=page-width&toolbar=0&navpanes=0`
     : undefined;
-  const renderError = preparationError || (instance.error ? 'Não foi possível atualizar a visualização do PDF.' : null);
-  const isUpdating = isPreparing || instance.loading;
+  const visibleError = preparationError || renderError;
+  const isUpdating = isPreparing || isRendering;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-900 p-5">
@@ -227,9 +257,9 @@ function ExactPdfDocumentPreview({
         </div>
       )}
 
-      {renderError && (
+      {visibleError && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 rounded-lg border border-red-500/40 bg-red-950/95 px-4 py-2 text-sm font-medium text-red-100 shadow-xl">
-          {renderError}
+          {visibleError}
         </div>
       )}
     </div>
