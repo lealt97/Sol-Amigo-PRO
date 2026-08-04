@@ -21,8 +21,8 @@ import {
   PaybackPage,
   RoofPage,
   TechnicalPage,
-  TimelinePage,
 } from './sections/ProposalPagesWithVectorArt';
+import { TimelineTallPage } from './sections/TimelineTallPage';
 
 const styles = StyleSheet.create({
   page: {
@@ -123,7 +123,7 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
             case 'timeline':
               return (
                 <React.Fragment key={page.key}>
-                  <TimelinePage
+                  <TimelineTallPage
                     proposal={proposal}
                     pageNumber={pageNumber}
                     illustration={illustrationImages.timeline}

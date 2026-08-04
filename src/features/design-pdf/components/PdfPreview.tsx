@@ -19,6 +19,7 @@ import { buildSvgTemplate } from '../engines/svgTemplateEngine';
 import { pdfDesignService } from '../services/pdfDesignService';
 import { PdfUserModel } from '../types/pdfDesignTypes';
 import { ProposalPreviewPage } from './ProposalPagesPreviewWithVectorArt';
+import { TimelineTallPreview } from './TimelineTallPreview';
 
 interface PdfPreviewProps {
   model: PdfUserModel;
@@ -193,6 +194,11 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
               <div
                 className="flex h-full w-full items-center justify-center [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
                 dangerouslySetInnerHTML={{ __html: finalSvgContent }}
+              />
+            ) : page.key === 'timeline' ? (
+              <TimelineTallPreview
+                pageNumber={index + 1}
+                theme={previewTheme}
               />
             ) : (
               <ProposalPreviewPage
