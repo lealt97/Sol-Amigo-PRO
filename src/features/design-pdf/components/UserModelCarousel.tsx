@@ -1,14 +1,6 @@
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Edit2,
-  MoreHorizontal,
-  Star,
-  Trash2,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Edit2, Star, Trash2 } from 'lucide-react';
 import { PdfUserModel } from '../types/pdfDesignTypes';
 import { PdfPreview } from './PdfPreview';
 
@@ -22,10 +14,7 @@ interface UserModelCarouselProps {
   onSetDefault: (modelId: string) => void;
 }
 
-const menuItemClassName =
-  'flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors data-[highlighted]:bg-slate-700 data-[highlighted]:text-white data-[disabled]:cursor-default data-[disabled]:opacity-60';
-
-const desktopActionButtonClassName =
+const actionButtonClassName =
   'flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950';
 
 export function UserModelCarousel({
@@ -37,8 +26,15 @@ export function UserModelCarousel({
   onDelete,
   onSetDefault,
 }: UserModelCarouselProps) {
-  const handlePrev = () => onActiveIndexChange(activeIndex === 0 ? userModels.length - 1 : activeIndex - 1);
-  const handleNext = () => onActiveIndexChange(activeIndex === userModels.length - 1 ? 0 : activeIndex + 1);
+  const [openActionsModelId, setOpenActionsModelId] = useState<string | null>(null);
+
+  const changeActiveIndex = (index: number) => {
+    setOpenActionsModelId(null);
+    onActiveIndexChange(index);
+  };
+
+  const handlePrev = () => changeActiveIndex(activeIndex === 0 ? userModels.length - 1 : activeIndex - 1);
+  const handleNext = () => changeActiveIndex(activeIndex === userModels.length - 1 ? 0 : activeIndex + 1);
 
   if (userModels.length === 0) {
     return (
@@ -83,6 +79,7 @@ export function UserModelCarousel({
             if (Math.abs(diff) > 2) return null;
 
             const isActive = index === activeIndex;
+            const actionsAreOpen = openActionsModelId === model.id;
             let transformStyle = '';
             let opacityStyle = '';
             let zIndexStyle = 10;
@@ -107,21 +104,34 @@ export function UserModelCarousel({
               opacityStyle = 'opacity-0';
             }
 
-            const selectModelFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
-              if (isActive || (event.key !== 'Enter' && event.key !== ' ')) return;
+            const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
-              onActiveIndexChange(index);
+
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              setOpenActionsModelId((current) => (current === model.id ? null : model.id));
             };
+
+            const closeActions = () => setOpenActionsModelId(null);
 
             return (
               <div
                 key={model.id}
-                onClick={() => !isActive && onActiveIndexChange(index)}
-                onKeyDown={selectModelFromKeyboard}
-                role={isActive ? 'group' : 'button'}
-                tabIndex={isActive ? -1 : 0}
-                aria-label={isActive ? `Modelo ativo: ${model.name}` : `Selecionar modelo: ${model.name}`}
+                onClick={() => !isActive && changeActiveIndex(index)}
+                onKeyDown={handleCardKeyDown}
+                role="group"
+                tabIndex={0}
+                aria-label={
+                  isActive
+                    ? `Modelo ativo: ${model.name}. Toque ou pressione Enter para exibir as ações.`
+                    : `Selecionar modelo: ${model.name}`
+                }
                 aria-current={isActive ? 'true' : undefined}
+                aria-expanded={isActive ? actionsAreOpen : undefined}
                 style={{ zIndex: zIndexStyle }}
                 className={`group absolute left-1/2 top-1/2 w-[240px] -translate-y-1/2 cursor-pointer select-none overflow-hidden rounded-xl border bg-brand-surface shadow-md transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${transformStyle} ${opacityStyle} ${
                   isActive
@@ -131,7 +141,14 @@ export function UserModelCarousel({
               >
                 {!isActive && <div className="absolute inset-0 z-20 bg-transparent" aria-hidden="true" />}
 
-                <div className="relative aspect-[1/1.414] border-b border-brand-border bg-slate-950/40">
+                <div
+                  className="relative aspect-[1/1.414] border-b border-brand-border bg-slate-950/40"
+                  onClick={() => {
+                    if (isActive) {
+                      setOpenActionsModelId((current) => (current === model.id ? null : model.id));
+                    }
+                  }}
+                >
                   <PdfPreview model={model} isCardPreview />
 
                   {model.is_default && (
@@ -147,15 +164,24 @@ export function UserModelCarousel({
                   </div>
 
                   {isActive && (
-                    <div className="pointer-events-none absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-slate-950/85 opacity-0 transition-all duration-300 md:flex md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100">
+                    <div
+                      className={`pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/85 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${
+                        actionsAreOpen ? 'pointer-events-auto opacity-100' : ''
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeActions();
+                      }}
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            closeActions();
                             onEdit(model);
                           }}
-                          className={`${desktopActionButtonClassName} bg-brand-blue text-white hover:bg-brand-blue-hover`}
+                          className={`${actionButtonClassName} bg-brand-blue text-white hover:bg-brand-blue-hover`}
                           aria-label={`Editar modelo ${model.name}`}
                           title="Editar modelo"
                         >
@@ -166,9 +192,10 @@ export function UserModelCarousel({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            closeActions();
                             onDuplicate(model.id);
                           }}
-                          className={`${desktopActionButtonClassName} border border-brand-border bg-slate-800 text-slate-100 hover:bg-slate-700`}
+                          className={`${actionButtonClassName} border border-brand-border bg-slate-800 text-slate-100 hover:bg-slate-700`}
                           aria-label={`Duplicar modelo ${model.name}`}
                           title="Duplicar modelo"
                         >
@@ -180,9 +207,10 @@ export function UserModelCarousel({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
+                              closeActions();
                               onSetDefault(model.id);
                             }}
-                            className={`${desktopActionButtonClassName} border border-brand-border bg-slate-800 text-amber-400 hover:bg-amber-500 hover:text-slate-950`}
+                            className={`${actionButtonClassName} border border-brand-border bg-slate-800 text-amber-400 hover:bg-amber-500 hover:text-slate-950`}
                             aria-label={`Definir ${model.name} como modelo padrão`}
                             title="Definir como padrão"
                           >
@@ -203,9 +231,10 @@ export function UserModelCarousel({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            closeActions();
                             onDelete(model.id);
                           }}
-                          className={`${desktopActionButtonClassName} bg-red-600 text-white hover:bg-red-700`}
+                          className={`${actionButtonClassName} bg-red-600 text-white hover:bg-red-700`}
                           aria-label={`Excluir modelo ${model.name}`}
                           title="Excluir modelo"
                         >
@@ -246,70 +275,6 @@ export function UserModelCarousel({
                       />
                     </div>
                   </div>
-
-                  {isActive && (
-                    <div className="md:hidden">
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            type="button"
-                            onClick={(event) => event.stopPropagation()}
-                            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand-border bg-slate-900 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:border-brand-primary hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                            aria-label={`Abrir ações do modelo ${model.name}`}
-                          >
-                            <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-                            Ações do modelo
-                          </button>
-                        </DropdownMenu.Trigger>
-
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            sideOffset={8}
-                            align="center"
-                            collisionPadding={12}
-                            className="z-[100] min-w-[220px] rounded-xl border border-brand-border bg-slate-900 p-2 shadow-2xl will-change-[transform,opacity] data-[state=closed]:animate-out data-[state=open]:animate-in"
-                            aria-label={`Ações disponíveis para ${model.name}`}
-                          >
-                            <DropdownMenu.Label className="px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                              {model.name}
-                            </DropdownMenu.Label>
-
-                            <DropdownMenu.Item className={menuItemClassName} onSelect={() => onEdit(model)}>
-                              <Edit2 className="h-5 w-5 text-brand-primary" aria-hidden="true" />
-                              Editar modelo
-                            </DropdownMenu.Item>
-
-                            <DropdownMenu.Item className={menuItemClassName} onSelect={() => onDuplicate(model.id)}>
-                              <Copy className="h-5 w-5 text-slate-300" aria-hidden="true" />
-                              Duplicar modelo
-                            </DropdownMenu.Item>
-
-                            {!model.is_default ? (
-                              <DropdownMenu.Item className={menuItemClassName} onSelect={() => onSetDefault(model.id)}>
-                                <Star className="h-5 w-5 text-amber-400" aria-hidden="true" />
-                                Definir como padrão
-                              </DropdownMenu.Item>
-                            ) : (
-                              <DropdownMenu.Item className={menuItemClassName} disabled>
-                                <Star className="h-5 w-5 fill-current text-amber-400" aria-hidden="true" />
-                                Modelo padrão
-                              </DropdownMenu.Item>
-                            )}
-
-                            <DropdownMenu.Separator className="my-2 h-px bg-brand-border" />
-
-                            <DropdownMenu.Item
-                              className={`${menuItemClassName} text-red-300 data-[highlighted]:bg-red-950 data-[highlighted]:text-red-100`}
-                              onSelect={() => onDelete(model.id)}
-                            >
-                              <Trash2 className="h-5 w-5" aria-hidden="true" />
-                              Excluir modelo
-                            </DropdownMenu.Item>
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -322,7 +287,7 @@ export function UserModelCarousel({
           <button
             type="button"
             key={model.id}
-            onClick={() => onActiveIndexChange(index)}
+            onClick={() => changeActiveIndex(index)}
             className="flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             aria-label={`Ir para o modelo ${model.name}`}
             aria-current={index === activeIndex ? 'true' : undefined}

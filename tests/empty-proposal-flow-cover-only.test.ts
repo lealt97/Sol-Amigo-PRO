@@ -46,21 +46,23 @@ test('editor de páginas navega pelo preview e mantém a capa obrigatória', asy
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
 });
 
-test('ações dos modelos PDF usam hover no desktop e menu de toque no mobile', async () => {
+test('ações dos modelos PDF usam o mesmo overlay no mobile e no desktop', async () => {
   const carousel = await read('src/features/design-pdf/components/UserModelCarousel.tsx');
 
-  assert.match(carousel, /@radix-ui\/react-dropdown-menu/);
-  assert.match(carousel, /className="md:hidden"/);
-  assert.match(carousel, /<DropdownMenu\.Trigger asChild>/);
-  assert.match(carousel, /Abrir ações do modelo/);
-  assert.match(carousel, /md:group-hover:opacity-100/);
-  assert.match(carousel, /md:group-focus-within:opacity-100/);
+  assert.doesNotMatch(carousel, /@radix-ui\/react-dropdown-menu/);
+  assert.doesNotMatch(carousel, /MoreHorizontal/);
+  assert.match(carousel, /openActionsModelId/);
+  assert.match(carousel, /actionsAreOpen/);
+  assert.match(carousel, /group-hover:pointer-events-auto/);
+  assert.match(carousel, /group-focus-within:pointer-events-auto/);
+  assert.match(carousel, /actionsAreOpen \? 'pointer-events-auto opacity-100'/);
+  assert.match(carousel, /Toque ou pressione Enter para exibir as ações/);
   assert.match(carousel, /Editar modelo/);
   assert.match(carousel, /Duplicar modelo/);
   assert.match(carousel, /Excluir modelo/);
-  assert.match(carousel, /min-h-11/);
+  assert.match(carousel, /h-11 w-11/);
   assert.match(carousel, /focus-visible:ring-2/);
-  assert.match(carousel, /onKeyDown=\{selectModelFromKeyboard\}/);
+  assert.match(carousel, /onKeyDown=\{handleCardKeyDown\}/);
   assert.match(carousel, /aria-current=/);
 });
 
