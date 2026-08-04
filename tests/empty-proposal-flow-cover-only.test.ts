@@ -24,7 +24,7 @@ test('documento PDF mantém a capa e renderiza as páginas configuradas da propo
   assert.match(document, /<TechnicalPage/);
   assert.match(document, /<KitPage/);
   assert.match(document, /<RoofPage/);
-  assert.match(document, /<TimelinePage/);
+  assert.match(document, /<TimelineTallPage/);
   assert.match(document, /<FinancialPage/);
   assert.match(document, /<PaybackPage/);
   assert.match(document, /<AcceptancePage/);
