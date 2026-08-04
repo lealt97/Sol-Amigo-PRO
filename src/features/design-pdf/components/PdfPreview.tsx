@@ -1,3 +1,4 @@
+import { usePDF } from '@react-pdf/renderer';
 import {
   forwardRef,
   useCallback,
@@ -7,18 +8,22 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ProposalDocument } from '../../../components/pdf/ProposalDocument';
 import {
   getVisibleProposalPages,
   type ProposalPageKey,
 } from '../../../lib/pdf/proposalPageRegistry';
-import { renderProposalDocumentBlob } from '../../../lib/pdf/renderProposalDocument';
+import {
+  prepareProposalDocumentAssets,
+  type PreparedProposalDocumentAssets,
+} from '../../../lib/pdf/renderProposalDocument';
 import { profileService } from '../../../services/profileService';
 import type { Proposal } from '../../../types/proposal';
 import { extractActiveLogo } from '../../../utils/logoHelper';
+import { useAuth } from '../../../contexts/AuthContext';
 import { buildSvgTemplate } from '../engines/svgTemplateEngine';
 import { pdfDesignService } from '../services/pdfDesignService';
 import { PdfUserModel } from '../types/pdfDesignTypes';
-import { useAuth } from '../../../contexts/AuthContext';
 
 interface PdfPreviewProps {
   model: PdfUserModel;
@@ -31,6 +36,14 @@ export interface PdfPreviewHandle {
 }
 
 type PreviewProfile = NonNullable<Proposal['profile']>;
+
+interface ExactPdfDocumentPreviewProps {
+  proposal: Proposal;
+  documentAssets: PreparedProposalDocumentAssets;
+  activePageIndex: number;
+  isPreparing: boolean;
+  preparationError: string | null;
+}
 
 const defaultPreviewProfile: PreviewProfile = {
   company_name: 'Sol Amigo PRO',
@@ -171,6 +184,58 @@ function buildPreviewProposal(
   };
 }
 
+function ExactPdfDocumentPreview({
+  proposal,
+  documentAssets,
+  activePageIndex,
+  isPreparing,
+  preparationError,
+}: ExactPdfDocumentPreviewProps) {
+  const document = useMemo(
+    () => <ProposalDocument proposal={proposal} {...documentAssets} />,
+    [documentAssets, proposal],
+  );
+  const [instance, updateInstance] = usePDF({ document });
+
+  useEffect(() => {
+    updateInstance(document);
+  }, [document, updateInstance]);
+
+  const iframeSource = instance.url
+    ? `${instance.url}#page=${activePageIndex + 1}&zoom=page-width&toolbar=0&navpanes=0`
+    : undefined;
+  const renderError = preparationError || (instance.error ? 'Não foi possível atualizar a visualização do PDF.' : null);
+  const isUpdating = isPreparing || instance.loading;
+
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-slate-900 p-5">
+      {iframeSource ? (
+        <iframe
+          src={iframeSource}
+          title="Visualização exata do PDF da proposta"
+          className="h-full w-full rounded-xl border border-brand-border bg-slate-800 shadow-2xl"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center rounded-xl border border-brand-border bg-slate-950/40 text-sm text-slate-300">
+          Gerando a visualização exata do PDF...
+        </div>
+      )}
+
+      {isUpdating && (
+        <div className="pointer-events-none absolute right-8 top-8 rounded-full border border-brand-border bg-slate-950/90 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-lg">
+          Atualizando PDF...
+        </div>
+      )}
+
+      {renderError && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 rounded-lg border border-red-500/40 bg-red-950/95 px-4 py-2 text-sm font-medium text-red-100 shadow-xl">
+          {renderError}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function PdfPreview(
   { model, isCardPreview = false, onActivePageChange },
   ref,
@@ -180,12 +245,11 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [svgSource, setSvgSource] = useState('');
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isRenderingPdf, setIsRenderingPdf] = useState(false);
-  const [renderError, setRenderError] = useState<string | null>(null);
+  const [documentAssets, setDocumentAssets] = useState<PreparedProposalDocumentAssets | null>(null);
+  const [isPreparingPdf, setIsPreparingPdf] = useState(false);
+  const [preparationError, setPreparationError] = useState<string | null>(null);
   const [activePageKey, setActivePageKey] = useState<ProposalPageKey>('cover');
-  const pdfUrlRef = useRef<string | null>(null);
-  const renderSequenceRef = useRef(0);
+  const preparationSequenceRef = useRef(0);
   const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const visiblePages = useMemo(() => getVisibleProposalPages(model.page_config), [model.page_config]);
 
@@ -301,39 +365,28 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   useEffect(() => {
     if (isCardPreview) return;
 
-    const sequence = renderSequenceRef.current + 1;
-    renderSequenceRef.current = sequence;
+    const sequence = preparationSequenceRef.current + 1;
+    preparationSequenceRef.current = sequence;
     const timeout = window.setTimeout(() => {
-      setIsRenderingPdf(true);
-      setRenderError(null);
+      setIsPreparingPdf(true);
+      setPreparationError(null);
 
-      void renderProposalDocumentBlob({ proposal: previewProposal, model })
-        .then((blob) => {
-          if (renderSequenceRef.current !== sequence) return;
-
-          const nextUrl = URL.createObjectURL(blob);
-          const previousUrl = pdfUrlRef.current;
-          pdfUrlRef.current = nextUrl;
-          setPdfUrl(nextUrl);
-
-          if (previousUrl) URL.revokeObjectURL(previousUrl);
+      void prepareProposalDocumentAssets({ proposal: previewProposal, model })
+        .then((nextAssets) => {
+          if (preparationSequenceRef.current === sequence) setDocumentAssets(nextAssets);
         })
         .catch((error) => {
-          if (renderSequenceRef.current !== sequence) return;
-          console.error('Error rendering exact PDF preview:', error);
-          setRenderError('Não foi possível atualizar a visualização do PDF.');
+          if (preparationSequenceRef.current !== sequence) return;
+          console.error('Error preparing exact PDF preview:', error);
+          setPreparationError('Não foi possível preparar a visualização do PDF.');
         })
         .finally(() => {
-          if (renderSequenceRef.current === sequence) setIsRenderingPdf(false);
+          if (preparationSequenceRef.current === sequence) setIsPreparingPdf(false);
         });
     }, 180);
 
     return () => window.clearTimeout(timeout);
   }, [isCardPreview, model, previewProposal]);
-
-  useEffect(() => () => {
-    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
-  }, []);
 
   useEffect(() => {
     if (visiblePages.some((page) => page.key === activePageKey)) return;
@@ -367,35 +420,24 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
     0,
     visiblePages.findIndex((page) => page.key === activePageKey),
   );
-  const iframeSource = pdfUrl
-    ? `${pdfUrl}#page=${activePageIndex + 1}&zoom=page-width&toolbar=0&navpanes=0`
-    : undefined;
+
+  if (!documentAssets) {
+    return (
+      <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-slate-900 p-5">
+        <div className="flex h-full w-full items-center justify-center rounded-xl border border-brand-border bg-slate-950/40 text-sm text-slate-300">
+          {preparationError || 'Preparando a visualização exata do PDF...'}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-900 p-5">
-      {iframeSource ? (
-        <iframe
-          src={iframeSource}
-          title="Visualização exata do PDF da proposta"
-          className="h-full w-full rounded-xl border border-brand-border bg-slate-800 shadow-2xl"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center rounded-xl border border-brand-border bg-slate-950/40 text-sm text-slate-300">
-          Gerando a visualização exata do PDF...
-        </div>
-      )}
-
-      {isRenderingPdf && (
-        <div className="pointer-events-none absolute right-8 top-8 rounded-full border border-brand-border bg-slate-950/90 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-lg">
-          Atualizando PDF...
-        </div>
-      )}
-
-      {renderError && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 rounded-lg border border-red-500/40 bg-red-950/95 px-4 py-2 text-sm font-medium text-red-100 shadow-xl">
-          {renderError}
-        </div>
-      )}
-    </div>
+    <ExactPdfDocumentPreview
+      proposal={previewProposal}
+      documentAssets={documentAssets}
+      activePageIndex={activePageIndex}
+      isPreparing={isPreparingPdf}
+      preparationError={preparationError}
+    />
   );
 });
