@@ -27,31 +27,38 @@ test('fundo claro é removido antes da recoloração e não contamina os limites
   assert.match(engine, /findOpaqueBounds\(themedImageData, resolvedOptions\.padding\)/);
 });
 
-test('preview e exportação usam as mesmas superfícies e a mesma faixa do documento PDF', async () => {
+test('preview ao vivo e exportação resolvem a mesma paleta sem bloquear a edição', async () => {
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const pdfPages = await read('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx');
 
-  assert.match(preview, /renderProposalPdfBlob\([\s\S]*request\.proposal,[\s\S]*request\.model,[\s\S]*previewPageKey: request\.activePageKey/);
-  assert.match(preview, /URL\.createObjectURL\(blob\)/);
-  assert.doesNotMatch(preview, /previewParityCss/);
-  assert.doesNotMatch(preview, /linear-gradient/);
-  assert.doesNotMatch(preview, /function PreviewTopStripe/);
+  assert.match(preview, /resolvePdfDocumentTheme\(model\.theme\)/);
+  assert.match(preview, /PreviewTopStripe/);
+  assert.match(preview, /backgroundColor: theme\.primary/);
+  assert.match(preview, /backgroundColor: theme\.secondary/);
+  assert.match(preview, /backgroundColor: theme\.accent/);
+  assert.match(preview, /ProposalPreviewPage/);
+  assert.doesNotMatch(preview, /renderProposalPdfBlob/);
+  assert.doesNotMatch(preview, /<iframe/);
   assert.match(generator, /<ProposalDocument[\s\S]*proposal=\{proposal\}[\s\S]*previewPageKey=\{previewPageKey\}/);
   assert.match(pdfPages, /backgroundColor: t\.primary/);
   assert.match(pdfPages, /backgroundColor: t\.secondary/);
   assert.match(pdfPages, /backgroundColor: t\.accent/);
 });
 
-test('preview prepara apenas a ilustração usada pela página ativa', async () => {
+test('preview ao vivo e PDF aplicam o mesmo motor às ilustrações', async () => {
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
+  const livePages = await read('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx');
+  const liveTimeline = await read('src/features/design-pdf/components/TimelineTallPreview.tsx');
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const assets = await read('src/lib/pdf/renderProposalDocument.tsx');
 
-  assert.match(preview, /import\('\.\.\/\.\.\/\.\.\/lib\/pdf\/generateProposalPdf'\)/);
-  assert.match(preview, /previewPageKey: request\.activePageKey/);
-  assert.doesNotMatch(preview, /TimelineTallPreview/);
-  assert.doesNotMatch(preview, /ProposalPagesPreviewWithVectorArt/);
+  assert.match(preview, /ProposalPagesPreviewWithVectorArt/);
+  assert.match(preview, /TimelineTallPreview/);
+  assert.match(livePages, /applyPdfThemeToIllustration/);
+  assert.match(livePages, /outputWidth=\{2100\}/);
+  assert.match(liveTimeline, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
+  assert.match(liveTimeline, /applyPdfThemeToIllustration/);
   assert.match(generator, /prepareProposalDocumentAssets\(\{[\s\S]*previewPageKey/);
   assert.match(assets, /prepareIllustrationsForPage/);
   assert.match(assets, /case 'kit'/);
