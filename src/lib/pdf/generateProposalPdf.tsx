@@ -3,8 +3,8 @@ import { pdf } from '@react-pdf/renderer';
 import { ProposalDocument } from '../../components/pdf/ProposalDocument';
 import { monitoringService } from '../../services/monitoringService';
 import { pdfModelService } from '../../services/pdfModelService';
-import { PdfUserModel } from '../../types/pdfModels';
-import { Proposal } from '../../types/proposal';
+import type { PdfUserModel } from '../../types/pdfModels';
+import type { Proposal } from '../../types/proposal';
 import { resolveStorageAssetUrl } from '../storage/privateAsset';
 import { supabase } from '../supabase/client';
 import {
@@ -92,6 +92,21 @@ function buildSecurePdfUrl(publicToken: string): string {
   return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;
 }
 
+/**
+ * Única função que transforma a proposta e o modelo em bytes PDF.
+ * O preview do editor e a exportação final chamam esta mesma rotina.
+ */
+export async function renderProposalPdfBlob(
+  proposal: Proposal,
+  model: PdfUserModel | null,
+): Promise<Blob> {
+  const documentAssets = await prepareProposalDocumentAssets({ proposal, model });
+
+  return pdf(
+    <ProposalDocument proposal={proposal} {...documentAssets} />,
+  ).toBlob();
+}
+
 async function renderProposalPdf(
   proposal: Proposal,
   selectedModelId?: string | null,
@@ -105,13 +120,7 @@ async function renderProposalPdf(
     console.warn('Could not load custom PDF model, falling back to default document.', templateError);
   }
 
-  const documentAssets = await prepareProposalDocumentAssets({
-    proposal: enrichedProposal,
-    model: selectedModel,
-  });
-  const blob = await pdf(
-    <ProposalDocument proposal={enrichedProposal} {...documentAssets} />,
-  ).toBlob();
+  const blob = await renderProposalPdfBlob(enrichedProposal, selectedModel);
 
   await validatePdfBlob(blob, {
     minByteLength: 4_096,
