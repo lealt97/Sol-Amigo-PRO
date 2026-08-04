@@ -5,9 +5,23 @@ import {
   resolveCoverPhotoPreserveAspectRatio,
 } from './imageLayout';
 
-const PRISMA_SOLAR_COVER_SELECTOR = '[id="A4 - 12"], [id="capa_12"]';
-const PRISMA_SOLAR_MASK_ID = 'mask0_326_18';
-const PRISMA_SOLAR_VISIBLE_SHAPE_ID = 'cover-photo-shape-prisma-solar';
+const PHOTO_PLACEHOLDER_SELECTOR = [
+  '[id*="foto_aqui_placeholder"]',
+  '[id*="foto_aqui_icon"]',
+  '[id*="foto aqui_icon"]',
+  '[id*="Foto_aqui_icon"]',
+  '[id*="photo_icon"]',
+  '[id*="image_icon"]',
+].join(', ');
+
+const PHOTO_MASK_SHAPE_SELECTOR = [
+  'path',
+  'rect',
+  'polygon',
+  'polyline',
+  'circle',
+  'ellipse',
+].join(', ');
 
 function getImageTransform(bounds: Bounds, transform?: TransformConfig) {
   const viewport = getCoverPhotoViewport(bounds, transform);
@@ -26,7 +40,7 @@ function getImageTransform(bounds: Bounds, transform?: TransformConfig) {
 }
 
 function hidePhotoPlaceholder(doc: Document) {
-  doc.querySelectorAll('[id*="foto_aqui_placeholder"], [id*="foto_aqui_icon"], [id*="foto aqui_icon"], [id*="Foto_aqui_icon"], [id*="photo_icon"], [id*="image_icon"]').forEach((element) => {
+  doc.querySelectorAll(PHOTO_PLACEHOLDER_SELECTOR).forEach((element) => {
     element.setAttribute('display', 'none');
     element.setAttribute('opacity', '0');
   });
@@ -38,42 +52,94 @@ function moveLayerAbovePlaceholder(layer: Element) {
   if (parent.lastElementChild !== layer) parent.appendChild(layer);
 }
 
+function readMaskBounds(mask: Element): Bounds | null {
+  const x = Number(mask.getAttribute('x'));
+  const y = Number(mask.getAttribute('y'));
+  const width = Number(mask.getAttribute('width'));
+  const height = Number(mask.getAttribute('height'));
+
+  if (
+    [x, y, width, height].every(Number.isFinite)
+    && width > 0
+    && height > 0
+  ) {
+    return { x, y, width, height };
+  }
+
+  return null;
+}
+
+function findLegacyMaskedPhotoSlot(doc: Document) {
+  const placeholders = Array.from(
+    doc.querySelectorAll(PHOTO_PLACEHOLDER_SELECTOR),
+  );
+
+  for (const placeholder of placeholders) {
+    const host = placeholder.closest('g[mask]');
+    if (!host) continue;
+
+    const maskId = getUrlReference(host.getAttribute('mask'));
+    const mask = maskId ? doc.getElementById(maskId) : null;
+    const sourceShape = mask?.querySelector(PHOTO_MASK_SHAPE_SELECTOR) || null;
+
+    if (mask && sourceShape) {
+      return {
+        host,
+        mask,
+        sourceShape,
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
- * A A4 12 usa o pattern da foto apenas para controlar o alfa de uma máscara.
- * Alterar esse pattern não cria uma superfície visível, portanto o placeholder
- * desaparecia e o fundo cinza continuava aparecendo como um espaço branco.
+ * Templates atuais já possuem `cover-photo` e `cover-photo-layer`.
+ * Alguns SVGs antigos possuem o mesmo slot visual dentro de um grupo com máscara.
  *
- * Para essa capa, clonamos a geometria prismática da máscara como um path visível
- * no final da arte. O fluxo legado então preenche esse path com o mesmo pattern
- * usado pelas capas que já funcionam, sem depender da rasterização de clipPath.
+ * Em vez de manter regras por nome de capa, este adaptador promove qualquer slot
+ * mascarado legado para o contrato padrão. Depois da promoção, todos os modelos
+ * passam exatamente por `applyPhotoAsClipLayer`, com o mesmo cover, zoom, foco,
+ * posição e rotação.
  */
-function ensurePrismaSolarVisiblePhotoShape(doc: Document) {
-  if (!doc.querySelector(PRISMA_SOLAR_COVER_SELECTOR)) return;
-  if (doc.getElementById(PRISMA_SOLAR_VISIBLE_SHAPE_ID)) return;
-  if (doc.querySelector('[data-prisma-solar-photo-shape="true"]')) return;
+function upgradeMaskedPhotoSlotToStandardContract(doc: Document) {
+  if (doc.getElementById('cover-photo-layer')) return false;
 
-  const mask = doc.getElementById(PRISMA_SOLAR_MASK_ID);
-  const sourceShape = mask?.querySelector('path[fill^="url(#"]');
-  const patternReference = sourceShape?.getAttribute('fill');
-  const placeholder = doc.getElementById('foto_aqui_icon');
-  const placeholderHost = placeholder?.closest('g[mask]');
-  const parent = placeholderHost?.parentElement || doc.getElementById('capa_12');
+  const legacySlot = findLegacyMaskedPhotoSlot(doc);
+  if (!legacySlot) return false;
 
-  if (!sourceShape || !patternReference || !parent) return;
+  const { host, mask, sourceShape } = legacySlot;
+  const bounds = readMaskBounds(mask)
+    || { x: 0, y: 0, width: 595, height: 842 };
 
-  const visibleShape = sourceShape.cloneNode(false) as Element;
-  visibleShape.setAttribute('id', PRISMA_SOLAR_VISIBLE_SHAPE_ID);
-  visibleShape.setAttribute('fill', patternReference);
-  visibleShape.setAttribute('display', 'block');
-  visibleShape.setAttribute('opacity', '1');
-  visibleShape.setAttribute('pointer-events', 'none');
-  visibleShape.setAttribute('data-pdf-role', 'cover-photo-shape');
-  visibleShape.setAttribute('data-photo-layout', 'prisma-solar-visible-pattern');
-  visibleShape.setAttribute('data-prisma-solar-photo-shape', 'true');
-  visibleShape.removeAttribute('mask');
-  visibleShape.removeAttribute('style');
+  // A máscara antiga podia usar a imagem somente para calcular alfa.
+  // Torná-la branca converte a geometria em uma máscara opaca estável.
+  sourceShape.setAttribute('fill', '#FFFFFF');
+  sourceShape.setAttribute('fill-opacity', '1');
+  sourceShape.setAttribute('opacity', '1');
+  sourceShape.removeAttribute('filter');
+  sourceShape.setAttribute('data-pdf-role', 'cover-photo-mask-shape');
 
-  parent.insertBefore(visibleShape, placeholderHost || null);
+  const originalId = host.getAttribute('id');
+  if (originalId && originalId !== 'cover-photo') {
+    host.setAttribute('data-original-photo-host-id', originalId);
+  }
+
+  host.setAttribute('id', 'cover-photo');
+  host.setAttribute('data-photo-mask', 'true');
+  host.setAttribute(
+    'data-photo-bounds',
+    `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,
+  );
+  host.setAttribute('data-photo-layout', 'standard-mask-slot');
+
+  const layer = doc.createElementNS(SVG_NS, 'g');
+  layer.setAttribute('id', 'cover-photo-layer');
+  layer.setAttribute('data-dynamic-photo-layer', 'true');
+  host.insertBefore(layer, host.firstChild);
+
+  return true;
 }
 
 function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
@@ -178,7 +244,7 @@ function applyPhotoAsPattern(doc: Document, imageUrl?: string | null, transform?
 }
 
 export function applyCoverPhoto(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
-  ensurePrismaSolarVisiblePhotoShape(doc);
+  upgradeMaskedPhotoSlotToStandardContract(doc);
   const photoApplied = applyPhotoAsClipLayer(doc, imageUrl, transform);
   if (!photoApplied) applyPhotoAsPattern(doc, imageUrl, transform);
 }
