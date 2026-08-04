@@ -17,15 +17,18 @@ test('página de etapas reserva uma área vertical alta e não corta a ilustraç
   assert.doesNotMatch(document, /<TimelinePage/);
 });
 
-test('preview da página de etapas respeita a altura da arte e adiciona margem segura', async () => {
+test('preview e PDF usam exatamente o mesmo enquadramento da arte vertical', async () => {
+  const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
   const preview = await read('src/features/design-pdf/components/TimelineTallPreview.tsx');
   const pdfPreview = await read('src/features/design-pdf/components/PdfPreview.tsx');
 
-  assert.match(preview, /outputWidth: 2100/);
-  assert.match(preview, /padding: 56/);
+  assert.match(engine, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS:[\s\S]*outputWidth: 2100[\s\S]*padding: 56/);
+  assert.match(engine, /implementationTimelineImage,[\s\S]*theme,[\s\S]*TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
+  assert.match(preview, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
   assert.match(preview, /grid-cols-\[1\.28fr_\.72fr\]/);
   assert.match(preview, /max-h-full max-w-full object-contain object-center/);
   assert.match(preview, /Etapas do projeto fotovoltaico/);
+  assert.doesNotMatch(preview, /linear-gradient/);
   assert.match(pdfPreview, /page\.key === 'timeline'/);
   assert.match(pdfPreview, /<TimelineTallPreview/);
 });
