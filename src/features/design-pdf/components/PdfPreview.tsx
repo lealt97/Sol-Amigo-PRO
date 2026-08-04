@@ -163,7 +163,7 @@ function buildPreviewProposal(
       payback_months: 4,
       net_savings_25_years: 318000,
       return_25_years: 318000,
-    } as Proposal['solar'],
+    } as unknown as Proposal['solar'],
     profile: {
       ...profile,
       logo_url: selectedLogo || profile.logo_url,
