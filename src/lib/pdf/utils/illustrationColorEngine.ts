@@ -2,10 +2,6 @@ import type { PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import financialReturnImage from '../../../assets/pdf-art/financialReturnImage';
 import kitEquipmentImage from '../../../assets/pdf-art/kitEquipmentImage';
 import implementationTimelineImage from '../../../assets/pdf-art/implementationTimelineImage';
-import {
-  resolveCoverPaint,
-  type CoverTheme,
-} from '../../../features/design-pdf/engines/colorEngine';
 import type { PdfTheme } from '../../../types/pdfModels';
 
 export interface ProposalIllustrationImages {
@@ -36,6 +32,8 @@ type PixelBounds = {
   height: number;
 };
 
+const FIXED_ILLUSTRATION_BLACK = '#000000';
+
 const ILLUSTRATION_ORIGINAL_THEME: PdfTheme = {
   primary: '#0076DD',
   secondary: '#DEC488',
@@ -58,14 +56,14 @@ const DEFAULT_PADDING = 18;
 const BACKGROUND_WHITE_THRESHOLD = 245;
 const themedIllustrationCache = new Map<string, Promise<string>>();
 
-function toPdfTheme(theme: PdfDocumentTheme): PdfTheme {
-  return {
-    primary: theme.primary,
-    secondary: theme.secondary,
-    accent: theme.accent,
-    neutral: theme.neutral,
-  };
-}
+/**
+ * O preview e o PDF final usam este mesmo contrato. Alterar o enquadramento
+ * somente em um dos renderizadores faria a arte visualizada divergir do arquivo.
+ */
+export const TIMELINE_ILLUSTRATION_RENDER_OPTIONS: Required<IllustrationRenderOptions> = {
+  outputWidth: 2100,
+  padding: 56,
+};
 
 function hexToRgb(value: string): Rgb {
   const normalized = value.replace('#', '');
@@ -85,18 +83,15 @@ function colorDistanceSquared(first: Rgb, second: Rgb) {
 }
 
 function buildRoleTargets(theme: PdfDocumentTheme) {
-  const coverTheme: CoverTheme = {
-    current: toPdfTheme(theme),
-    original: ILLUSTRATION_ORIGINAL_THEME,
-  };
+  const primaryTarget = hexToRgb(theme.primary);
+  const fixedBlackTarget = hexToRgb(FIXED_ILLUSTRATION_BLACK);
 
-  return SOURCE_ROLE_COLORS.map((entry) => {
-    const resolved = resolveCoverPaint(entry.source, coverTheme) || coverTheme.current[entry.role];
-    return {
-      ...entry,
-      target: hexToRgb(resolved),
-    };
-  });
+  // O motor de ilustrações não usa resolveCoverPaint: toda cor de marca da
+  // arte acompanha exclusivamente a cor principal, enquanto o preto é fixo.
+  return SOURCE_ROLE_COLORS.map((entry) => ({
+    ...entry,
+    target: entry.role === 'neutral' ? fixedBlackTarget : primaryTarget,
+  }));
 }
 
 function loadIllustration(source: string) {
@@ -258,8 +253,6 @@ function renderHighResolutionIllustration(
   const context = outputCanvas.getContext('2d');
   if (!context) return sourceCanvas.toDataURL('image/png');
 
-  // Assim como a capa, o asset é entregue ao PDF já na densidade necessária
-  // para impressão/zoom, em vez de ampliar o bitmap pequeno dentro da página.
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = 'high';
   context.clearRect(0, 0, targetWidth, targetHeight);
@@ -286,9 +279,6 @@ function buildCacheKey(
   return [
     source,
     theme.primary,
-    theme.secondary,
-    theme.accent,
-    theme.neutral,
     options.outputWidth,
     options.padding,
   ].join('|');
@@ -344,7 +334,11 @@ export async function buildProposalIllustrationImages(
 ): Promise<ProposalIllustrationImages> {
   const [kit, timeline, financial] = await Promise.all([
     applyPdfThemeToIllustration(kitEquipmentImage, theme, { outputWidth: 1800 }),
-    applyPdfThemeToIllustration(implementationTimelineImage, theme, { outputWidth: 2100 }),
+    applyPdfThemeToIllustration(
+      implementationTimelineImage,
+      theme,
+      TIMELINE_ILLUSTRATION_RENDER_OPTIONS,
+    ),
     applyPdfThemeToIllustration(financialReturnImage, theme, { outputWidth: 1800 }),
   ]);
 
