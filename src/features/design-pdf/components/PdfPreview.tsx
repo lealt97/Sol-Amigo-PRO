@@ -6,21 +6,19 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from 'react';
-import { resolvePdfDocumentTheme, type PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
   getVisibleProposalPages,
   type ProposalPageKey,
 } from '../../../lib/pdf/proposalPageRegistry';
+import { renderProposalDocumentBlob } from '../../../lib/pdf/renderProposalDocument';
 import { profileService } from '../../../services/profileService';
 import { extractActiveLogo } from '../../../utils/logoHelper';
 import { buildSvgTemplate } from '../engines/svgTemplateEngine';
 import { pdfDesignService } from '../services/pdfDesignService';
-import { PdfUserModel } from '../types/pdfDesignTypes';
-import { ProposalPreviewPage } from './ProposalPagesPreviewWithVectorArt';
-import { TimelineTallPreview } from './TimelineTallPreview';
+import type { PdfUserModel } from '../types/pdfDesignTypes';
+import { createDesignPdfPreviewProposal } from '../utils/createDesignPdfPreviewProposal';
 
 interface PdfPreviewProps {
   model: PdfUserModel;
@@ -32,39 +30,41 @@ export interface PdfPreviewHandle {
   scrollToPage: (pageKey: ProposalPageKey) => void;
 }
 
-const previewParityCss = `
-  .pdf-preview-page [style*="linear-gradient(90deg"] {
-    background: transparent !important;
-  }
-
-  .pdf-preview-page [style*="linear-gradient(145deg"] {
-    background: var(--pdf-preview-surface) !important;
-  }
-`;
-
-function PreviewTopStripe({ theme }: { theme: PdfDocumentTheme }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-50 flex h-2" aria-hidden="true">
-      <div className="flex-1" style={{ backgroundColor: theme.primary }} />
-      <div className="flex-1" style={{ backgroundColor: theme.secondary }} />
-      <div className="flex-1" style={{ backgroundColor: theme.accent }} />
-    </div>
-  );
-}
+const PDF_VIEWER_HASH = 'zoom=page-fit&toolbar=0&navpanes=0&scrollbar=1';
+const PREVIEW_RENDER_DELAY_MS = 180;
 
 export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function PdfPreview(
-  { model, isCardPreview, onActivePageChange },
+  { model, isCardPreview = false, onActivePageChange },
   ref,
 ) {
   const { user } = useAuth();
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
-  const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const pageRefs = useRef<Partial<Record<ProposalPageKey, HTMLDivElement | null>>>({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isRenderingPdf, setIsRenderingPdf] = useState(!isCardPreview);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [activePageKey, setActivePageKey] = useState<ProposalPageKey>('cover');
+  const previewUrlRef = useRef<string | null>(null);
+  const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const visiblePages = useMemo(() => getVisibleProposalPages(model.page_config), [model.page_config]);
-  const previewTheme = useMemo(() => resolvePdfDocumentTheme(model.theme), [model.theme]);
+
+  const replacePreviewUrl = useCallback((nextUrl: string | null) => {
+    const previousUrl = previewUrlRef.current;
+    previewUrlRef.current = nextUrl;
+    setPreviewUrl(nextUrl);
+
+    if (previousUrl && previousUrl !== nextUrl) {
+      URL.revokeObjectURL(previousUrl);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     async function loadProfileLogo() {
@@ -72,14 +72,59 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
       try {
         const profile = await profileService.getProfile(user.id);
         setProfileLogo(extractActiveLogo(profile.logo_url));
-      } catch (err) {
-        console.error('Error loading profile logo in preview:', err);
+      } catch (error) {
+        console.error('Error loading profile logo in PDF preview:', error);
       }
     }
-    loadProfileLogo();
+
+    void loadProfileLogo();
   }, [user]);
 
   useEffect(() => {
+    if (!visiblePages.some(({ key }) => key === activePageKey)) {
+      const fallbackPage = visiblePages[0]?.key || 'cover';
+      setActivePageKey(fallbackPage);
+      onActivePageChange?.(fallbackPage);
+    }
+  }, [activePageKey, onActivePageChange, visiblePages]);
+
+  useEffect(() => {
+    if (isCardPreview) return;
+
+    let active = true;
+    const timer = window.setTimeout(() => {
+      const renderPreview = async () => {
+        setIsRenderingPdf(true);
+        setRenderError(null);
+
+        try {
+          const proposal = createDesignPdfPreviewProposal(profileLogo);
+          const blob = await renderProposalDocumentBlob({ proposal, model });
+          if (!active) return;
+
+          replacePreviewUrl(URL.createObjectURL(blob));
+        } catch (error) {
+          console.error('Erro ao gerar o PDF usado no preview do editor:', error);
+          if (active) {
+            setRenderError('Não foi possível gerar a visualização fiel do PDF.');
+          }
+        } finally {
+          if (active) setIsRenderingPdf(false);
+        }
+      };
+
+      void renderPreview();
+    }, PREVIEW_RENDER_DELAY_MS);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [isCardPreview, model, profileLogo, replacePreviewUrl]);
+
+  useEffect(() => {
+    if (!isCardPreview) return;
+
     let active = true;
 
     async function resolveCoverImage() {
@@ -92,18 +137,20 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
         const resolved = await pdfDesignService.resolveAssetUrl(model.cover_image_url, 900);
         if (active) setCoverImageUrl(resolved);
       } catch (error) {
-        console.error('Error resolving private cover image in preview:', error);
+        console.error('Error resolving private cover image in card preview:', error);
         if (active) setCoverImageUrl(null);
       }
     }
 
-    resolveCoverImage();
+    void resolveCoverImage();
     return () => {
       active = false;
     };
-  }, [model.cover_image_url]);
+  }, [isCardPreview, model.cover_image_url]);
 
   useEffect(() => {
+    if (!isCardPreview) return;
+
     let active = true;
 
     async function loadSvg() {
@@ -111,6 +158,7 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
         setSvgSource('');
         return;
       }
+
       try {
         const text = await pdfDesignService.getPresetSvgContent(preset.id);
         if (active) setSvgSource(text);
@@ -120,14 +168,14 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
       }
     }
 
-    loadSvg();
+    void loadSvg();
     return () => {
       active = false;
     };
-  }, [preset]);
+  }, [isCardPreview, preset]);
 
   const finalSvgContent = useMemo(() => {
-    if (!svgSource || !preset) return '';
+    if (!isCardPreview || !svgSource || !preset) return '';
 
     return buildSvgTemplate({
       svgSource,
@@ -147,46 +195,29 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
       coverImageTransform: model.cover_image_transform,
       modelId: model.id,
     });
-  }, [svgSource, preset, model, profileLogo, coverImageUrl]);
+  }, [coverImageUrl, isCardPreview, model, preset, profileLogo, svgSource]);
 
   const scrollToPage = useCallback((pageKey: ProposalPageKey) => {
-    const container = scrollContainerRef.current;
-    const page = pageRefs.current[pageKey];
-    if (!container || !page) return;
-
-    container.scrollTo({
-      top: Math.max(0, page.offsetTop - 24),
-      behavior: 'smooth',
-    });
-  }, []);
+    if (!visiblePages.some(({ key }) => key === pageKey)) return;
+    setActivePageKey(pageKey);
+    onActivePageChange?.(pageKey);
+  }, [onActivePageChange, visiblePages]);
 
   useImperativeHandle(ref, () => ({ scrollToPage }), [scrollToPage]);
 
-  const handleScroll = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !onActivePageChange || visiblePages.length === 0) return;
+  const activePageNumber = useMemo(() => {
+    const index = visiblePages.findIndex(({ key }) => key === activePageKey);
+    return Math.max(1, index + 1);
+  }, [activePageKey, visiblePages]);
 
-    const containerTop = container.getBoundingClientRect().top;
-    let closestPage = visiblePages[0].key;
-    let closestDistance = Number.POSITIVE_INFINITY;
-
-    visiblePages.forEach(({ key }) => {
-      const page = pageRefs.current[key];
-      if (!page) return;
-      const distance = Math.abs(page.getBoundingClientRect().top - containerTop - 24);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestPage = key;
-      }
-    });
-
-    onActivePageChange(closestPage);
-  }, [onActivePageChange, visiblePages]);
-
-  if (!preset) return <div className="text-slate-500">Preset não encontrado.</div>;
-  if (!finalSvgContent) return <div className="text-slate-500">Carregando preview...</div>;
+  const iframeSource = previewUrl
+    ? `${previewUrl}#page=${activePageNumber}&${PDF_VIEWER_HASH}`
+    : null;
 
   if (isCardPreview) {
+    if (!preset) return <div className="text-slate-500">Preset não encontrado.</div>;
+    if (!finalSvgContent) return <div className="text-slate-500">Carregando preview...</div>;
+
     return (
       <div
         className="flex h-full w-full items-center justify-center overflow-hidden [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
@@ -196,46 +227,31 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   }
 
   return (
-    <>
-      <style>{previewParityCss}</style>
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="h-full w-full overflow-y-auto scroll-smooth px-5 py-6"
-      >
-        <div className="mx-auto flex w-full max-w-[794px] flex-col gap-7 pb-12">
-          {visiblePages.map((page, index) => (
-            <div
-              key={page.key}
-              ref={(node) => {
-                pageRefs.current[page.key] = node;
-              }}
-              data-pdf-page={page.key}
-              className="pdf-preview-page relative aspect-[210/297] w-full shrink-0 overflow-hidden border border-brand-border bg-white shadow-2xl"
-              style={{ '--pdf-preview-surface': previewTheme.surface } as CSSProperties}
-            >
-              {page.key !== 'cover' && <PreviewTopStripe theme={previewTheme} />}
-              {page.key === 'cover' ? (
-                <div
-                  className="flex h-full w-full items-center justify-center [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-                  dangerouslySetInnerHTML={{ __html: finalSvgContent }}
-                />
-              ) : page.key === 'timeline' ? (
-                <TimelineTallPreview
-                  pageNumber={index + 1}
-                  theme={previewTheme}
-                />
-              ) : (
-                <ProposalPreviewPage
-                  pageKey={page.key}
-                  pageNumber={index + 1}
-                  theme={previewTheme}
-                />
-              )}
-            </div>
-          ))}
+    <div className="relative h-full w-full overflow-hidden bg-slate-900">
+      {iframeSource ? (
+        <iframe
+          key={`${previewUrl}-${activePageNumber}`}
+          title="Visualização fiel do PDF final"
+          src={iframeSource}
+          className="h-full w-full border-0 bg-slate-900"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-300">
+          Gerando o mesmo PDF que será entregue ao cliente...
         </div>
-      </div>
-    </>
+      )}
+
+      {isRenderingPdf && (
+        <div className="pointer-events-none absolute right-5 top-5 rounded-full border border-white/10 bg-slate-950/85 px-4 py-2 text-xs font-bold text-white shadow-xl backdrop-blur">
+          Atualizando PDF final...
+        </div>
+      )}
+
+      {renderError && (
+        <div className="absolute inset-x-5 bottom-5 rounded-xl border border-red-400/30 bg-red-950/90 p-4 text-sm font-semibold text-red-100 shadow-xl">
+          {renderError}
+        </div>
+      )}
+    </div>
   );
 });
