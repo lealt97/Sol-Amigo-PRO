@@ -1,15 +1,18 @@
-import { Proposal } from '../../types/proposal';
-import { PdfUserModel } from '../../types/pdfModels';
+import React from 'react';
+import { pdf } from '@react-pdf/renderer';
+import { ProposalDocument } from '../../components/pdf/ProposalDocument';
 import { monitoringService } from '../../services/monitoringService';
 import { pdfModelService } from '../../services/pdfModelService';
-import { supabase } from '../supabase/client';
+import { PdfUserModel } from '../../types/pdfModels';
+import { Proposal } from '../../types/proposal';
 import { resolveStorageAssetUrl } from '../storage/privateAsset';
+import { supabase } from '../supabase/client';
 import {
   createPdfGenerationOperations,
   type PdfMetadataInput,
 } from './pdfGenerationOperations';
 import { PDF_SIZE_LIMITS, validatePdfBlob } from './pdfQuality';
-import { renderProposalDocumentBlob } from './renderProposalDocument';
+import { prepareProposalDocumentAssets } from './renderProposalDocument';
 
 async function resolvePdfModel(
   proposal: Proposal,
@@ -102,10 +105,13 @@ async function renderProposalPdf(
     console.warn('Could not load custom PDF model, falling back to default document.', templateError);
   }
 
-  const blob = await renderProposalDocumentBlob({
+  const documentAssets = await prepareProposalDocumentAssets({
     proposal: enrichedProposal,
     model: selectedModel,
   });
+  const blob = await pdf(
+    <ProposalDocument proposal={enrichedProposal} {...documentAssets} />,
+  ).toBlob();
 
   await validatePdfBlob(blob, {
     minByteLength: 4_096,
