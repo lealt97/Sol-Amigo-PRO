@@ -4,6 +4,10 @@ import {
   getVisibleProposalPages,
   type ProposalPageKey,
 } from '../../lib/pdf/proposalPageRegistry';
+import {
+  defaultProposalIllustrationImages,
+  type ProposalIllustrationImages,
+} from '../../lib/pdf/utils/illustrationColorEngine';
 import { PdfPageConfig, PdfTheme } from '../../types/pdfModels';
 import { Proposal } from '../../types/proposal';
 import { PdfThemeProvider } from './pdfTheme';
@@ -39,6 +43,7 @@ interface ProposalDocumentProps {
   coverImage?: string | null;
   pdfTheme?: Partial<PdfTheme> | null;
   pageConfig?: Partial<PdfPageConfig> | null;
+  illustrationImages?: ProposalIllustrationImages;
 }
 
 function hasFinancialData(proposal: Proposal) {
@@ -76,6 +81,7 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
   coverImage,
   pdfTheme,
   pageConfig,
+  illustrationImages = defaultProposalIllustrationImages,
 }) => {
   const visiblePages = getVisibleProposalPages(pageConfig).filter(({ key }) => shouldRenderPage(key, proposal));
 
@@ -103,15 +109,47 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
             case 'technical':
               return <React.Fragment key={page.key}><TechnicalPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'kit':
-              return <React.Fragment key={page.key}><KitPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
+              return (
+                <React.Fragment key={page.key}>
+                  <KitPage
+                    proposal={proposal}
+                    pageNumber={pageNumber}
+                    illustration={illustrationImages.kit}
+                  />
+                </React.Fragment>
+              );
             case 'roof':
               return <React.Fragment key={page.key}><RoofPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'timeline':
-              return <React.Fragment key={page.key}><TimelinePage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
+              return (
+                <React.Fragment key={page.key}>
+                  <TimelinePage
+                    proposal={proposal}
+                    pageNumber={pageNumber}
+                    illustration={illustrationImages.timeline}
+                  />
+                </React.Fragment>
+              );
             case 'financial':
-              return <React.Fragment key={page.key}><FinancialPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
+              return (
+                <React.Fragment key={page.key}>
+                  <FinancialPage
+                    proposal={proposal}
+                    pageNumber={pageNumber}
+                    illustration={illustrationImages.financial}
+                  />
+                </React.Fragment>
+              );
             case 'payback':
-              return <React.Fragment key={page.key}><PaybackPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
+              return (
+                <React.Fragment key={page.key}>
+                  <PaybackPage
+                    proposal={proposal}
+                    pageNumber={pageNumber}
+                    illustration={illustrationImages.financial}
+                  />
+                </React.Fragment>
+              );
             case 'acceptance':
               return <React.Fragment key={page.key}><AcceptancePage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             default:

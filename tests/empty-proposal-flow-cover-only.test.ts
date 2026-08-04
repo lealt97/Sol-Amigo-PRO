@@ -97,6 +97,28 @@ test('detecção de mobile usa capacidade de toque em vez da largura da tela', a
   assert.match(hook, /removeEventListener\('change'/);
 });
 
+test('ilustrações usam o mesmo motor de cores da capa e das páginas', async () => {
+  const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
+  const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
+  const document = await read('src/components/pdf/ProposalDocument.tsx');
+  const preview = await read('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx');
+
+  assert.match(engine, /resolveCoverPaint/);
+  assert.match(engine, /ILLUSTRATION_ORIGINAL_THEME/);
+  assert.match(engine, /primary: '#0076DD'/);
+  assert.match(engine, /accent: '#FACB5C'/);
+  assert.match(engine, /neutral: '#000000'/);
+  assert.match(engine, /buildProposalIllustrationImages/);
+  assert.match(generator, /resolvePdfDocumentTheme\(selectedModel\?\.theme\)/);
+  assert.match(generator, /buildProposalIllustrationImages\(resolvedTheme\)/);
+  assert.match(generator, /illustrationImages=\{illustrationImages\}/);
+  assert.match(document, /illustration=\{illustrationImages\.kit\}/);
+  assert.match(document, /illustration=\{illustrationImages\.timeline\}/);
+  assert.match(document, /illustration=\{illustrationImages\.financial\}/);
+  assert.match(preview, /applyPdfThemeToIllustration/);
+  assert.match(preview, /useThemedIllustration/);
+});
+
 test('textos dinâmicos da capa recebem ampliação controlada', async () => {
   const coverEngine = await read('src/lib/pdf/utils/coverSvgEngine.ts');
 

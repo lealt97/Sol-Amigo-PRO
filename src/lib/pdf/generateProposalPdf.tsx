@@ -1,6 +1,7 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { ProposalDocument } from '../../components/pdf/ProposalDocument';
+import { resolvePdfDocumentTheme } from '../../components/pdf/pdfTheme';
 import { PdfUserModel } from '../../types/pdfModels';
 import { Proposal } from '../../types/proposal';
 import { monitoringService } from '../../services/monitoringService';
@@ -12,6 +13,7 @@ import {
   type PdfMetadataInput,
 } from './pdfGenerationOperations';
 import { PDF_SIZE_LIMITS, validatePdfBlob } from './pdfQuality';
+import { buildProposalIllustrationImages } from './utils/illustrationColorEngine';
 import { generateSvgCoverImage } from './utils/svgToImage';
 
 async function resolvePdfModel(
@@ -109,12 +111,16 @@ async function renderProposalPdf(
     console.warn('Could not load custom cover template, falling back to default', templateError);
   }
 
+  const resolvedTheme = resolvePdfDocumentTheme(selectedModel?.theme);
+  const illustrationImages = await buildProposalIllustrationImages(resolvedTheme);
+
   const blob = await pdf(
     <ProposalDocument
       proposal={enrichedProposal}
       coverImage={coverImage}
       pdfTheme={selectedModel?.theme}
       pageConfig={selectedModel?.page_config}
+      illustrationImages={illustrationImages}
     />,
   ).toBlob();
 

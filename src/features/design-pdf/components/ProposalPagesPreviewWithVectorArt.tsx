@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import type { ProposalPageKey } from '../../../lib/pdf/proposalPageRegistry';
+import { applyPdfThemeToIllustration } from '../../../lib/pdf/utils/illustrationColorEngine';
 import financialReturnImage from '../../../assets/pdf-art/financialReturnImage';
 import kitEquipmentImage from '../../../assets/pdf-art/kitEquipmentImage';
 import implementationTimelineImage from '../../../assets/pdf-art/implementationTimelineImage';
@@ -26,8 +27,28 @@ function Metric({ theme, value, label, accent = 'primary' }: { theme: PdfDocumen
   return <div className="rounded-2xl border p-3.5" style={{ borderColor: theme.border, backgroundColor: soft }}><div className="mb-2 h-1.5 w-7 rounded-full" style={{ backgroundColor: color }} /><div className="text-[19px] font-black leading-none" style={{ color: theme.text }}>{value}</div><div className="mt-2 text-[8px] font-bold uppercase tracking-[0.13em]" style={{ color: theme.muted }}>{label}</div></div>;
 }
 
+function useThemedIllustration(source: string, theme: PdfDocumentTheme) {
+  const [themedSource, setThemedSource] = useState(source);
+
+  useEffect(() => {
+    let active = true;
+    setThemedSource(source);
+
+    void applyPdfThemeToIllustration(source, theme).then((result) => {
+      if (active) setThemedSource(result);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [source, theme.primary, theme.secondary, theme.accent, theme.neutral]);
+
+  return themedSource;
+}
+
 function ArtCard({ source, theme, label, className = '' }: { source: string; theme: PdfDocumentTheme; label: string; className?: string }) {
-  return <div className={`overflow-hidden rounded-2xl border bg-white p-3 ${className}`} style={{ borderColor: theme.border }}><img src={source} alt={label} className="h-full w-full object-contain" /></div>;
+  const themedSource = useThemedIllustration(source, theme);
+  return <div className={`overflow-hidden rounded-2xl border bg-white p-3 ${className}`} style={{ borderColor: theme.border }}><img src={themedSource} alt={label} className="h-full w-full object-contain" /></div>;
 }
 
 function KitPreview({ theme, pageNumber }: Omit<ProposalPreviewPageProps, 'pageKey'>) {
