@@ -12,13 +12,15 @@ test('rota de criação recebe a calculadora por kit e edição permanece vazia'
   assert.doesNotMatch(app, /ProposalWizard/);
 });
 
-test('documento PDF mantém a capa e renderiza as páginas configuradas da proposta', async () => {
+test('documento PDF mantém A4 e renderiza exatamente as páginas configuradas', async () => {
   const document = await read('src/components/pdf/ProposalDocument.tsx');
-  const pages = await read('src/components/pdf/sections/ProposalPages.tsx');
 
+  assert.match(document, /const visiblePages = getVisibleProposalPages\(pageConfig\)/);
+  assert.match(document, /size="A4"/);
   assert.match(document, /<CoverPage proposal=\{proposal\} \/>/);
   assert.match(document, /<Image src=\{coverImage\} style=\{styles\.coverImage\} \/>/);
-  assert.match(document, /getVisibleProposalPages\(pageConfig\)/);
+  assert.doesNotMatch(document, /shouldRenderPage/);
+  assert.doesNotMatch(document, /\.filter\(\(\{ key \}\) =>/);
   assert.match(document, /<IntroPage/);
   assert.match(document, /<ConsumptionPage/);
   assert.match(document, /<TechnicalPage/);
@@ -28,22 +30,44 @@ test('documento PDF mantém a capa e renderiza as páginas configuradas da propo
   assert.match(document, /<FinancialPage/);
   assert.match(document, /<PaybackPage/);
   assert.match(document, /<AcceptancePage/);
-  assert.match(pages, /index % 2 === 0 \? '#FFFFFF' : theme\.primarySoft/);
-  assert.doesNotMatch(document, /DynamicCoverOverlay/);
+  assert.match(document, /illustration=\{illustrationImages\.kit\}/);
+  assert.match(document, /illustration=\{illustrationImages\.timeline\}/);
+  assert.match(document, /illustration=\{illustrationImages\.financial\}/);
 });
 
-test('editor de páginas navega pelo preview e mantém a capa obrigatória', async () => {
+test('editor solicita os mesmos bytes PDF usados pela exportação', async () => {
   const editor = await read('src/features/design-pdf/components/PageConfigEditor.tsx');
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const designEditor = await read('src/features/design-pdf/components/DesignPdfEditor.tsx');
 
   assert.match(editor, /onNavigate\?\.\(page\.key\)/);
   assert.match(editor, /page\.key === 'cover'/);
-  assert.match(editor, /absolute left-0\.5 top-0\.5 h-5 w-5/);
-  assert.match(editor, /checked \? 'translate-x-5' : 'translate-x-0'/);
-  assert.match(preview, /scrollToPage/);
-  assert.match(preview, /data-pdf-page=\{page\.key\}/);
+  assert.match(preview, /import\('\.\.\/\.\.\/\.\.\/lib\/pdf\/generateProposalPdf'\)/);
+  assert.match(preview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.match(preview, /URL\.createObjectURL\(blob\)/);
+  assert.match(preview, /Visualização exata do PDF da proposta/);
+  assert.match(preview, /zoom=page-width/);
+  assert.doesNotMatch(preview, /@react-pdf\/renderer/);
+  assert.doesNotMatch(preview, /ProposalPreviewPage/);
+  assert.doesNotMatch(preview, /TimelineTallPreview/);
+  assert.doesNotMatch(preview, /ProposalPagesPreviewWithVectorArt/);
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
+});
+
+test('preview e exportação compartilham uma única função geradora de blob', async () => {
+  const sharedAssets = await read('src/lib/pdf/renderProposalDocument.tsx');
+  const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
+  const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
+
+  assert.match(sharedAssets, /generateSvgCoverImage\(model, proposal\)/);
+  assert.match(sharedAssets, /buildProposalIllustrationImages\(resolvedTheme\)/);
+  assert.match(sharedAssets, /pageConfig: model\?\.page_config \?\? null/);
+  assert.match(generator, /export async function renderProposalPdfBlob/);
+  assert.match(generator, /prepareProposalDocumentAssets\(\{ proposal, model \}\)/);
+  assert.match(generator, /<ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
+  assert.match(generator, /renderProposalPdfBlob\(enrichedProposal, selectedModel\)/);
+  assert.match(preview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.doesNotMatch(preview, /prepareProposalDocumentAssets/);
 });
 
 test('ações dos modelos adicionados alternam por toque somente no mobile', async () => {
@@ -97,14 +121,12 @@ test('detecção de mobile usa capacidade de toque em vez da largura da tela', a
   assert.match(hook, /removeEventListener\('change'/);
 });
 
-test('ilustrações usam o motor de cores e são renderizadas em alta resolução', async () => {
+test('as três ilustrações passam pelo mesmo pipeline de cores e alta resolução', async () => {
   const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
-  const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
+  const sharedAssets = await read('src/lib/pdf/renderProposalDocument.tsx');
   const document = await read('src/components/pdf/ProposalDocument.tsx');
-  const preview = await read('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx');
   const pdfPages = await read('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx');
 
-  assert.match(engine, /resolveCoverPaint/);
   assert.match(engine, /ILLUSTRATION_ORIGINAL_THEME/);
   assert.match(engine, /primary: '#0076DD'/);
   assert.match(engine, /accent: '#FACB5C'/);
@@ -115,19 +137,13 @@ test('ilustrações usam o motor de cores e são renderizadas em alta resoluçã
   assert.match(engine, /imageSmoothingQuality = 'high'/);
   assert.match(engine, /outputWidth: 2100/);
   assert.match(engine, /buildProposalIllustrationImages/);
-  assert.match(generator, /resolvePdfDocumentTheme\(selectedModel\?\.theme\)/);
-  assert.match(generator, /buildProposalIllustrationImages\(resolvedTheme\)/);
-  assert.match(generator, /illustrationImages=\{illustrationImages\}/);
+  assert.match(sharedAssets, /resolvePdfDocumentTheme\(model\?\.theme\)/);
+  assert.match(sharedAssets, /buildProposalIllustrationImages\(resolvedTheme\)/);
   assert.match(document, /illustration=\{illustrationImages\.kit\}/);
   assert.match(document, /illustration=\{illustrationImages\.timeline\}/);
   assert.match(document, /illustration=\{illustrationImages\.financial\}/);
-  assert.match(preview, /applyPdfThemeToIllustration/);
-  assert.match(preview, /function ArtStage/);
-  assert.match(preview, /grid h-\[43%\]/);
-  assert.match(preview, /className="h-\[62%\]"/);
   assert.match(pdfPages, /function ArtStage/);
   assert.match(pdfPages, /<ArtStage src=\{illustration\} height=\{360\} \/>/);
-  assert.doesNotMatch(preview, /function ArtCard/);
 });
 
 test('textos dinâmicos da capa recebem ampliação controlada', async () => {
@@ -141,14 +157,12 @@ test('textos dinâmicos da capa recebem ampliação controlada', async () => {
   assert.match(coverEngine, /return enlargeDynamicCoverTexts\(svg\)/);
 });
 
-test('gerador usa tema e configuração de páginas do modelo selecionado', async () => {
+test('gerador usa o modelo selecionado e valida o PDF final', async () => {
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
   const app = await read('src/App.tsx');
 
-  assert.match(generator, /generateSvgCoverImage\(selectedModel, enrichedProposal\)/);
-  assert.match(generator, /coverImage=\{coverImage\}/);
-  assert.match(generator, /pdfTheme=\{selectedModel\?\.theme\}/);
-  assert.match(generator, /pageConfig=\{selectedModel\?\.page_config\}/);
+  assert.match(generator, /resolvePdfModel\(enrichedProposal, selectedModelId\)/);
+  assert.match(generator, /renderProposalPdfBlob\(enrichedProposal, selectedModel\)/);
   assert.match(generator, /minPages: 1/);
   assert.match(app, /path="design-pdf" element=\{<DesignPdf \/>\}/);
 });

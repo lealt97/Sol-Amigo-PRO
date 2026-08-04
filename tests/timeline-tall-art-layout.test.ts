@@ -19,16 +19,15 @@ test('página de etapas reserva uma área vertical alta e não corta a ilustraç
 
 test('preview e PDF usam exatamente o mesmo enquadramento da arte vertical', async () => {
   const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
-  const preview = await read('src/features/design-pdf/components/TimelineTallPreview.tsx');
+  const document = await read('src/components/pdf/ProposalDocument.tsx');
   const pdfPreview = await read('src/features/design-pdf/components/PdfPreview.tsx');
+  const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
 
   assert.match(engine, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS:[\s\S]*outputWidth: 2100[\s\S]*padding: 24/);
   assert.match(engine, /implementationTimelineImage,[\s\S]*theme,[\s\S]*TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
-  assert.match(preview, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
-  assert.match(preview, /grid-cols-\[1\.28fr_\.72fr\]/);
-  assert.match(preview, /max-h-full max-w-full object-contain object-center/);
-  assert.match(preview, /Etapas do projeto fotovoltaico/);
-  assert.doesNotMatch(preview, /linear-gradient/);
-  assert.match(pdfPreview, /page\.key === 'timeline'/);
-  assert.match(pdfPreview, /<TimelineTallPreview/);
+  assert.match(document, /<TimelineTallPage[\s\S]*illustration=\{illustrationImages\.timeline\}/);
+  assert.match(pdfPreview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.doesNotMatch(pdfPreview, /TimelineTallPreview/);
+  assert.doesNotMatch(pdfPreview, /grid-cols-\[1\.28fr_\.72fr\]/);
+  assert.match(generator, /<ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
 });

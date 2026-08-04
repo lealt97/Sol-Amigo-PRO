@@ -14,7 +14,7 @@ import {
 } from '../src/lib/pdf/pdfQuality';
 import type { Proposal } from '../src/types/proposal';
 
-const EXPECTED_BASE_PROPOSAL_PAGE_COUNT = 5;
+const EXPECTED_CONFIGURED_PROPOSAL_PAGE_COUNT = 10;
 
 function makeProposal(): Proposal {
   return {
@@ -168,20 +168,20 @@ test('rejeita um PDF que ultrapassa o limite absoluto', () => {
   );
 });
 
-test('PDF com capa rasterizada detalhada preserva as páginas essenciais da proposta', async () => {
+test('PDF com capa rasterizada preserva todas as páginas configuradas no editor', async () => {
   const blob = await renderProposal(makeProposal(), makeDetailedCoverPng());
   const metrics = await validatePdfBlob(blob, {
     minByteLength: 4_096,
     maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
-    minPages: EXPECTED_BASE_PROPOSAL_PAGE_COUNT,
+    minPages: EXPECTED_CONFIGURED_PROPOSAL_PAGE_COUNT,
   });
 
-  assert.equal(metrics.pageCount, EXPECTED_BASE_PROPOSAL_PAGE_COUNT);
+  assert.equal(metrics.pageCount, EXPECTED_CONFIGURED_PROPOSAL_PAGE_COUNT);
   assert.ok(metrics.imageCount >= 1);
   assert.ok(metrics.byteLength <= PDF_SIZE_LIMITS.recommendedMaxBytes);
 });
 
-test('três gerações preservam a estrutura multipágina da proposta', async () => {
+test('três gerações preservam a estrutura completa configurada da proposta', async () => {
   const proposal = makeProposal();
   const proposalBeforeRendering = JSON.stringify(proposal);
   const coverImage = makeDetailedCoverPng();
@@ -192,10 +192,10 @@ test('três gerações preservam a estrutura multipágina da proposta', async ()
     const metrics = await validatePdfBlob(blob, {
       minByteLength: 4_096,
       maxByteLength: PDF_SIZE_LIMITS.hardMaxBytes,
-      minPages: EXPECTED_BASE_PROPOSAL_PAGE_COUNT,
+      minPages: EXPECTED_CONFIGURED_PROPOSAL_PAGE_COUNT,
     });
 
-    assert.equal(metrics.pageCount, EXPECTED_BASE_PROPOSAL_PAGE_COUNT);
+    assert.equal(metrics.pageCount, EXPECTED_CONFIGURED_PROPOSAL_PAGE_COUNT);
     assert.equal(metrics.mimeType, 'application/pdf');
     assert.equal(metrics.hasPdfHeader, true);
     assert.equal(metrics.hasEofMarker, true);

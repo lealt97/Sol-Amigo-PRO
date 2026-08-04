@@ -1,20 +1,18 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { ProposalDocument } from '../../components/pdf/ProposalDocument';
-import { resolvePdfDocumentTheme } from '../../components/pdf/pdfTheme';
-import { PdfUserModel } from '../../types/pdfModels';
-import { Proposal } from '../../types/proposal';
 import { monitoringService } from '../../services/monitoringService';
 import { pdfModelService } from '../../services/pdfModelService';
-import { supabase } from '../supabase/client';
+import type { PdfUserModel } from '../../types/pdfModels';
+import type { Proposal } from '../../types/proposal';
 import { resolveStorageAssetUrl } from '../storage/privateAsset';
+import { supabase } from '../supabase/client';
 import {
   createPdfGenerationOperations,
   type PdfMetadataInput,
 } from './pdfGenerationOperations';
 import { PDF_SIZE_LIMITS, validatePdfBlob } from './pdfQuality';
-import { buildProposalIllustrationImages } from './utils/illustrationColorEngine';
-import { generateSvgCoverImage } from './utils/svgToImage';
+import { prepareProposalDocumentAssets } from './renderProposalDocument';
 
 async function resolvePdfModel(
   proposal: Proposal,
@@ -94,35 +92,35 @@ function buildSecurePdfUrl(publicToken: string): string {
   return `${supabaseUrl}/functions/v1/public-proposal-pdf?token=${encodeURIComponent(publicToken)}`;
 }
 
+/**
+ * Única função que transforma a proposta e o modelo em bytes PDF.
+ * O preview do editor e a exportação final chamam esta mesma rotina.
+ */
+export async function renderProposalPdfBlob(
+  proposal: Proposal,
+  model: PdfUserModel | null,
+): Promise<Blob> {
+  const documentAssets = await prepareProposalDocumentAssets({ proposal, model });
+
+  return pdf(
+    <ProposalDocument proposal={proposal} {...documentAssets} />,
+  ).toBlob();
+}
+
 async function renderProposalPdf(
   proposal: Proposal,
   selectedModelId?: string | null,
 ): Promise<Blob> {
   const enrichedProposal = await enrichProposalForPdf(proposal);
-  let coverImage: string | null = null;
   let selectedModel: PdfUserModel | null = null;
 
   try {
     selectedModel = await resolvePdfModel(enrichedProposal, selectedModelId);
-    if (selectedModel) {
-      coverImage = await generateSvgCoverImage(selectedModel, enrichedProposal);
-    }
   } catch (templateError) {
-    console.warn('Could not load custom cover template, falling back to default', templateError);
+    console.warn('Could not load custom PDF model, falling back to default document.', templateError);
   }
 
-  const resolvedTheme = resolvePdfDocumentTheme(selectedModel?.theme);
-  const illustrationImages = await buildProposalIllustrationImages(resolvedTheme);
-
-  const blob = await pdf(
-    <ProposalDocument
-      proposal={enrichedProposal}
-      coverImage={coverImage}
-      pdfTheme={selectedModel?.theme}
-      pageConfig={selectedModel?.page_config}
-      illustrationImages={illustrationImages}
-    />,
-  ).toBlob();
+  const blob = await renderProposalPdfBlob(enrichedProposal, selectedModel);
 
   await validatePdfBlob(blob, {
     minByteLength: 4_096,
