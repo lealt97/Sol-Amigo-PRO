@@ -25,6 +25,9 @@ interface UserModelCarouselProps {
 const menuItemClassName =
   'flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors data-[highlighted]:bg-slate-700 data-[highlighted]:text-white data-[disabled]:cursor-default data-[disabled]:opacity-60';
 
+const desktopActionButtonClassName =
+  'flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950';
+
 export function UserModelCarousel({
   userModels,
   activeIndex,
@@ -142,6 +145,79 @@ export function UserModelCarousel({
                       {model.name}
                     </h3>
                   </div>
+
+                  {isActive && (
+                    <div className="pointer-events-none absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-slate-950/85 opacity-0 transition-all duration-300 md:flex md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit(model);
+                          }}
+                          className={`${desktopActionButtonClassName} bg-brand-blue text-white hover:bg-brand-blue-hover`}
+                          aria-label={`Editar modelo ${model.name}`}
+                          title="Editar modelo"
+                        >
+                          <Edit2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDuplicate(model.id);
+                          }}
+                          className={`${desktopActionButtonClassName} border border-brand-border bg-slate-800 text-slate-100 hover:bg-slate-700`}
+                          aria-label={`Duplicar modelo ${model.name}`}
+                          title="Duplicar modelo"
+                        >
+                          <Copy className="h-4 w-4" aria-hidden="true" />
+                        </button>
+
+                        {!model.is_default ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onSetDefault(model.id);
+                            }}
+                            className={`${desktopActionButtonClassName} border border-brand-border bg-slate-800 text-amber-400 hover:bg-amber-500 hover:text-slate-950`}
+                            aria-label={`Definir ${model.name} como modelo padrão`}
+                            title="Definir como padrão"
+                          >
+                            <Star className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        ) : (
+                          <div
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-400 bg-amber-500 text-slate-950 shadow-lg"
+                            role="status"
+                            aria-label={`${model.name} é o modelo padrão`}
+                            title="Modelo padrão"
+                          >
+                            <Star className="h-4 w-4 fill-current" aria-hidden="true" />
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete(model.id);
+                          }}
+                          className={`${desktopActionButtonClassName} bg-red-600 text-white hover:bg-red-700`}
+                          aria-label={`Excluir modelo ${model.name}`}
+                          title="Excluir modelo"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+
+                      <span className="rounded border border-brand-border/45 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium tracking-wide text-slate-300">
+                        Ações do modelo
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-auto flex flex-col bg-gray-50/20 p-4">
@@ -172,65 +248,67 @@ export function UserModelCarousel({
                   </div>
 
                   {isActive && (
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <button
-                          type="button"
-                          onClick={(event) => event.stopPropagation()}
-                          className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand-border bg-slate-900 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:border-brand-primary hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                          aria-label={`Abrir ações do modelo ${model.name}`}
-                        >
-                          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-                          Ações do modelo
-                        </button>
-                      </DropdownMenu.Trigger>
-
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content
-                          sideOffset={8}
-                          align="center"
-                          collisionPadding={12}
-                          className="z-[100] min-w-[220px] rounded-xl border border-brand-border bg-slate-900 p-2 shadow-2xl will-change-[transform,opacity] data-[state=closed]:animate-out data-[state=open]:animate-in"
-                          aria-label={`Ações disponíveis para ${model.name}`}
-                        >
-                          <DropdownMenu.Label className="px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                            {model.name}
-                          </DropdownMenu.Label>
-
-                          <DropdownMenu.Item className={menuItemClassName} onSelect={() => onEdit(model)}>
-                            <Edit2 className="h-5 w-5 text-brand-primary" aria-hidden="true" />
-                            Editar modelo
-                          </DropdownMenu.Item>
-
-                          <DropdownMenu.Item className={menuItemClassName} onSelect={() => onDuplicate(model.id)}>
-                            <Copy className="h-5 w-5 text-slate-300" aria-hidden="true" />
-                            Duplicar modelo
-                          </DropdownMenu.Item>
-
-                          {!model.is_default ? (
-                            <DropdownMenu.Item className={menuItemClassName} onSelect={() => onSetDefault(model.id)}>
-                              <Star className="h-5 w-5 text-amber-400" aria-hidden="true" />
-                              Definir como padrão
-                            </DropdownMenu.Item>
-                          ) : (
-                            <DropdownMenu.Item className={menuItemClassName} disabled>
-                              <Star className="h-5 w-5 fill-current text-amber-400" aria-hidden="true" />
-                              Modelo padrão
-                            </DropdownMenu.Item>
-                          )}
-
-                          <DropdownMenu.Separator className="my-2 h-px bg-brand-border" />
-
-                          <DropdownMenu.Item
-                            className={`${menuItemClassName} text-red-300 data-[highlighted]:bg-red-950 data-[highlighted]:text-red-100`}
-                            onSelect={() => onDelete(model.id)}
+                    <div className="md:hidden">
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            onClick={(event) => event.stopPropagation()}
+                            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand-border bg-slate-900 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:border-brand-primary hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                            aria-label={`Abrir ações do modelo ${model.name}`}
                           >
-                            <Trash2 className="h-5 w-5" aria-hidden="true" />
-                            Excluir modelo
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                            <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+                            Ações do modelo
+                          </button>
+                        </DropdownMenu.Trigger>
+
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            sideOffset={8}
+                            align="center"
+                            collisionPadding={12}
+                            className="z-[100] min-w-[220px] rounded-xl border border-brand-border bg-slate-900 p-2 shadow-2xl will-change-[transform,opacity] data-[state=closed]:animate-out data-[state=open]:animate-in"
+                            aria-label={`Ações disponíveis para ${model.name}`}
+                          >
+                            <DropdownMenu.Label className="px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {model.name}
+                            </DropdownMenu.Label>
+
+                            <DropdownMenu.Item className={menuItemClassName} onSelect={() => onEdit(model)}>
+                              <Edit2 className="h-5 w-5 text-brand-primary" aria-hidden="true" />
+                              Editar modelo
+                            </DropdownMenu.Item>
+
+                            <DropdownMenu.Item className={menuItemClassName} onSelect={() => onDuplicate(model.id)}>
+                              <Copy className="h-5 w-5 text-slate-300" aria-hidden="true" />
+                              Duplicar modelo
+                            </DropdownMenu.Item>
+
+                            {!model.is_default ? (
+                              <DropdownMenu.Item className={menuItemClassName} onSelect={() => onSetDefault(model.id)}>
+                                <Star className="h-5 w-5 text-amber-400" aria-hidden="true" />
+                                Definir como padrão
+                              </DropdownMenu.Item>
+                            ) : (
+                              <DropdownMenu.Item className={menuItemClassName} disabled>
+                                <Star className="h-5 w-5 fill-current text-amber-400" aria-hidden="true" />
+                                Modelo padrão
+                              </DropdownMenu.Item>
+                            )}
+
+                            <DropdownMenu.Separator className="my-2 h-px bg-brand-border" />
+
+                            <DropdownMenu.Item
+                              className={`${menuItemClassName} text-red-300 data-[highlighted]:bg-red-950 data-[highlighted]:text-red-100`}
+                              onSelect={() => onDelete(model.id)}
+                            >
+                              <Trash2 className="h-5 w-5" aria-hidden="true" />
+                              Excluir modelo
+                            </DropdownMenu.Item>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    </div>
                   )}
                 </div>
               </div>
