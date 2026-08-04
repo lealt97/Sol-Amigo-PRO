@@ -66,6 +66,23 @@ test('ações dos modelos PDF usam o mesmo overlay no mobile e no desktop', asyn
   assert.match(carousel, /aria-current=/);
 });
 
+test('adicionar modelo padrão usa o mesmo overlay no mobile e no desktop', async () => {
+  const carousel = await read('src/features/design-pdf/components/TemplateCarousel.tsx');
+
+  assert.doesNotMatch(carousel, /components\/ui\/Button/);
+  assert.match(carousel, /openPresetId/);
+  assert.match(carousel, /actionsAreOpen/);
+  assert.match(carousel, /group-hover:pointer-events-auto/);
+  assert.match(carousel, /group-focus-within:pointer-events-auto/);
+  assert.match(carousel, /actionsAreOpen \? 'pointer-events-auto opacity-100'/);
+  assert.match(carousel, /Toque ou pressione Enter para adicionar/);
+  assert.match(carousel, /Adicionar modelo/);
+  assert.match(carousel, /min-h-11/);
+  assert.match(carousel, /focus-visible:ring-2/);
+  assert.match(carousel, /onKeyDown=\{handleCardKeyDown\}/);
+  assert.match(carousel, /aria-expanded=/);
+});
+
 test('textos dinâmicos da capa recebem ampliação controlada', async () => {
   const coverEngine = await read('src/lib/pdf/utils/coverSvgEngine.ts');
 
