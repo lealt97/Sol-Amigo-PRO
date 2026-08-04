@@ -46,41 +46,55 @@ test('editor de páginas navega pelo preview e mantém a capa obrigatória', asy
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
 });
 
-test('ações dos modelos PDF usam o mesmo overlay no mobile e no desktop', async () => {
+test('ações dos modelos adicionados alternam por toque somente no mobile', async () => {
   const carousel = await read('src/features/design-pdf/components/UserModelCarousel.tsx');
 
   assert.doesNotMatch(carousel, /@radix-ui\/react-dropdown-menu/);
-  assert.doesNotMatch(carousel, /MoreHorizontal/);
-  assert.match(carousel, /openActionsModelId/);
-  assert.match(carousel, /actionsAreOpen/);
+  assert.match(carousel, /useTouchOnlyDevice/);
+  assert.match(carousel, /const isTouchOnlyDevice = useTouchOnlyDevice\(\)/);
+  assert.match(carousel, /if \(!isTouchOnlyDevice\) return/);
+  assert.match(carousel, /current === model\.id \? null : model\.id/);
+  assert.match(carousel, /onClick=\{handleCardClick\}/);
+  assert.match(carousel, /desktopRevealClassName/);
   assert.match(carousel, /group-hover:pointer-events-auto/);
   assert.match(carousel, /group-focus-within:pointer-events-auto/);
   assert.match(carousel, /actionsAreOpen \? 'pointer-events-auto opacity-100'/);
-  assert.match(carousel, /Toque ou pressione Enter para exibir as ações/);
+  assert.match(carousel, /Toque para mostrar ou ocultar as ações/);
   assert.match(carousel, /Editar modelo/);
   assert.match(carousel, /Duplicar modelo/);
   assert.match(carousel, /Excluir modelo/);
   assert.match(carousel, /h-11 w-11/);
   assert.match(carousel, /focus-visible:ring-2/);
-  assert.match(carousel, /onKeyDown=\{handleCardKeyDown\}/);
-  assert.match(carousel, /aria-current=/);
+  assert.match(carousel, /aria-expanded=\{isActive && isTouchOnlyDevice/);
 });
 
-test('adicionar modelo padrão usa o mesmo overlay no mobile e no desktop', async () => {
+test('adicionar modelo padrão alterna por toque somente no mobile', async () => {
   const carousel = await read('src/features/design-pdf/components/TemplateCarousel.tsx');
 
   assert.doesNotMatch(carousel, /components\/ui\/Button/);
-  assert.match(carousel, /openPresetId/);
-  assert.match(carousel, /actionsAreOpen/);
+  assert.match(carousel, /useTouchOnlyDevice/);
+  assert.match(carousel, /const isTouchOnlyDevice = useTouchOnlyDevice\(\)/);
+  assert.match(carousel, /if \(!isTouchOnlyDevice\) return/);
+  assert.match(carousel, /current === preset\.id \? null : preset\.id/);
+  assert.match(carousel, /onClick=\{handleCardClick\}/);
+  assert.match(carousel, /desktopRevealClassName/);
   assert.match(carousel, /group-hover:pointer-events-auto/);
   assert.match(carousel, /group-focus-within:pointer-events-auto/);
   assert.match(carousel, /actionsAreOpen \? 'pointer-events-auto opacity-100'/);
-  assert.match(carousel, /Toque ou pressione Enter para adicionar/);
+  assert.match(carousel, /Toque para mostrar ou ocultar a ação de adicionar/);
   assert.match(carousel, /Adicionar modelo/);
   assert.match(carousel, /min-h-11/);
   assert.match(carousel, /focus-visible:ring-2/);
-  assert.match(carousel, /onKeyDown=\{handleCardKeyDown\}/);
-  assert.match(carousel, /aria-expanded=/);
+  assert.match(carousel, /aria-expanded=\{isActive && isTouchOnlyDevice/);
+});
+
+test('detecção de mobile usa capacidade de toque em vez da largura da tela', async () => {
+  const hook = await read('src/features/design-pdf/hooks/useTouchOnlyDevice.ts');
+
+  assert.match(hook, /\(hover: none\) and \(pointer: coarse\)/);
+  assert.match(hook, /window\.matchMedia/);
+  assert.match(hook, /addEventListener\('change'/);
+  assert.match(hook, /removeEventListener\('change'/);
 });
 
 test('textos dinâmicos da capa recebem ampliação controlada', async () => {
