@@ -13,9 +13,9 @@ const styles = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
-    paddingTop: 46,
-    paddingHorizontal: 42,
-    paddingBottom: 34,
+    paddingTop: 42,
+    paddingHorizontal: 36,
+    paddingBottom: 32,
   },
   top: {
     position: 'absolute',
@@ -28,110 +28,90 @@ const styles = StyleSheet.create({
   head: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 11,
   },
   eyebrow: {
     fontSize: 8,
     fontWeight: 700,
     letterSpacing: 1.7,
     textTransform: 'uppercase',
-    marginBottom: 7,
+    marginBottom: 6,
   },
   title: {
-    maxWidth: 440,
-    fontSize: 22,
-    lineHeight: 1.1,
+    maxWidth: 460,
+    fontSize: 21,
+    lineHeight: 1.08,
     fontWeight: 700,
   },
   number: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   content: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  artColumn: {
-    width: '61%',
-    height: 592,
+    flexDirection: 'column',
   },
   artStage: {
     position: 'relative',
     width: '100%',
-    height: '100%',
+    height: 475,
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
-  },
-  artInner: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
+    padding: 5,
   },
   artImage: {
     width: '100%',
     height: '100%',
     objectFit: 'contain',
   },
-  timelineColumn: {
-    position: 'relative',
-    width: '35%',
-    height: 592,
-  },
-  timelineLine: {
-    position: 'absolute',
-    left: 14,
-    top: 22,
-    bottom: 126,
-    width: 2,
-  },
-  step: {
-    position: 'relative',
+  stepsRow: {
+    width: '100%',
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginTop: 9,
+  },
+  stepItem: {
+    width: '19%',
     alignItems: 'center',
-    marginBottom: 12,
   },
   stepNumber: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 3,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginBottom: 3,
   },
   stepCard: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 8,
+    width: '100%',
+    minHeight: 31,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   note: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 12,
-    padding: 11,
+    width: '100%',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 8,
   },
   footer: {
     position: 'absolute',
-    left: 42,
-    right: 42,
-    bottom: 18,
+    left: 36,
+    right: 36,
+    bottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     fontSize: 6.5,
@@ -175,48 +155,19 @@ export function TimelineTallPage({
       </View>
 
       <View style={styles.content}>
-        <View style={styles.artColumn}>
-          <View
-            style={[
-              styles.artStage,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.surface,
-              },
-            ]}
-          >
-            <View
-              style={{
-                position: 'absolute',
-                width: 180,
-                height: 180,
-                borderRadius: 90,
-                right: -68,
-                top: -74,
-                backgroundColor: theme.primarySoft,
-                opacity: 0.64,
-              }}
-            />
-            <View
-              style={{
-                position: 'absolute',
-                width: 150,
-                height: 150,
-                borderRadius: 75,
-                left: -56,
-                bottom: -60,
-                backgroundColor: theme.accentSoft,
-                opacity: 0.7,
-              }}
-            />
-            <View style={styles.artInner}>
-              <Image src={illustration} style={styles.artImage} />
-            </View>
-          </View>
+        <View
+          style={[
+            styles.artStage,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface,
+            },
+          ]}
+        >
+          <Image src={illustration} style={styles.artImage} />
         </View>
 
-        <View style={styles.timelineColumn}>
-          <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />
+        <View style={styles.stepsRow}>
           {steps.map(([number, label], index) => {
             const color = index % 3 === 0
               ? theme.primary
@@ -230,7 +181,7 @@ export function TimelineTallPage({
                 : theme.accentSoft;
 
             return (
-              <View key={label} style={styles.step}>
+              <View key={label} style={styles.stepItem}>
                 <View style={[styles.stepNumber, { backgroundColor: color }]}>
                   <Text
                     style={{
@@ -243,17 +194,27 @@ export function TimelineTallPage({
                   </Text>
                 </View>
                 <View style={[styles.stepCard, { backgroundColor: soft }]}>
-                  <Text style={{ fontSize: 8, fontWeight: 700, color: theme.text }}>{label}</Text>
+                  <Text
+                    style={{
+                      fontSize: 7.2,
+                      lineHeight: 1.15,
+                      textAlign: 'center',
+                      fontWeight: 700,
+                      color: theme.text,
+                    }}
+                  >
+                    {label}
+                  </Text>
                 </View>
               </View>
             );
           })}
+        </View>
 
-          <View style={[styles.note, { backgroundColor: theme.secondarySoft }]}>
-            <Text style={{ fontSize: 7.6, lineHeight: 1.45, color: theme.text }}>
-              O cliente recebe orientações em cada etapa e é informado sobre prazos e dependências da distribuidora.
-            </Text>
-          </View>
+        <View style={[styles.note, { backgroundColor: theme.secondarySoft }]}>
+          <Text style={{ fontSize: 7.4, lineHeight: 1.35, textAlign: 'center', color: theme.text }}>
+            O cliente recebe orientações em cada etapa e é informado sobre prazos e dependências da distribuidora.
+          </Text>
         </View>
       </View>
 
