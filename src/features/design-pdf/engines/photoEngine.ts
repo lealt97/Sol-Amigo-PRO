@@ -76,7 +76,7 @@ function ensurePrismaSolarPhotoLayer(doc: Document) {
 
   if (!mask || !sourceShape || !parent || !defs) return;
 
-  let clipPath = doc.getElementById(PRISMA_SOLAR_CLIP_ID);
+  let clipPath: Element | null = doc.getElementById(PRISMA_SOLAR_CLIP_ID);
   if (!clipPath) {
     clipPath = doc.createElementNS(SVG_NS, 'clipPath');
     clipPath.setAttribute('id', PRISMA_SOLAR_CLIP_ID);
