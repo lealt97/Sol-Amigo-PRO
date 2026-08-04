@@ -58,6 +58,8 @@ const DEFAULT_OUTPUT_WIDTH = 1800;
 const DEFAULT_PADDING = 18;
 const BACKGROUND_MIN_CHANNEL = 224;
 const BACKGROUND_MAX_CHROMA = 40;
+const PRESERVED_WHITE_MIN_CHANNEL = 245;
+const PRESERVED_WHITE_MAX_CHROMA = 10;
 const CONTENT_ALPHA_THRESHOLD = 8;
 const MAX_ROLE_DISTANCE = 32_400;
 const themedIllustrationCache = new Map<string, Promise<string>>();
@@ -105,6 +107,12 @@ function isLightBackgroundColor(pixel: Rgb) {
   const minimum = Math.min(pixel.r, pixel.g, pixel.b);
   const maximum = Math.max(pixel.r, pixel.g, pixel.b);
   return minimum >= BACKGROUND_MIN_CHANNEL && maximum - minimum <= BACKGROUND_MAX_CHROMA;
+}
+
+function isPreservedWhiteDetail(pixel: Rgb) {
+  const minimum = Math.min(pixel.r, pixel.g, pixel.b);
+  const maximum = Math.max(pixel.r, pixel.g, pixel.b);
+  return minimum >= PRESERVED_WHITE_MIN_CHANNEL && maximum - minimum <= PRESERVED_WHITE_MAX_CHROMA;
 }
 
 function getClosestSourceRole(pixel: Rgb) {
@@ -158,9 +166,9 @@ function recolorImageData(imageData: ImageData, theme: PdfDocumentTheme) {
       b: pixels[index + 2],
     };
 
-    // O fundo já foi removido antes da recoloração. Áreas claras internas
-    // permanecem claras, em vez de virarem um bloco escuro da cor principal.
-    if (isLightBackgroundColor(pixel)) continue;
+    // Branco neutro interno é preservado. Tons claros coloridos continuam
+    // acompanhando a cor principal, apenas com luminosidade equivalente.
+    if (isPreservedWhiteDetail(pixel)) continue;
 
     const { closest, closestDistance } = getClosestSourceRole(pixel);
     if (closestDistance > MAX_ROLE_DISTANCE) continue;
