@@ -16,6 +16,10 @@ test('documento PDF mantém A4 e renderiza exatamente as páginas configuradas',
   const document = await read('src/components/pdf/ProposalDocument.tsx');
 
   assert.match(document, /const visiblePages = getVisibleProposalPages\(pageConfig\)/);
+  assert.match(document, /const pagesToRender = previewPageKey/);
+  assert.match(document, /visiblePages\.flatMap/);
+  assert.match(document, /page\.key === previewPageKey/);
+  assert.match(document, /pageNumber: index \+ 1/);
   assert.match(document, /size="A4"/);
   assert.match(document, /<CoverPage proposal=\{proposal\} \/>/);
   assert.match(document, /<Image src=\{coverImage\} style=\{styles\.coverImage\} \/>/);
@@ -35,7 +39,7 @@ test('documento PDF mantém A4 e renderiza exatamente as páginas configuradas',
   assert.match(document, /illustration=\{illustrationImages\.financial\}/);
 });
 
-test('editor solicita os mesmos bytes PDF usados pela exportação', async () => {
+test('editor solicita a página ativa ao mesmo renderizador usado pela exportação', async () => {
   const editor = await read('src/features/design-pdf/components/PageConfigEditor.tsx');
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const designEditor = await read('src/features/design-pdf/components/DesignPdfEditor.tsx');
@@ -43,7 +47,7 @@ test('editor solicita os mesmos bytes PDF usados pela exportação', async () =>
   assert.match(editor, /onNavigate\?\.\(page\.key\)/);
   assert.match(editor, /page\.key === 'cover'/);
   assert.match(preview, /import\('\.\.\/\.\.\/\.\.\/lib\/pdf\/generateProposalPdf'\)/);
-  assert.match(preview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.match(preview, /renderProposalPdfBlob\([\s\S]*request\.proposal,[\s\S]*request\.model,[\s\S]*previewPageKey: request\.activePageKey/);
   assert.match(preview, /URL\.createObjectURL\(blob\)/);
   assert.match(preview, /Visualização exata do PDF da proposta/);
   assert.match(preview, /zoom=page-width/);
@@ -54,20 +58,44 @@ test('editor solicita os mesmos bytes PDF usados pela exportação', async () =>
   assert.match(designEditor, /previewRef\.current\?\.scrollToPage\(pageKey\)/);
 });
 
+test('preview começa no próximo frame, elimina debounce e descarta renders intermediários', async () => {
+  const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
+
+  assert.match(preview, /window\.requestAnimationFrame/);
+  assert.match(preview, /latestRequestRef/);
+  assert.match(preview, /renderingRef/);
+  assert.match(preview, /request\.sequence !== renderSequenceRef\.current/);
+  assert.match(preview, /if \(latestRequestRef\.current\)/);
+  assert.doesNotMatch(preview, /window\.setTimeout/);
+});
+
 test('preview e exportação compartilham uma única função geradora de blob', async () => {
   const sharedAssets = await read('src/lib/pdf/renderProposalDocument.tsx');
   const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
   const generator = await read('src/lib/pdf/generateProposalPdf.tsx');
 
   assert.match(sharedAssets, /generateSvgCoverImage\(model, proposal\)/);
+  assert.match(sharedAssets, /prepareIllustrationsForPage/);
   assert.match(sharedAssets, /buildProposalIllustrationImages\(resolvedTheme\)/);
+  assert.match(sharedAssets, /shouldPrepareCover/);
+  assert.match(sharedAssets, /Promise\.all/);
   assert.match(sharedAssets, /pageConfig: model\?\.page_config \?\? null/);
   assert.match(generator, /export async function renderProposalPdfBlob/);
-  assert.match(generator, /prepareProposalDocumentAssets\(\{ proposal, model \}\)/);
-  assert.match(generator, /<ProposalDocument proposal=\{proposal\} \{\.\.\.documentAssets\} \/>/);
+  assert.match(generator, /prepareProposalDocumentAssets\(\{[\s\S]*proposal,[\s\S]*model,[\s\S]*previewPageKey/);
+  assert.match(generator, /<ProposalDocument[\s\S]*proposal=\{proposal\}[\s\S]*previewPageKey=\{previewPageKey\}/);
   assert.match(generator, /renderProposalPdfBlob\(enrichedProposal, selectedModel\)/);
-  assert.match(preview, /renderProposalPdfBlob\(proposal, model\)/);
+  assert.match(preview, /renderProposalPdfBlob\([\s\S]*previewPageKey: request\.activePageKey/);
   assert.doesNotMatch(preview, /prepareProposalDocumentAssets/);
+});
+
+test('alterar somente o nome do modelo não força nova renderização do PDF', async () => {
+  const preview = await read('src/features/design-pdf/components/PdfPreview.tsx');
+
+  assert.match(preview, /const renderModel = useMemo/);
+  assert.match(preview, /model\.preset_id/);
+  assert.match(preview, /model\.theme/);
+  assert.match(preview, /model\.page_config/);
+  assert.doesNotMatch(preview, /model\.name,[\s\S]*\],\n  \);/);
 });
 
 test('ações dos modelos adicionados alternam por toque somente no mobile', async () => {
@@ -139,6 +167,7 @@ test('as três ilustrações passam pelo mesmo pipeline de cores e alta resoluç
   assert.match(engine, /buildProposalIllustrationImages/);
   assert.match(sharedAssets, /resolvePdfDocumentTheme\(model\?\.theme\)/);
   assert.match(sharedAssets, /buildProposalIllustrationImages\(resolvedTheme\)/);
+  assert.match(sharedAssets, /applyPdfThemeToIllustration/);
   assert.match(document, /illustration=\{illustrationImages\.kit\}/);
   assert.match(document, /illustration=\{illustrationImages\.timeline\}/);
   assert.match(document, /illustration=\{illustrationImages\.financial\}/);

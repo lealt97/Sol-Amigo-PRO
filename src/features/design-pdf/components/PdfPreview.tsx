@@ -30,11 +30,28 @@ export interface PdfPreviewHandle {
 }
 
 type PreviewProfile = NonNullable<Proposal['profile']>;
+type ProposalPdfModule = typeof import('../../../lib/pdf/generateProposalPdf');
 
 interface ExactPdfDocumentPreviewProps {
   proposal: Proposal;
   model: PdfUserModel;
-  activePageIndex: number;
+  activePageKey: ProposalPageKey;
+}
+
+interface PreviewRenderRequest {
+  sequence: number;
+  proposal: Proposal;
+  model: PdfUserModel;
+  activePageKey: ProposalPageKey;
+}
+
+let proposalPdfModulePromise: Promise<ProposalPdfModule> | null = null;
+
+function loadProposalPdfModule() {
+  if (!proposalPdfModulePromise) {
+    proposalPdfModulePromise = import('../../../lib/pdf/generateProposalPdf');
+  }
+  return proposalPdfModulePromise;
 }
 
 const defaultPreviewProfile: PreviewProfile = {
@@ -179,26 +196,43 @@ function buildPreviewProposal(
 function ExactPdfDocumentPreview({
   proposal,
   model,
-  activePageIndex,
+  activePageKey,
 }: ExactPdfDocumentPreviewProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const pdfUrlRef = useRef<string | null>(null);
   const renderSequenceRef = useRef(0);
+  const latestRequestRef = useRef<PreviewRenderRequest | null>(null);
+  const renderingRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    const sequence = renderSequenceRef.current + 1;
-    renderSequenceRef.current = sequence;
+  const scheduleRender = useCallback(function scheduleLatestRender() {
+    if (!mountedRef.current || renderingRef.current || frameRef.current !== null) return;
 
-    const timeout = window.setTimeout(() => {
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      const request = latestRequestRef.current;
+
+      if (!request) {
+        setIsRendering(false);
+        return;
+      }
+
+      latestRequestRef.current = null;
+      renderingRef.current = true;
       setIsRendering(true);
       setRenderError(null);
 
-      void import('../../../lib/pdf/generateProposalPdf')
-        .then(({ renderProposalPdfBlob }) => renderProposalPdfBlob(proposal, model))
+      void loadProposalPdfModule()
+        .then(({ renderProposalPdfBlob }) => renderProposalPdfBlob(
+          request.proposal,
+          request.model,
+          { previewPageKey: request.activePageKey },
+        ))
         .then((blob) => {
-          if (renderSequenceRef.current !== sequence) return;
+          if (!mountedRef.current || request.sequence !== renderSequenceRef.current) return;
 
           const nextUrl = URL.createObjectURL(blob);
           const previousUrl = pdfUrlRef.current;
@@ -208,30 +242,57 @@ function ExactPdfDocumentPreview({
           if (previousUrl) URL.revokeObjectURL(previousUrl);
         })
         .catch((error) => {
-          if (renderSequenceRef.current !== sequence) return;
+          if (!mountedRef.current || request.sequence !== renderSequenceRef.current) return;
           console.error('Error rendering exact PDF preview:', error);
           setRenderError('Não foi possível atualizar a visualização do PDF.');
         })
         .finally(() => {
-          if (renderSequenceRef.current === sequence) setIsRendering(false);
+          renderingRef.current = false;
+          if (!mountedRef.current) return;
+
+          if (latestRequestRef.current) {
+            scheduleLatestRender();
+          } else {
+            setIsRendering(false);
+          }
         });
-    }, 180);
+    });
+  }, []);
 
-    return () => window.clearTimeout(timeout);
-  }, [model, proposal]);
+  useEffect(() => {
+    const sequence = renderSequenceRef.current + 1;
+    renderSequenceRef.current = sequence;
+    latestRequestRef.current = {
+      sequence,
+      proposal,
+      model,
+      activePageKey,
+    };
+    setIsRendering(true);
+    scheduleRender();
+  }, [activePageKey, model, proposal, scheduleRender]);
 
-  useEffect(() => () => {
-    if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+  useEffect(() => {
+    mountedRef.current = true;
+    void loadProposalPdfModule();
+
+    return () => {
+      mountedRef.current = false;
+      latestRequestRef.current = null;
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    };
   }, []);
 
   const iframeSource = pdfUrl
-    ? `${pdfUrl}#page=${activePageIndex + 1}&zoom=page-width&toolbar=0&navpanes=0`
+    ? `${pdfUrl}#page=1&zoom=page-width&toolbar=0&navpanes=0`
     : undefined;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-900 p-5">
       {iframeSource ? (
         <iframe
+          key={pdfUrl}
           src={iframeSource}
           title="Visualização exata do PDF da proposta"
           className="h-full w-full rounded-xl border border-brand-border bg-slate-800 shadow-2xl"
@@ -242,9 +303,9 @@ function ExactPdfDocumentPreview({
         </div>
       )}
 
-      {isRendering && (
+      {isRendering && pdfUrl && (
         <div className="pointer-events-none absolute right-8 top-8 rounded-full border border-brand-border bg-slate-950/90 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-lg">
-          Atualizando PDF...
+          Atualizando...
         </div>
       )}
 
@@ -269,6 +330,19 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   const [activePageKey, setActivePageKey] = useState<ProposalPageKey>('cover');
   const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const visiblePages = useMemo(() => getVisibleProposalPages(model.page_config), [model.page_config]);
+  const renderModel = useMemo(
+    () => model,
+    [
+      model.id,
+      model.preset_id,
+      model.theme,
+      model.logo_url,
+      model.cover_image_url,
+      model.logo_transform,
+      model.cover_image_transform,
+      model.page_config,
+    ],
+  );
 
   useEffect(() => {
     async function loadProfile() {
@@ -407,16 +481,11 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
     );
   }
 
-  const activePageIndex = Math.max(
-    0,
-    visiblePages.findIndex((page) => page.key === activePageKey),
-  );
-
   return (
     <ExactPdfDocumentPreview
       proposal={previewProposal}
-      model={model}
-      activePageIndex={activePageIndex}
+      model={renderModel}
+      activePageKey={activePageKey}
     />
   );
 });

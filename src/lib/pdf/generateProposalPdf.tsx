@@ -11,8 +11,13 @@ import {
   createPdfGenerationOperations,
   type PdfMetadataInput,
 } from './pdfGenerationOperations';
+import type { ProposalPageKey } from './proposalPageRegistry';
 import { PDF_SIZE_LIMITS, validatePdfBlob } from './pdfQuality';
 import { prepareProposalDocumentAssets } from './renderProposalDocument';
+
+interface RenderProposalPdfBlobOptions {
+  previewPageKey?: ProposalPageKey | null;
+}
 
 async function resolvePdfModel(
   proposal: Proposal,
@@ -94,16 +99,28 @@ function buildSecurePdfUrl(publicToken: string): string {
 
 /**
  * Única função que transforma a proposta e o modelo em bytes PDF.
- * O preview do editor e a exportação final chamam esta mesma rotina.
+ * O preview do editor e a exportação final chamam esta mesma rotina. O editor
+ * pode solicitar somente a página ativa, preservando o componente, os dados,
+ * o tema e a numeração usados no documento completo.
  */
 export async function renderProposalPdfBlob(
   proposal: Proposal,
   model: PdfUserModel | null,
+  options: RenderProposalPdfBlobOptions = {},
 ): Promise<Blob> {
-  const documentAssets = await prepareProposalDocumentAssets({ proposal, model });
+  const previewPageKey = options.previewPageKey ?? null;
+  const documentAssets = await prepareProposalDocumentAssets({
+    proposal,
+    model,
+    previewPageKey,
+  });
 
   return pdf(
-    <ProposalDocument proposal={proposal} {...documentAssets} />,
+    <ProposalDocument
+      proposal={proposal}
+      {...documentAssets}
+      previewPageKey={previewPageKey}
+    />,
   ).toBlob();
 }
 
