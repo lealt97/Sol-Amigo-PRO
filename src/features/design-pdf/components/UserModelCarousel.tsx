@@ -1,7 +1,16 @@
-import { ChevronLeft, ChevronRight, Copy, Edit2, Star, Trash2 } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import type { KeyboardEvent } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Edit2,
+  MoreHorizontal,
+  Star,
+  Trash2,
+} from 'lucide-react';
 import { PdfUserModel } from '../types/pdfDesignTypes';
 import { PdfPreview } from './PdfPreview';
-import { Button } from '../../../components/ui/Button';
 
 interface UserModelCarouselProps {
   userModels: PdfUserModel[];
@@ -12,6 +21,9 @@ interface UserModelCarouselProps {
   onDelete: (modelId: string) => void;
   onSetDefault: (modelId: string) => void;
 }
+
+const menuItemClassName =
+  'flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors data-[highlighted]:bg-slate-700 data-[highlighted]:text-white data-[disabled]:cursor-default data-[disabled]:opacity-60';
 
 export function UserModelCarousel({
   userModels,
@@ -27,29 +39,39 @@ export function UserModelCarousel({
 
   if (userModels.length === 0) {
     return (
-      <div className="text-center p-12 bg-brand-surface border border-brand-border rounded-xl">
-        <Star className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+      <div className="rounded-xl border border-brand-border bg-brand-surface p-12 text-center">
+        <Star className="mx-auto mb-4 h-12 w-12 text-slate-500" />
         <h3 className="text-lg font-medium text-brand-dark">Nenhum modelo adicionado</h3>
-        <p className="text-slate-500 mt-2">Adicione um modelo padrão acima para começar a editar.</p>
+        <p className="mt-2 text-slate-500">Adicione um modelo padrão acima para começar a editar.</p>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full max-w-[620px] mx-auto py-4 px-0">
-      <div className="relative h-[560px] select-none flex items-center justify-center">
+    <div className="relative mx-auto w-full max-w-[620px] px-0 py-4">
+      <div className="relative flex h-[560px] select-none items-center justify-center">
         {userModels.length > 1 && (
           <>
-            <button onClick={handlePrev} className="absolute left-0 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-full bg-slate-900/80 border border-brand-border text-white hover:bg-brand-primary hover:border-brand-primary transition-all shadow-lg hover:scale-110 active:scale-95 focus:outline-none" aria-label="Anterior">
-              <ChevronLeft className="w-5 h-5" />
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="absolute left-0 top-1/2 z-40 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-slate-900/90 text-white shadow-lg transition-all hover:border-brand-primary hover:bg-brand-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              aria-label="Exibir modelo anterior"
+            >
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
-            <button onClick={handleNext} className="absolute right-0 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-full bg-slate-900/80 border border-brand-border text-white hover:bg-brand-primary hover:border-brand-primary transition-all shadow-lg hover:scale-110 active:scale-95 focus:outline-none" aria-label="Próximo">
-              <ChevronRight className="w-5 h-5" />
+            <button
+              type="button"
+              onClick={handleNext}
+              className="absolute right-0 top-1/2 z-40 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-slate-900/90 text-white shadow-lg transition-all hover:border-brand-primary hover:bg-brand-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+              aria-label="Exibir próximo modelo"
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
           </>
         )}
 
-        <div className="relative w-full h-full flex items-center justify-center overflow-visible">
+        <div className="relative flex h-full w-full items-center justify-center overflow-visible">
           {userModels.map((model, index) => {
             const length = userModels.length || 1;
             let diff = index - activeIndex;
@@ -82,103 +104,134 @@ export function UserModelCarousel({
               opacityStyle = 'opacity-0';
             }
 
+            const selectModelFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+              if (isActive || (event.key !== 'Enter' && event.key !== ' ')) return;
+              event.preventDefault();
+              onActiveIndexChange(index);
+            };
+
             return (
-              <div key={model.id} onClick={() => !isActive && onActiveIndexChange(index)} style={{ zIndex: zIndexStyle }} className={`absolute left-1/2 top-1/2 -translate-y-1/2 w-[240px] group bg-brand-surface border rounded-xl overflow-hidden shadow-md transition-all duration-500 ease-out cursor-pointer select-none ${transformStyle} ${opacityStyle} ${isActive ? 'border-brand-primary shadow-xl ring-2 ring-brand-primary/20' : 'border-brand-border'}`}>
-                {/* Transparent Overlay for inactive cards to handle click-to-focus safely */}
-                {!isActive && (
-                  <div className="absolute inset-0 z-20 bg-transparent" />
-                )}
-                
-                <div className="aspect-[1/1.414] bg-slate-950/40 relative border-b border-brand-border">
+              <div
+                key={model.id}
+                onClick={() => !isActive && onActiveIndexChange(index)}
+                onKeyDown={selectModelFromKeyboard}
+                role={isActive ? 'group' : 'button'}
+                tabIndex={isActive ? -1 : 0}
+                aria-label={isActive ? `Modelo ativo: ${model.name}` : `Selecionar modelo: ${model.name}`}
+                aria-current={isActive ? 'true' : undefined}
+                style={{ zIndex: zIndexStyle }}
+                className={`group absolute left-1/2 top-1/2 w-[240px] -translate-y-1/2 cursor-pointer select-none overflow-hidden rounded-xl border bg-brand-surface shadow-md transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${transformStyle} ${opacityStyle} ${
+                  isActive
+                    ? 'border-brand-primary shadow-xl ring-2 ring-brand-primary/20'
+                    : 'border-brand-border'
+                }`}
+              >
+                {!isActive && <div className="absolute inset-0 z-20 bg-transparent" aria-hidden="true" />}
+
+                <div className="relative aspect-[1/1.414] border-b border-brand-border bg-slate-950/40">
                   <PdfPreview model={model} isCardPreview />
-                  
+
                   {model.is_default && (
-                    <div className="absolute top-2 left-2 z-10 bg-amber-500 text-slate-950 text-xs font-black px-2 py-1 rounded shadow-md">
+                    <div className="absolute left-2 top-2 z-10 rounded bg-amber-500 px-2 py-1 text-xs font-black text-slate-950 shadow-md">
                       Padrão
                     </div>
                   )}
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end p-4 z-10 pointer-events-none">
-                    <h3 className="font-semibold text-white truncate text-base drop-shadow-md w-full text-center">{model.name}</h3>
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-end bg-gradient-to-t from-black/85 via-black/35 to-transparent p-4">
+                    <h3 className="w-full truncate text-center text-base font-semibold text-white drop-shadow-md">
+                      {model.name}
+                    </h3>
                   </div>
-
-                  {/* Hover Actions Overlay */}
-                  {isActive && (
-                    <div className="absolute inset-0 bg-slate-950/85 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 z-30 pointer-events-none group-hover:pointer-events-auto">
-                      <div className="flex gap-2 items-center justify-center">
-                        {/* Editar */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(model);
-                          }}
-                          className="w-10 h-10 rounded-full bg-brand-blue hover:bg-brand-blue-hover text-white flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
-                          title="Editar Modelo"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        {/* Duplicar */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDuplicate(model.id);
-                          }}
-                          className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-100 flex items-center justify-center border border-brand-border shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
-                          title="Duplicar Modelo"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        {/* Padrão */}
-                        {!model.is_default ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSetDefault(model.id);
-                            }}
-                            className="w-10 h-10 rounded-full bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 flex items-center justify-center border border-brand-border shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
-                            title="Definir como Padrão"
-                          >
-                            <Star className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <div
-                            className="w-10 h-10 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg border border-amber-400"
-                            title="Modelo Ativo (Padrão)"
-                          >
-                            <Star className="w-4 h-4 fill-current" />
-                          </div>
-                        )}
-                        {/* Excluir */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(model.id);
-                          }}
-                          className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95 focus:outline-none cursor-pointer"
-                          title="Excluir Modelo"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      
-                      <span className="text-[10px] text-slate-300 font-medium tracking-wide bg-slate-900/80 px-2 py-0.5 rounded border border-brand-border/45">
-                        Ações do Modelo
-                      </span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="p-4 bg-gray-50/20 flex flex-col mt-auto">
-                  {/* Color Palettes */}
+                <div className="mt-auto flex flex-col bg-gray-50/20 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-300 font-medium">Cores</span>
-                    <div className="flex gap-1">
-                      <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.primary }} title="Primária" />
-                      <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.secondary }} title="Secundária" />
-                      <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.accent }} title="Destaque" />
-                      <div className="w-4 h-4 rounded-full border border-brand-border" style={{ backgroundColor: model.theme.neutral }} title="Neutra" />
+                    <span className="text-xs font-medium text-slate-300">Cores</span>
+                    <div className="flex gap-1" aria-label="Paleta de cores do modelo">
+                      <div
+                        className="h-4 w-4 rounded-full border border-brand-border"
+                        style={{ backgroundColor: model.theme.primary }}
+                        title="Primária"
+                      />
+                      <div
+                        className="h-4 w-4 rounded-full border border-brand-border"
+                        style={{ backgroundColor: model.theme.secondary }}
+                        title="Secundária"
+                      />
+                      <div
+                        className="h-4 w-4 rounded-full border border-brand-border"
+                        style={{ backgroundColor: model.theme.accent }}
+                        title="Destaque"
+                      />
+                      <div
+                        className="h-4 w-4 rounded-full border border-brand-border"
+                        style={{ backgroundColor: model.theme.neutral }}
+                        title="Neutra"
+                      />
                     </div>
                   </div>
+
+                  {isActive && (
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger asChild>
+                        <button
+                          type="button"
+                          onClick={(event) => event.stopPropagation()}
+                          className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand-border bg-slate-900 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:border-brand-primary hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                          aria-label={`Abrir ações do modelo ${model.name}`}
+                        >
+                          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+                          Ações do modelo
+                        </button>
+                      </DropdownMenu.Trigger>
+
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content
+                          sideOffset={8}
+                          align="center"
+                          collisionPadding={12}
+                          className="z-[100] min-w-[220px] rounded-xl border border-brand-border bg-slate-900 p-2 shadow-2xl will-change-[transform,opacity] data-[state=closed]:animate-out data-[state=open]:animate-in"
+                          aria-label={`Ações disponíveis para ${model.name}`}
+                        >
+                          <DropdownMenu.Label className="px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                            {model.name}
+                          </DropdownMenu.Label>
+
+                          <DropdownMenu.Item className={menuItemClassName} onSelect={() => onEdit(model)}>
+                            <Edit2 className="h-5 w-5 text-brand-primary" aria-hidden="true" />
+                            Editar modelo
+                          </DropdownMenu.Item>
+
+                          <DropdownMenu.Item className={menuItemClassName} onSelect={() => onDuplicate(model.id)}>
+                            <Copy className="h-5 w-5 text-slate-300" aria-hidden="true" />
+                            Duplicar modelo
+                          </DropdownMenu.Item>
+
+                          {!model.is_default ? (
+                            <DropdownMenu.Item className={menuItemClassName} onSelect={() => onSetDefault(model.id)}>
+                              <Star className="h-5 w-5 text-amber-400" aria-hidden="true" />
+                              Definir como padrão
+                            </DropdownMenu.Item>
+                          ) : (
+                            <DropdownMenu.Item className={menuItemClassName} disabled>
+                              <Star className="h-5 w-5 fill-current text-amber-400" aria-hidden="true" />
+                              Modelo padrão
+                            </DropdownMenu.Item>
+                          )}
+
+                          <DropdownMenu.Separator className="my-2 h-px bg-brand-border" />
+
+                          <DropdownMenu.Item
+                            className={`${menuItemClassName} text-red-300 data-[highlighted]:bg-red-950 data-[highlighted]:text-red-100`}
+                            onSelect={() => onDelete(model.id)}
+                          >
+                            <Trash2 className="h-5 w-5" aria-hidden="true" />
+                            Excluir modelo
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                  )}
                 </div>
               </div>
             );
@@ -186,9 +239,23 @@ export function UserModelCarousel({
         </div>
       </div>
 
-      <div className="flex justify-center gap-2 mt-2">
-        {userModels.map((_, index) => (
-          <button key={index} onClick={() => onActiveIndexChange(index)} className={`h-2 rounded-full transition-all duration-300 focus:outline-none ${index === activeIndex ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-600 hover:bg-slate-400'}`} aria-label={`Ir para modelo ${index + 1}`} />
+      <div className="mt-2 flex justify-center gap-1" aria-label="Selecionar modelo do PDF">
+        {userModels.map((model, index) => (
+          <button
+            type="button"
+            key={model.id}
+            onClick={() => onActiveIndexChange(index)}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            aria-label={`Ir para o modelo ${model.name}`}
+            aria-current={index === activeIndex ? 'true' : undefined}
+          >
+            <span
+              className={`block h-2 rounded-full transition-all duration-300 ${
+                index === activeIndex ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-600 hover:bg-slate-400'
+              }`}
+              aria-hidden="true"
+            />
+          </button>
         ))}
       </div>
     </div>
