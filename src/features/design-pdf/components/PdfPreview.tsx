@@ -6,8 +6,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from 'react';
-import { resolvePdfDocumentTheme } from '../../../components/pdf/pdfTheme';
+import { resolvePdfDocumentTheme, type PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
   getVisibleProposalPages,
@@ -29,6 +30,26 @@ interface PdfPreviewProps {
 
 export interface PdfPreviewHandle {
   scrollToPage: (pageKey: ProposalPageKey) => void;
+}
+
+const previewParityCss = `
+  .pdf-preview-page [style*="linear-gradient(90deg"] {
+    background: transparent !important;
+  }
+
+  .pdf-preview-page [style*="linear-gradient(145deg"] {
+    background: var(--pdf-preview-surface) !important;
+  }
+`;
+
+function PreviewTopStripe({ theme }: { theme: PdfDocumentTheme }) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-50 flex h-2" aria-hidden="true">
+      <div className="flex-1" style={{ backgroundColor: theme.primary }} />
+      <div className="flex-1" style={{ backgroundColor: theme.secondary }} />
+      <div className="flex-1" style={{ backgroundColor: theme.accent }} />
+    </div>
+  );
 }
 
 export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function PdfPreview(
@@ -175,41 +196,46 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   }
 
   return (
-    <div
-      ref={scrollContainerRef}
-      onScroll={handleScroll}
-      className="h-full w-full overflow-y-auto scroll-smooth px-5 py-6"
-    >
-      <div className="mx-auto flex w-full max-w-[794px] flex-col gap-7 pb-12">
-        {visiblePages.map((page, index) => (
-          <div
-            key={page.key}
-            ref={(node) => {
-              pageRefs.current[page.key] = node;
-            }}
-            data-pdf-page={page.key}
-            className="aspect-[210/297] w-full shrink-0 overflow-hidden border border-brand-border bg-white shadow-2xl"
-          >
-            {page.key === 'cover' ? (
-              <div
-                className="flex h-full w-full items-center justify-center [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: finalSvgContent }}
-              />
-            ) : page.key === 'timeline' ? (
-              <TimelineTallPreview
-                pageNumber={index + 1}
-                theme={previewTheme}
-              />
-            ) : (
-              <ProposalPreviewPage
-                pageKey={page.key}
-                pageNumber={index + 1}
-                theme={previewTheme}
-              />
-            )}
-          </div>
-        ))}
+    <>
+      <style>{previewParityCss}</style>
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="h-full w-full overflow-y-auto scroll-smooth px-5 py-6"
+      >
+        <div className="mx-auto flex w-full max-w-[794px] flex-col gap-7 pb-12">
+          {visiblePages.map((page, index) => (
+            <div
+              key={page.key}
+              ref={(node) => {
+                pageRefs.current[page.key] = node;
+              }}
+              data-pdf-page={page.key}
+              className="pdf-preview-page relative aspect-[210/297] w-full shrink-0 overflow-hidden border border-brand-border bg-white shadow-2xl"
+              style={{ '--pdf-preview-surface': previewTheme.surface } as CSSProperties}
+            >
+              {page.key !== 'cover' && <PreviewTopStripe theme={previewTheme} />}
+              {page.key === 'cover' ? (
+                <div
+                  className="flex h-full w-full items-center justify-center [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+                  dangerouslySetInnerHTML={{ __html: finalSvgContent }}
+                />
+              ) : page.key === 'timeline' ? (
+                <TimelineTallPreview
+                  pageNumber={index + 1}
+                  theme={previewTheme}
+                />
+              ) : (
+                <ProposalPreviewPage
+                  pageKey={page.key}
+                  pageNumber={index + 1}
+                  theme={previewTheme}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 });
