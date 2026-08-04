@@ -1,27 +1,33 @@
-import React from 'react';
-import { pdf } from '@react-pdf/renderer';
-import { ProposalDocument } from '../../components/pdf/ProposalDocument';
 import { resolvePdfDocumentTheme } from '../../components/pdf/pdfTheme';
-import type { PdfUserModel } from '../../types/pdfModels';
+import type { PdfPageConfig, PdfTheme, PdfUserModel } from '../../types/pdfModels';
 import type { Proposal } from '../../types/proposal';
-import { buildProposalIllustrationImages } from './utils/illustrationColorEngine';
+import {
+  buildProposalIllustrationImages,
+  type ProposalIllustrationImages,
+} from './utils/illustrationColorEngine';
 import { generateSvgCoverImage } from './utils/svgToImage';
 
-interface RenderProposalDocumentInput {
+interface PrepareProposalDocumentInput {
   proposal: Proposal;
   model?: PdfUserModel | null;
 }
 
+export interface PreparedProposalDocumentAssets {
+  coverImage: string | null;
+  pdfTheme: Partial<PdfTheme> | null;
+  pageConfig: Partial<PdfPageConfig> | null;
+  illustrationImages: ProposalIllustrationImages;
+}
+
 /**
- * Fonte única de renderização do documento.
- * O editor e a exportação final precisam passar por esta função para que
- * capa, páginas A4, ordem, cores e ilustrações nunca sejam implementadas
- * de maneiras diferentes.
+ * Fonte única dos recursos usados pelo documento.
+ * Tanto o editor quanto a exportação recebem exatamente a mesma capa,
+ * o mesmo tema, a mesma configuração de páginas e as mesmas ilustrações.
  */
-export async function renderProposalDocumentBlob({
+export async function prepareProposalDocumentAssets({
   proposal,
   model = null,
-}: RenderProposalDocumentInput): Promise<Blob> {
+}: PrepareProposalDocumentInput): Promise<PreparedProposalDocumentAssets> {
   let coverImage: string | null = null;
 
   if (model) {
@@ -35,13 +41,10 @@ export async function renderProposalDocumentBlob({
   const resolvedTheme = resolvePdfDocumentTheme(model?.theme);
   const illustrationImages = await buildProposalIllustrationImages(resolvedTheme);
 
-  return pdf(
-    <ProposalDocument
-      proposal={proposal}
-      coverImage={coverImage}
-      pdfTheme={model?.theme}
-      pageConfig={model?.page_config}
-      illustrationImages={illustrationImages}
-    />,
-  ).toBlob();
+  return {
+    coverImage,
+    pdfTheme: model?.theme ?? null,
+    pageConfig: model?.page_config ?? null,
+    illustrationImages,
+  };
 }
