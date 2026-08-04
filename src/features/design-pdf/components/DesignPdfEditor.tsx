@@ -5,6 +5,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Label } from '../../../components/ui/Label';
 import { useAuth } from '../../../contexts/AuthContext';
+import { blobToImageDataUrl } from '../../../lib/images/urlToDataUrl';
 import type { ProposalPageKey } from '../../../lib/pdf/proposalPageRegistry';
 import { profileService } from '../../../services/profileService';
 import { extractActiveLogo, extractAllLogos } from '../../../utils/logoHelper';
@@ -35,6 +36,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     logo_transform: normalizeTransform(initialModel.logo_transform),
     cover_image_transform: normalizeTransform(initialModel.cover_image_transform),
   });
+  const [liveCoverImageDataUrl, setLiveCoverImageDataUrl] = useState<string | null | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [isRemovingCoverImage, setIsRemovingCoverImage] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('colors');
@@ -116,6 +118,9 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     if (!file || !user) return;
 
     try {
+      const localDataUrl = await blobToImageDataUrl(file);
+      setLiveCoverImageDataUrl(localDataUrl);
+
       const url = await pdfDesignService.uploadAsset(file, 'pdf-assets', user.id);
       setModel((prev) => ({
         ...prev,
@@ -124,6 +129,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
       }));
       toast.success('Imagem enviada. Escolha o ponto de interesse no enquadramento.');
     } catch (err) {
+      setLiveCoverImageDataUrl(null);
       console.error('Error uploading PDF cover image:', err);
       toast.error('Erro ao fazer upload da imagem.');
     } finally {
@@ -145,6 +151,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
         cover_image_transform: resetCoverTransform,
       });
 
+      setLiveCoverImageDataUrl(null);
       setModel((prev) => ({
         ...prev,
         cover_image_url: null,
@@ -232,6 +239,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
         <PdfPreview
           ref={previewRef}
           model={model}
+          coverImageDataUrl={liveCoverImageDataUrl}
           onActivePageChange={setActivePreviewPage}
         />
       </main>
