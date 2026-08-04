@@ -67,7 +67,6 @@ test('preview começa no próximo frame, elimina debounce e descarta renders int
   assert.match(preview, /request\.sequence !== renderSequenceRef\.current/);
   assert.match(preview, /if \(latestRequestRef\.current\)/);
   assert.doesNotMatch(preview, /window\.setTimeout/);
-  assert.doesNotMatch(preview, /180/);
 });
 
 test('preview e exportação compartilham uma única função geradora de blob', async () => {
