@@ -5,6 +5,11 @@ import {
   resolveCoverPhotoPreserveAspectRatio,
 } from './imageLayout';
 
+const PRISMA_SOLAR_COVER_SELECTOR = '[id="A4 - 12"], [id="capa_12"]';
+const PRISMA_SOLAR_MASK_ID = 'mask0_326_18';
+const PRISMA_SOLAR_CLIP_ID = 'cover-photo-clip-prisma-solar';
+const PRISMA_SOLAR_FALLBACK_BOUNDS = '20 252 575 341';
+
 function getImageTransform(bounds: Bounds, transform?: TransformConfig) {
   const viewport = getCoverPhotoViewport(bounds, transform);
   const centerX = bounds.x + bounds.width / 2;
@@ -32,6 +37,71 @@ function moveLayerAbovePlaceholder(layer: Element) {
   const parent = layer.parentElement;
   if (!parent) return;
   if (parent.lastElementChild !== layer) parent.appendChild(layer);
+}
+
+function readMaskBounds(mask: Element) {
+  const values = ['x', 'y', 'width', 'height'].map((attribute) => (
+    Number(mask.getAttribute(attribute))
+  ));
+
+  if (
+    values.every(Number.isFinite)
+    && values[2] > 0
+    && values[3] > 0
+  ) {
+    return values.join(' ');
+  }
+
+  return PRISMA_SOLAR_FALLBACK_BOUNDS;
+}
+
+/**
+ * A capa A4 12 usa a textura de foto somente como preenchimento de uma máscara.
+ * Substituir esse pattern por uma imagem altera apenas o alfa da máscara; quando
+ * o ícone é ocultado, não sobra nenhuma camada visível e o recorte fica branco.
+ *
+ * Convertemos a geometria dessa máscara em um clipPath real e criamos a mesma
+ * estrutura moderna `cover-photo/cover-photo-layer` usada pelas demais capas.
+ */
+function ensurePrismaSolarPhotoLayer(doc: Document) {
+  if (!doc.querySelector(PRISMA_SOLAR_COVER_SELECTOR)) return;
+  if (doc.getElementById('cover-photo-layer')) return;
+
+  const mask = doc.getElementById(PRISMA_SOLAR_MASK_ID);
+  const sourceShape = mask?.querySelector('path');
+  const placeholder = doc.getElementById('foto_aqui_icon');
+  const placeholderHost = placeholder?.closest('g[mask]');
+  const parent = placeholderHost?.parentElement || doc.getElementById('capa_12');
+  const defs = doc.querySelector('defs');
+
+  if (!mask || !sourceShape || !parent || !defs) return;
+
+  let clipPath: Element | null = doc.getElementById(PRISMA_SOLAR_CLIP_ID);
+  if (!clipPath) {
+    clipPath = doc.createElementNS(SVG_NS, 'clipPath');
+    clipPath.setAttribute('id', PRISMA_SOLAR_CLIP_ID);
+    clipPath.setAttribute('clipPathUnits', 'userSpaceOnUse');
+
+    const clipShape = sourceShape.cloneNode(false) as Element;
+    clipShape.removeAttribute('id');
+    clipShape.removeAttribute('fill');
+    clipShape.removeAttribute('stroke');
+    clipShape.setAttribute('data-pdf-role', 'cover-photo-clip-shape');
+    clipPath.appendChild(clipShape);
+    defs.appendChild(clipPath);
+  }
+
+  const coverGroup = doc.createElementNS(SVG_NS, 'g');
+  coverGroup.setAttribute('id', 'cover-photo');
+  coverGroup.setAttribute('data-photo-bounds', readMaskBounds(mask));
+  coverGroup.setAttribute('data-photo-layout', 'prisma-solar-mask-to-clip');
+
+  const layer = doc.createElementNS(SVG_NS, 'g');
+  layer.setAttribute('id', 'cover-photo-layer');
+  layer.setAttribute('clip-path', `url(#${PRISMA_SOLAR_CLIP_ID})`);
+  coverGroup.appendChild(layer);
+
+  parent.insertBefore(coverGroup, placeholderHost || null);
 }
 
 function applyPhotoAsClipLayer(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
@@ -136,6 +206,7 @@ function applyPhotoAsPattern(doc: Document, imageUrl?: string | null, transform?
 }
 
 export function applyCoverPhoto(doc: Document, imageUrl?: string | null, transform?: TransformConfig) {
+  ensurePrismaSolarPhotoLayer(doc);
   const photoApplied = applyPhotoAsClipLayer(doc, imageUrl, transform);
   if (!photoApplied) applyPhotoAsPattern(doc, imageUrl, transform);
 }
