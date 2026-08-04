@@ -1,6 +1,9 @@
 import React from 'react';
 import { Document, Image, Page, StyleSheet } from '@react-pdf/renderer';
-import { getVisibleProposalPages } from '../../lib/pdf/proposalPageRegistry';
+import {
+  getVisibleProposalPages,
+  type ProposalPageKey,
+} from '../../lib/pdf/proposalPageRegistry';
 import {
   defaultProposalIllustrationImages,
   type ProposalIllustrationImages,
@@ -41,6 +44,7 @@ interface ProposalDocumentProps {
   pdfTheme?: Partial<PdfTheme> | null;
   pageConfig?: Partial<PdfPageConfig> | null;
   illustrationImages?: ProposalIllustrationImages;
+  previewPageKey?: ProposalPageKey | null;
 }
 
 export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
@@ -49,18 +53,24 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
   pdfTheme,
   pageConfig,
   illustrationImages = defaultProposalIllustrationImages,
+  previewPageKey = null,
 }) => {
   // A seleção feita no editor é a fonte de verdade. Uma página marcada como
   // visível não pode desaparecer silenciosamente na exportação por ausência
   // de algum dado opcional da proposta.
   const visiblePages = getVisibleProposalPages(pageConfig);
+  const pagesToRender = previewPageKey
+    ? visiblePages.flatMap((page, index) => (
+      page.key === previewPageKey
+        ? [{ page, pageNumber: index + 1 }]
+        : []
+    ))
+    : visiblePages.map((page, index) => ({ page, pageNumber: index + 1 }));
 
   return (
     <Document>
       <PdfThemeProvider theme={pdfTheme}>
-        {visiblePages.map((page, index) => {
-          const pageNumber = index + 1;
-
+        {pagesToRender.map(({ page, pageNumber }) => {
           switch (page.key) {
             case 'cover':
               return (
