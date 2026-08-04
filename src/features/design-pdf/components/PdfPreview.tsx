@@ -26,6 +26,7 @@ import { TimelineTallPreview } from './TimelineTallPreview';
 interface PdfPreviewProps {
   model: PdfUserModel;
   isCardPreview?: boolean;
+  coverImageDataUrl?: string | null;
   onActivePageChange?: (pageKey: ProposalPageKey) => void;
 }
 
@@ -54,18 +55,21 @@ function PreviewTopStripe({ theme }: { theme: PdfDocumentTheme }) {
 }
 
 export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function PdfPreview(
-  { model, isCardPreview, onActivePageChange },
+  { model, isCardPreview, coverImageDataUrl: coverImageDataUrlOverride, onActivePageChange },
   ref,
 ) {
   const { user } = useAuth();
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
-  const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null);
+  const [resolvedCoverImageDataUrl, setResolvedCoverImageDataUrl] = useState<string | null>(null);
   const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<Partial<Record<ProposalPageKey, HTMLDivElement | null>>>({});
   const visiblePages = useMemo(() => getVisibleProposalPages(model.page_config), [model.page_config]);
   const previewTheme = useMemo(() => resolvePdfDocumentTheme(model.theme), [model.theme]);
+  const effectiveCoverImageDataUrl = coverImageDataUrlOverride !== undefined
+    ? coverImageDataUrlOverride
+    : resolvedCoverImageDataUrl;
 
   useEffect(() => {
     async function loadProfileLogo() {
@@ -81,21 +85,23 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   }, [user]);
 
   useEffect(() => {
+    if (coverImageDataUrlOverride !== undefined) return;
+
     let active = true;
 
     async function resolveCoverImage() {
       if (!model.cover_image_url) {
-        setCoverImageDataUrl(null);
+        setResolvedCoverImageDataUrl(null);
         return;
       }
 
       try {
         const resolved = await pdfDesignService.resolveAssetUrl(model.cover_image_url, 900);
         const embedded = await urlToDataUrl(resolved);
-        if (active) setCoverImageDataUrl(embedded);
+        if (active) setResolvedCoverImageDataUrl(embedded);
       } catch (error) {
         console.error('Error resolving private cover image in preview:', error);
-        if (active) setCoverImageDataUrl(null);
+        if (active) setResolvedCoverImageDataUrl(null);
       }
     }
 
@@ -103,7 +109,7 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
     return () => {
       active = false;
     };
-  }, [model.cover_image_url]);
+  }, [coverImageDataUrlOverride, model.cover_image_url]);
 
   useEffect(() => {
     let active = true;
@@ -144,12 +150,12 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
         date: new Date().toLocaleDateString('pt-BR'),
       },
       logoUrl: extractActiveLogo(model.logo_url) || profileLogo,
-      coverImageUrl: coverImageDataUrl,
+      coverImageUrl: effectiveCoverImageDataUrl,
       logoTransform: model.logo_transform,
       coverImageTransform: model.cover_image_transform,
       modelId: model.id,
     });
-  }, [svgSource, preset, model, profileLogo, coverImageDataUrl]);
+  }, [svgSource, preset, model, profileLogo, effectiveCoverImageDataUrl]);
 
   const scrollToPage = useCallback((pageKey: ProposalPageKey) => {
     const container = scrollContainerRef.current;
