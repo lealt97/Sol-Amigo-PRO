@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import implementationTimelineImage from '../../../assets/pdf-art/implementationTimelineImage';
 import type { PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
-import { applyPdfThemeToIllustration } from '../../../lib/pdf/utils/illustrationColorEngine';
+import {
+  applyPdfThemeToIllustration,
+  TIMELINE_ILLUSTRATION_RENDER_OPTIONS,
+} from '../../../lib/pdf/utils/illustrationColorEngine';
 
 interface TimelineTallPreviewProps {
   theme: PdfDocumentTheme;
@@ -9,23 +12,24 @@ interface TimelineTallPreviewProps {
 }
 
 function useTimelineIllustration(theme: PdfDocumentTheme) {
-  const [source, setSource] = useState(implementationTimelineImage);
+  const [source, setSource] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    setSource(implementationTimelineImage);
+    setSource(null);
 
-    void applyPdfThemeToIllustration(implementationTimelineImage, theme, {
-      outputWidth: 2100,
-      padding: 56,
-    }).then((result) => {
+    void applyPdfThemeToIllustration(
+      implementationTimelineImage,
+      theme,
+      TIMELINE_ILLUSTRATION_RENDER_OPTIONS,
+    ).then((result) => {
       if (active) setSource(result);
     });
 
     return () => {
       active = false;
     };
-  }, [theme.primary, theme.secondary, theme.accent, theme.neutral]);
+  }, [theme.primary]);
 
   return source;
 }
@@ -42,12 +46,11 @@ export function TimelineTallPreview({ theme, pageNumber }: TimelineTallPreviewPr
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-white px-[6.8%] pb-[5.5%] pt-[6.2%] text-slate-800">
-      <div
-        className="absolute left-0 top-0 h-2 w-full"
-        style={{
-          background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.accent})`,
-        }}
-      />
+      <div className="absolute left-0 top-0 flex h-2 w-full" aria-hidden="true">
+        <div className="flex-1" style={{ backgroundColor: theme.primary }} />
+        <div className="flex-1" style={{ backgroundColor: theme.secondary }} />
+        <div className="flex-1" style={{ backgroundColor: theme.accent }} />
+      </div>
 
       <div className="mb-[3.4%] flex items-start justify-between gap-6">
         <div>
@@ -74,8 +77,9 @@ export function TimelineTallPreview({ theme, pageNumber }: TimelineTallPreviewPr
           className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-[22px] border p-2"
           style={{
             borderColor: theme.border,
-            background: `linear-gradient(145deg, ${theme.surface}, #FFFFFF 68%)`,
+            backgroundColor: theme.surface,
           }}
+          aria-busy={!illustration}
         >
           <div
             className="absolute -right-[17%] -top-[11%] h-[34%] w-[48%] rounded-full opacity-60"
@@ -86,12 +90,16 @@ export function TimelineTallPreview({ theme, pageNumber }: TimelineTallPreviewPr
             style={{ backgroundColor: theme.accentSoft }}
           />
           <div className="relative z-10 flex h-full w-full items-center justify-center p-1">
-            <img
-              src={illustration}
-              alt="Etapas do projeto fotovoltaico"
-              className="max-h-full max-w-full object-contain object-center"
-              draggable={false}
-            />
+            {illustration ? (
+              <img
+                src={illustration}
+                alt="Etapas do projeto fotovoltaico"
+                className="max-h-full max-w-full object-contain object-center"
+                draggable={false}
+              />
+            ) : (
+              <div className="h-12 w-12 animate-pulse rounded-full" style={{ backgroundColor: theme.primarySoft }} />
+            )}
           </div>
         </div>
 
