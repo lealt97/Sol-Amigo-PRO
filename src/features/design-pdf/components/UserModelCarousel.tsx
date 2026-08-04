@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { ChevronLeft, ChevronRight, Copy, Edit2, Star, Trash2 } from 'lucide-react';
 import { PdfUserModel } from '../types/pdfDesignTypes';
+import { useTouchOnlyDevice } from '../hooks/useTouchOnlyDevice';
 import { PdfPreview } from './PdfPreview';
 
 interface UserModelCarouselProps {
@@ -27,6 +28,10 @@ export function UserModelCarousel({
   onSetDefault,
 }: UserModelCarouselProps) {
   const [openActionsModelId, setOpenActionsModelId] = useState<string | null>(null);
+  const isTouchOnlyDevice = useTouchOnlyDevice();
+  const desktopRevealClassName = isTouchOnlyDevice
+    ? ''
+    : 'group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100';
 
   const changeActiveIndex = (index: number) => {
     setOpenActionsModelId(null);
@@ -104,6 +109,20 @@ export function UserModelCarousel({
               opacityStyle = 'opacity-0';
             }
 
+            const toggleMobileActions = () => {
+              if (!isTouchOnlyDevice) return;
+              setOpenActionsModelId((current) => (current === model.id ? null : model.id));
+            };
+
+            const handleCardClick = () => {
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              toggleMobileActions();
+            };
+
             const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
               if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
@@ -113,7 +132,7 @@ export function UserModelCarousel({
                 return;
               }
 
-              setOpenActionsModelId((current) => (current === model.id ? null : model.id));
+              toggleMobileActions();
             };
 
             const closeActions = () => setOpenActionsModelId(null);
@@ -121,17 +140,19 @@ export function UserModelCarousel({
             return (
               <div
                 key={model.id}
-                onClick={() => !isActive && changeActiveIndex(index)}
+                onClick={handleCardClick}
                 onKeyDown={handleCardKeyDown}
                 role="group"
                 tabIndex={0}
                 aria-label={
                   isActive
-                    ? `Modelo ativo: ${model.name}. Toque ou pressione Enter para exibir as ações.`
+                    ? isTouchOnlyDevice
+                      ? `Modelo ativo: ${model.name}. Toque para mostrar ou ocultar as ações.`
+                      : `Modelo ativo: ${model.name}. Passe o mouse ou navegue com Tab para acessar as ações.`
                     : `Selecionar modelo: ${model.name}`
                 }
                 aria-current={isActive ? 'true' : undefined}
-                aria-expanded={isActive ? actionsAreOpen : undefined}
+                aria-expanded={isActive && isTouchOnlyDevice ? actionsAreOpen : undefined}
                 style={{ zIndex: zIndexStyle }}
                 className={`group absolute left-1/2 top-1/2 w-[240px] -translate-y-1/2 cursor-pointer select-none overflow-hidden rounded-xl border bg-brand-surface shadow-md transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${transformStyle} ${opacityStyle} ${
                   isActive
@@ -141,14 +162,7 @@ export function UserModelCarousel({
               >
                 {!isActive && <div className="absolute inset-0 z-20 bg-transparent" aria-hidden="true" />}
 
-                <div
-                  className="relative aspect-[1/1.414] border-b border-brand-border bg-slate-950/40"
-                  onClick={() => {
-                    if (isActive) {
-                      setOpenActionsModelId((current) => (current === model.id ? null : model.id));
-                    }
-                  }}
-                >
+                <div className="relative aspect-[1/1.414] border-b border-brand-border bg-slate-950/40">
                   <PdfPreview model={model} isCardPreview />
 
                   {model.is_default && (
@@ -165,12 +179,12 @@ export function UserModelCarousel({
 
                   {isActive && (
                     <div
-                      className={`pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/85 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${
+                      className={`pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/85 opacity-0 transition-all duration-300 ${desktopRevealClassName} ${
                         actionsAreOpen ? 'pointer-events-auto opacity-100' : ''
                       }`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        closeActions();
+                        if (isTouchOnlyDevice) closeActions();
                       }}
                     >
                       <div className="flex items-center justify-center gap-2">
