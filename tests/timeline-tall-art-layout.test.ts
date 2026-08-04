@@ -22,7 +22,7 @@ test('preview e PDF usam exatamente o mesmo enquadramento da arte vertical', asy
   const preview = await read('src/features/design-pdf/components/TimelineTallPreview.tsx');
   const pdfPreview = await read('src/features/design-pdf/components/PdfPreview.tsx');
 
-  assert.match(engine, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS:[\s\S]*outputWidth: 2100[\s\S]*padding: 56/);
+  assert.match(engine, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS:[\s\S]*outputWidth: 2100[\s\S]*padding: 24/);
   assert.match(engine, /implementationTimelineImage,[\s\S]*theme,[\s\S]*TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
   assert.match(preview, /TIMELINE_ILLUSTRATION_RENDER_OPTIONS/);
   assert.match(preview, /grid-cols-\[1\.28fr_\.72fr\]/);

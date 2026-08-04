@@ -9,9 +9,22 @@ test('preto das ilustrações é fixo e somente a cor principal influencia a art
 
   assert.match(engine, /const FIXED_ILLUSTRATION_BLACK = '#000000'/);
   assert.match(engine, /const primaryTarget = hexToRgb\(theme\.primary\)/);
-  assert.match(engine, /entry\.role === 'neutral' \? fixedBlackTarget : primaryTarget/);
+  assert.match(engine, /closest\.role === 'neutral'[\s\S]*fixedBlackTarget[\s\S]*mixRgb\(primaryTarget, WHITE_RGB/);
+  assert.match(engine, /getPrimaryTintWeight/);
+  assert.match(engine, /ILLUSTRATION_CACHE_VERSION/);
   assert.match(engine, /source,[\s\S]*theme\.primary,[\s\S]*options\.outputWidth,[\s\S]*options\.padding/);
   assert.doesNotMatch(engine, /theme\.secondary,[\s\S]*theme\.accent,[\s\S]*theme\.neutral,[\s\S]*options\.outputWidth/);
+});
+
+test('fundo claro é removido antes da recoloração e não contamina os limites da arte', async () => {
+  const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
+
+  assert.match(engine, /const BACKGROUND_MIN_CHANNEL = 224/);
+  assert.match(engine, /const BACKGROUND_MAX_CHROMA = 40/);
+  assert.match(engine, /function isLightBackgroundColor/);
+  assert.match(engine, /const withoutBackground = removeConnectedWhiteBackground\(imageData\);[\s\S]*const themedImageData = recolorImageData\(withoutBackground, theme\);/);
+  assert.match(engine, /alpha <= CONTENT_ALPHA_THRESHOLD/);
+  assert.match(engine, /findOpaqueBounds\(themedImageData, resolvedOptions\.padding\)/);
 });
 
 test('preview substitui gradientes por superfícies e faixa sólida iguais ao PDF', async () => {
