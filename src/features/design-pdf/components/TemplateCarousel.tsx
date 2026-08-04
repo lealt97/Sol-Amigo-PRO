@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { ChevronLeft, ChevronRight, LayoutTemplate, Plus } from 'lucide-react';
-import { Button } from '../../../components/ui/Button';
 import { PdfTemplatePreset } from '../types/pdfDesignTypes';
 import { buildSvgTemplate } from '../engines/svgTemplateEngine';
 
@@ -38,35 +38,51 @@ function buildCorrectedPresetPreviews(presets: PdfTemplatePreset[]) {
 }
 
 export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, onAddFromPreset }: TemplateCarouselProps) {
+  const [openPresetId, setOpenPresetId] = useState<string | null>(null);
   const correctedPresetPreviews = useMemo(
     () => buildCorrectedPresetPreviews(presets),
     [presets],
   );
 
+  const changeActiveIndex = (index: number) => {
+    setOpenPresetId(null);
+    onActiveIndexChange(index);
+  };
+
   if (presets.length === 0) {
     return (
-      <div className="text-center p-12 bg-brand-surface border border-brand-border rounded-xl">
-        <LayoutTemplate className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+      <div className="rounded-xl border border-brand-border bg-brand-surface p-12 text-center">
+        <LayoutTemplate className="mx-auto mb-4 h-12 w-12 text-slate-500" />
         <h3 className="text-lg font-medium text-brand-dark">Nenhum modelo padrão encontrado</h3>
-        <p className="text-slate-500 mt-2">Verifique os presets SVG cadastrados em public/pdf-assets/covers.</p>
+        <p className="mt-2 text-slate-500">Verifique os presets SVG cadastrados em public/pdf-assets/covers.</p>
       </div>
     );
   }
 
-  const handlePrev = () => onActiveIndexChange(activeIndex === 0 ? presets.length - 1 : activeIndex - 1);
-  const handleNext = () => onActiveIndexChange(activeIndex === presets.length - 1 ? 0 : activeIndex + 1);
+  const handlePrev = () => changeActiveIndex(activeIndex === 0 ? presets.length - 1 : activeIndex - 1);
+  const handleNext = () => changeActiveIndex(activeIndex === presets.length - 1 ? 0 : activeIndex + 1);
 
   return (
-    <div className="relative w-full max-w-[620px] mx-auto py-4 px-0">
-      <div className="relative h-[460px] select-none flex items-center justify-center">
-        <button onClick={handlePrev} className="absolute left-0 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-full bg-slate-900/80 border border-brand-border text-white hover:bg-brand-primary hover:border-brand-primary transition-all shadow-lg hover:scale-110 active:scale-95 focus:outline-none" aria-label="Anterior">
-          <ChevronLeft className="w-5 h-5" />
+    <div className="relative mx-auto w-full max-w-[620px] px-0 py-4">
+      <div className="relative flex h-[460px] select-none items-center justify-center">
+        <button
+          type="button"
+          onClick={handlePrev}
+          className="absolute left-0 top-1/2 z-40 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-slate-900/90 text-white shadow-lg transition-all hover:border-brand-primary hover:bg-brand-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          aria-label="Exibir modelo padrão anterior"
+        >
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
-        <button onClick={handleNext} className="absolute right-0 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-full bg-slate-900/80 border border-brand-border text-white hover:bg-brand-primary hover:border-brand-primary transition-all shadow-lg hover:scale-110 active:scale-95 focus:outline-none" aria-label="Próximo">
-          <ChevronRight className="w-5 h-5" />
+        <button
+          type="button"
+          onClick={handleNext}
+          className="absolute right-0 top-1/2 z-40 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-slate-900/90 text-white shadow-lg transition-all hover:border-brand-primary hover:bg-brand-primary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          aria-label="Exibir próximo modelo padrão"
+        >
+          <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
 
-        <div className="relative w-full h-full flex items-center justify-center overflow-visible">
+        <div className="relative flex h-full w-full items-center justify-center overflow-visible">
           {presets.map((preset, index) => {
             const length = presets.length;
             let diff = index - activeIndex;
@@ -75,6 +91,7 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
             if (Math.abs(diff) > 2) return null;
 
             const isActive = index === activeIndex;
+            const actionsAreOpen = openPresetId === preset.id;
             const correctedPreview = correctedPresetPreviews.get(preset.id);
             let transformStyle = '';
             let opacityStyle = '';
@@ -100,36 +117,100 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
               opacityStyle = 'opacity-0';
             }
 
+            const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              setOpenPresetId((current) => (current === preset.id ? null : preset.id));
+            };
+
+            const closeActions = () => setOpenPresetId(null);
+
             return (
-              <div key={preset.id} onClick={() => !isActive && onActiveIndexChange(index)} style={{ zIndex: zIndexStyle }} className={`absolute left-1/2 top-1/2 -translate-y-1/2 w-[240px] group bg-brand-surface border rounded-xl overflow-hidden shadow-md transition-all duration-500 ease-out cursor-pointer select-none ${transformStyle} ${opacityStyle} ${isActive ? 'border-brand-primary shadow-xl ring-2 ring-brand-primary/20' : 'border-brand-border'}`}>
-                <div className="aspect-[1/1.414] bg-slate-950/40 relative">
+              <div
+                key={preset.id}
+                onClick={() => !isActive && changeActiveIndex(index)}
+                onKeyDown={handleCardKeyDown}
+                role="group"
+                tabIndex={0}
+                aria-label={
+                  isActive
+                    ? `Modelo padrão ativo: ${preset.name}. Toque ou pressione Enter para adicionar.`
+                    : `Selecionar modelo padrão: ${preset.name}`
+                }
+                aria-current={isActive ? 'true' : undefined}
+                aria-expanded={isActive ? actionsAreOpen : undefined}
+                style={{ zIndex: zIndexStyle }}
+                className={`group absolute left-1/2 top-1/2 w-[240px] -translate-y-1/2 cursor-pointer select-none overflow-hidden rounded-xl border bg-brand-surface shadow-md transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${transformStyle} ${opacityStyle} ${
+                  isActive
+                    ? 'border-brand-primary shadow-xl ring-2 ring-brand-primary/20'
+                    : 'border-brand-border'
+                }`}
+              >
+                {!isActive && <div className="absolute inset-0 z-20 bg-transparent" aria-hidden="true" />}
+
+                <div
+                  className="relative aspect-[1/1.414] bg-slate-950/40"
+                  onClick={() => {
+                    if (isActive) {
+                      setOpenPresetId((current) => (current === preset.id ? null : preset.id));
+                    }
+                  }}
+                >
                   {correctedPreview ? (
                     <div
-                      className="w-full h-full [&>svg]:block [&>svg]:w-full [&>svg]:h-full"
+                      className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
                       aria-label={preset.name}
                       role="img"
                       dangerouslySetInnerHTML={{ __html: correctedPreview }}
                     />
                   ) : preset.thumbnail_url ? (
-                    <img src={preset.thumbnail_url} alt={preset.name} className="w-full h-full object-cover" />
+                    <img src={preset.thumbnail_url} alt={preset.name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400">Sem miniatura</div>
+                    <div className="flex h-full w-full items-center justify-center text-slate-400">Sem miniatura</div>
                   )}
+
                   {isActive && (
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button onClick={(event) => { event.stopPropagation(); onAddFromPreset(preset.id); }} className="gap-2 font-semibold shadow-md">
-                        <Plus className="w-4 h-4" /> Adicionar Modelo
-                      </Button>
+                    <div
+                      className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/60 opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${
+                        actionsAreOpen ? 'pointer-events-auto opacity-100' : ''
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeActions();
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closeActions();
+                          onAddFromPreset(preset.id);
+                        }}
+                        className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-brand-primary/90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                        aria-label={`Adicionar modelo ${preset.name}`}
+                      >
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        Adicionar modelo
+                      </button>
                     </div>
                   )}
                 </div>
-                <div className="p-4 border-t border-brand-border bg-gray-50/20">
-                  <h3 className={`font-semibold transition-colors duration-300 truncate text-sm text-center ${isActive ? 'text-white' : 'text-slate-400'}`}>{preset.name}</h3>
-                  <div className="flex gap-2 mt-3 justify-center">
-                    <div className="w-5 h-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.primary }} title="Primária" />
-                    <div className="w-5 h-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.secondary }} title="Secundária" />
-                    <div className="w-5 h-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.accent }} title="Destaque" />
-                    <div className="w-5 h-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.neutral }} title="Neutra" />
+
+                <div className="border-t border-brand-border bg-gray-50/20 p-4">
+                  <h3 className={`truncate text-center text-sm font-semibold transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-400'}`}>
+                    {preset.name}
+                  </h3>
+                  <div className="mt-3 flex justify-center gap-2" aria-label="Paleta de cores do modelo padrão">
+                    <div className="h-5 w-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.primary }} title="Primária" />
+                    <div className="h-5 w-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.secondary }} title="Secundária" />
+                    <div className="h-5 w-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.accent }} title="Destaque" />
+                    <div className="h-5 w-5 rounded-full border border-brand-border" style={{ backgroundColor: preset.default_theme.neutral }} title="Neutra" />
                   </div>
                 </div>
               </div>
@@ -138,9 +219,23 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
         </div>
       </div>
 
-      <div className="flex justify-center gap-2 mt-2">
-        {presets.map((_, index) => (
-          <button key={index} onClick={() => onActiveIndexChange(index)} className={`h-2 rounded-full transition-all duration-300 focus:outline-none ${index === activeIndex ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-600 hover:bg-slate-400'}`} aria-label={`Ir para slide ${index + 1}`} />
+      <div className="mt-2 flex justify-center gap-1" aria-label="Selecionar modelo padrão do PDF">
+        {presets.map((preset, index) => (
+          <button
+            type="button"
+            key={preset.id}
+            onClick={() => changeActiveIndex(index)}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            aria-label={`Ir para o modelo padrão ${preset.name}`}
+            aria-current={index === activeIndex ? 'true' : undefined}
+          >
+            <span
+              className={`block h-2 rounded-full transition-all duration-300 ${
+                index === activeIndex ? 'w-6 bg-brand-primary' : 'w-2 bg-slate-600 hover:bg-slate-400'
+              }`}
+              aria-hidden="true"
+            />
+          </button>
         ))}
       </div>
     </div>
