@@ -33,6 +33,8 @@ type PixelBounds = {
 };
 
 const FIXED_ILLUSTRATION_BLACK = '#000000';
+const WHITE_RGB: Rgb = { r: 255, g: 255, b: 255 };
+const ILLUSTRATION_CACHE_VERSION = 'real-bounds-v2';
 
 const ILLUSTRATION_ORIGINAL_THEME: PdfTheme = {
   primary: '#0076DD',
@@ -49,11 +51,15 @@ const SOURCE_ROLE_COLORS: Array<{
   { role: 'primary', source: ILLUSTRATION_ORIGINAL_THEME.primary, rgb: { r: 0, g: 118, b: 221 } },
   { role: 'accent', source: ILLUSTRATION_ORIGINAL_THEME.accent, rgb: { r: 250, g: 203, b: 92 } },
   { role: 'neutral', source: ILLUSTRATION_ORIGINAL_THEME.neutral, rgb: { r: 0, g: 0, b: 0 } },
+  { role: 'neutral', source: '#06121C', rgb: { r: 6, g: 18, b: 28 } },
 ];
 
 const DEFAULT_OUTPUT_WIDTH = 1800;
 const DEFAULT_PADDING = 18;
-const BACKGROUND_WHITE_THRESHOLD = 245;
+const BACKGROUND_MIN_CHANNEL = 224;
+const BACKGROUND_MAX_CHROMA = 40;
+const CONTENT_ALPHA_THRESHOLD = 8;
+const MAX_ROLE_DISTANCE = 32_400;
 const themedIllustrationCache = new Map<string, Promise<string>>();
 
 /**
@@ -62,7 +68,7 @@ const themedIllustrationCache = new Map<string, Promise<string>>();
  */
 export const TIMELINE_ILLUSTRATION_RENDER_OPTIONS: Required<IllustrationRenderOptions> = {
   outputWidth: 2100,
-  padding: 56,
+  padding: 24,
 };
 
 function hexToRgb(value: string): Rgb {
@@ -82,16 +88,50 @@ function colorDistanceSquared(first: Rgb, second: Rgb) {
   );
 }
 
-function buildRoleTargets(theme: PdfDocumentTheme) {
-  const primaryTarget = hexToRgb(theme.primary);
-  const fixedBlackTarget = hexToRgb(FIXED_ILLUSTRATION_BLACK);
+function colorLuminance(color: Rgb) {
+  return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+}
 
-  // O motor de ilustrações não usa resolveCoverPaint: toda cor de marca da
-  // arte acompanha exclusivamente a cor principal, enquanto o preto é fixo.
-  return SOURCE_ROLE_COLORS.map((entry) => ({
-    ...entry,
-    target: entry.role === 'neutral' ? fixedBlackTarget : primaryTarget,
-  }));
+function mixRgb(source: Rgb, target: Rgb, targetWeight: number): Rgb {
+  const weight = Math.max(0, Math.min(1, targetWeight));
+  return {
+    r: Math.round(source.r * (1 - weight) + target.r * weight),
+    g: Math.round(source.g * (1 - weight) + target.g * weight),
+    b: Math.round(source.b * (1 - weight) + target.b * weight),
+  };
+}
+
+function isLightBackgroundColor(pixel: Rgb) {
+  const minimum = Math.min(pixel.r, pixel.g, pixel.b);
+  const maximum = Math.max(pixel.r, pixel.g, pixel.b);
+  return minimum >= BACKGROUND_MIN_CHANNEL && maximum - minimum <= BACKGROUND_MAX_CHROMA;
+}
+
+function getClosestSourceRole(pixel: Rgb) {
+  let closest = SOURCE_ROLE_COLORS[0];
+  let closestDistance = colorDistanceSquared(pixel, closest.rgb);
+
+  for (let index = 1; index < SOURCE_ROLE_COLORS.length; index += 1) {
+    const candidate = SOURCE_ROLE_COLORS[index];
+    const distance = colorDistanceSquared(pixel, candidate.rgb);
+    if (distance < closestDistance) {
+      closest = candidate;
+      closestDistance = distance;
+    }
+  }
+
+  return { closest, closestDistance };
+}
+
+function getPrimaryTintWeight(pixel: Rgb, sourceRoleColor: Rgb) {
+  const sourceLuminance = colorLuminance(sourceRoleColor);
+  const pixelLuminance = colorLuminance(pixel);
+  if (pixelLuminance <= sourceLuminance) return 0;
+
+  return Math.min(
+    0.92,
+    (pixelLuminance - sourceLuminance) / Math.max(1, 255 - sourceLuminance),
+  );
 }
 
 function loadIllustration(source: string) {
@@ -104,12 +144,13 @@ function loadIllustration(source: string) {
 }
 
 function recolorImageData(imageData: ImageData, theme: PdfDocumentTheme) {
-  const targets = buildRoleTargets(theme);
+  const primaryTarget = hexToRgb(theme.primary);
+  const fixedBlackTarget = hexToRgb(FIXED_ILLUSTRATION_BLACK);
   const pixels = imageData.data;
 
   for (let index = 0; index < pixels.length; index += 4) {
     const alpha = pixels[index + 3];
-    if (alpha === 0) continue;
+    if (alpha <= CONTENT_ALPHA_THRESHOLD) continue;
 
     const pixel = {
       r: pixels[index],
@@ -117,33 +158,22 @@ function recolorImageData(imageData: ImageData, theme: PdfDocumentTheme) {
       b: pixels[index + 2],
     };
 
-    // O branco é preservado aqui. Apenas o branco conectado às bordas será
-    // removido depois, evitando apagar detalhes brancos internos da ilustração.
-    if (
-      pixel.r >= BACKGROUND_WHITE_THRESHOLD
-      && pixel.g >= BACKGROUND_WHITE_THRESHOLD
-      && pixel.b >= BACKGROUND_WHITE_THRESHOLD
-    ) continue;
+    // O fundo já foi removido antes da recoloração. Áreas claras internas
+    // permanecem claras, em vez de virarem um bloco escuro da cor principal.
+    if (isLightBackgroundColor(pixel)) continue;
 
-    let closest = targets[0];
-    let closestDistance = colorDistanceSquared(pixel, closest.rgb);
+    const { closest, closestDistance } = getClosestSourceRole(pixel);
+    if (closestDistance > MAX_ROLE_DISTANCE) continue;
 
-    for (let targetIndex = 1; targetIndex < targets.length; targetIndex += 1) {
-      const candidate = targets[targetIndex];
-      const distance = colorDistanceSquared(pixel, candidate.rgb);
-      if (distance < closestDistance) {
-        closest = candidate;
-        closestDistance = distance;
-      }
-    }
+    // Não usamos resolveCoverPaint: preto é sempre preto e qualquer cor de
+    // marca acompanha somente a cor principal, preservando seus tons claros.
+    const target = closest.role === 'neutral'
+      ? fixedBlackTarget
+      : mixRgb(primaryTarget, WHITE_RGB, getPrimaryTintWeight(pixel, closest.rgb));
 
-    // A paleta de origem é reduzida. O limite inclui antialiasing das bordas,
-    // mas não captura tons claros que pertencem ao conteúdo.
-    if (closestDistance > 32_400) continue;
-
-    pixels[index] = closest.target.r;
-    pixels[index + 1] = closest.target.g;
-    pixels[index + 2] = closest.target.b;
+    pixels[index] = target.r;
+    pixels[index + 1] = target.g;
+    pixels[index + 2] = target.b;
   }
 
   return imageData;
@@ -151,18 +181,19 @@ function recolorImageData(imageData: ImageData, theme: PdfDocumentTheme) {
 
 function isConnectedBackgroundPixel(pixels: Uint8ClampedArray, pixelIndex: number) {
   const offset = pixelIndex * 4;
-  return (
-    pixels[offset + 3] > 0
-    && pixels[offset] >= BACKGROUND_WHITE_THRESHOLD
-    && pixels[offset + 1] >= BACKGROUND_WHITE_THRESHOLD
-    && pixels[offset + 2] >= BACKGROUND_WHITE_THRESHOLD
-  );
+  if (pixels[offset + 3] === 0) return false;
+
+  return isLightBackgroundColor({
+    r: pixels[offset],
+    g: pixels[offset + 1],
+    b: pixels[offset + 2],
+  });
 }
 
 /**
- * Remove apenas o fundo branco conectado às extremidades da imagem. Assim a
- * ilustração pode integrar o layout como um elemento, sem apagar áreas brancas
- * fechadas que façam parte de roupas, documentos ou equipamentos.
+ * Remove o fundo claro conectado às extremidades antes de aplicar o tema.
+ * Isso inclui os tons quase brancos/azulados presentes nos PNGs originais,
+ * mas preserva áreas claras fechadas que fazem parte do desenho.
  */
 function removeConnectedWhiteBackground(imageData: ImageData) {
   const { width, height, data } = imageData;
@@ -214,7 +245,7 @@ function findOpaqueBounds(imageData: ImageData, padding: number): PixelBounds {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const alpha = data[(y * width + x) * 4 + 3];
-      if (alpha === 0) continue;
+      if (alpha <= CONTENT_ALPHA_THRESHOLD) continue;
       minX = Math.min(minX, x);
       minY = Math.min(minY, y);
       maxX = Math.max(maxX, x);
@@ -277,6 +308,7 @@ function buildCacheKey(
   options: Required<IllustrationRenderOptions>,
 ) {
   return [
+    ILLUSTRATION_CACHE_VERSION,
     source,
     theme.primary,
     options.outputWidth,
@@ -310,7 +342,12 @@ export async function applyPdfThemeToIllustration(
 
     context.drawImage(image, 0, 0, sourceCanvas.width, sourceCanvas.height);
     const imageData = context.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
-    const themedImageData = removeConnectedWhiteBackground(recolorImageData(imageData, theme));
+
+    // A ordem é obrigatória: remover o fundo primeiro impede que tons quase
+    // brancos sejam recoloridos e passem a contaminar os limites da arte.
+    const withoutBackground = removeConnectedWhiteBackground(imageData);
+    const themedImageData = recolorImageData(withoutBackground, theme);
+
     context.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
     context.putImageData(themedImageData, 0, 0);
 
