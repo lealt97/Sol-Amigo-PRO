@@ -1,22 +1,13 @@
 import { PdfUserModel } from '../../../types/pdfModels';
 import { pdfModelService } from '../../../services/pdfModelService';
 import { resolveStorageAssetUrl } from '../../storage/privateAsset';
+import { urlToDataUrl } from '../../images/urlToDataUrl';
 import { buildCoverSvg } from './coverSvgEngine';
 import { extractActiveLogo } from '../../../utils/logoHelper';
 
-async function urlToBase64(url: string | null | undefined) {
-  if (!url) return null;
-  if (url.startsWith('data:')) return url;
-
+async function safeUrlToDataUrl(url: string | null | undefined) {
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`asset_http_${response.status}`);
-    const blob = await response.blob();
-    return new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
-    });
+    return await urlToDataUrl(url);
   } catch (error) {
     console.error('Erro ao carregar imagem para capa do PDF:', error);
     return null;
@@ -110,9 +101,9 @@ export async function generateSvgCoverImage(
     const svgSource = await pdfModelService.getPresetSvgContent(preset.id);
     const resolvedRawLogo = model.logo_url || proposal.profile?.logo_url || proposal.company?.logo_url || null;
     const activeLogo = extractActiveLogo(resolvedRawLogo);
-    const logoUrl = await urlToBase64(activeLogo);
+    const logoUrl = await safeUrlToDataUrl(activeLogo);
     const privateCoverUrl = await resolveStorageAssetUrl(model.cover_image_url, 900);
-    const coverImageUrl = await urlToBase64(privateCoverUrl);
+    const coverImageUrl = await safeUrlToDataUrl(privateCoverUrl);
     const generationDate = new Date().toLocaleDateString('pt-BR');
 
     const finalSvg = buildCoverSvg(
