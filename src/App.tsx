@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -35,6 +36,33 @@ import { FirstUseRoute } from "./pages/FirstUseRoute";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { LegalDocumentPage } from "./pages/legal/LegalDocumentPage";
 
+const routerBasename = import.meta.env.BASE_URL === '/'
+  ? undefined
+  : import.meta.env.BASE_URL.replace(/\/$/, '');
+
+function BasePathAnchorSupport() {
+  useEffect(() => {
+    const basePath = import.meta.env.BASE_URL;
+    if (!basePath || basePath === '/') return undefined;
+
+    const normalizedBase = basePath.replace(/\/$/, '');
+    const rewriteAbsoluteAnchors = () => {
+      document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]').forEach((anchor) => {
+        const href = anchor.getAttribute('href');
+        if (!href || href === normalizedBase || href.startsWith(`${normalizedBase}/`)) return;
+        anchor.setAttribute('href', `${normalizedBase}${href}`);
+      });
+    };
+
+    rewriteAbsoluteAnchors();
+    const observer = new MutationObserver(rewriteAbsoluteAnchors);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return null;
+}
+
 function Home() {
   return <Navigate to="/dashboard" replace />;
 }
@@ -44,7 +72,8 @@ export default function App() {
     <AuthProvider>
       <PlatformThemeBootstrap />
       <Toaster position="top-right" richColors />
-      <Router>
+      <Router basename={routerBasename}>
+        <BasePathAnchorSupport />
         <Routes>
           <Route path="/planos" element={<Plans />} />
           <Route path="/precos" element={<Navigate to="/planos" replace />} />

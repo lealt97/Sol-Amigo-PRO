@@ -26,11 +26,12 @@ export function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormValues) => {
     setError(null);
+    const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
     const { error: signUpError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: new URL('login', appBaseUrl).toString(),
         data: {
           name: data.name,
           company_name: data.company_name,

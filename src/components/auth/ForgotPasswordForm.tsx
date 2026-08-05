@@ -28,7 +28,8 @@ export function ForgotPasswordForm() {
     setSuccess(false);
 
     try {
-      await requestPasswordReset(supabase.auth, data.email, window.location.origin);
+      const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+      await requestPasswordReset(supabase.auth, data.email, appBaseUrl);
       setSuccess(true);
     } catch (authError) {
       setError(translateAuthError(getAuthErrorMessage(authError)));
