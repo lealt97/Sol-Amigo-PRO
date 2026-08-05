@@ -81,6 +81,24 @@ test('as páginas 04 e 05 não compartilham a mesma arte na prévia nem no PDF',
   assert.match(document, /case 'payback':[\s\S]*?illustration=\{accumulatedSavingsImage\}/);
 });
 
+test('a página financeira usa layout vertical para ampliar a arte', async () => {
+  const [preview, pdf] = await Promise.all([
+    read('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx'),
+    read('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx'),
+  ]);
+
+  const financialPreview = preview.match(/function FinancialPreview[\s\S]*?function PaybackPreview/)?.[0];
+  const financialPdf = pdf.match(/export function FinancialPage[\s\S]*?export function PaybackPage/)?.[0];
+
+  assert.ok(financialPreview, 'A prévia financeira precisa existir.');
+  assert.ok(financialPdf, 'A página financeira do PDF precisa existir.');
+  assert.match(financialPreview, /grid h-\[23%\].*grid-cols-\[1\.35fr_\.78fr_\.78fr\]/);
+  assert.match(financialPreview, /className="min-h-0 flex-1"/);
+  assert.doesNotMatch(financialPreview, /grid-cols-\[\.82fr_1\.18fr\]/);
+  assert.match(financialPdf, /<ArtStage src=\{illustration\} height=\{342\} \/>/);
+  assert.doesNotMatch(financialPdf, /width: '58%'/);
+});
+
 test('a arte de implantação forma um PNG válido sem conteúdo truncado', async () => {
   await assertValidPngParts(
     'src/assets/pdf-art/approvedImplementationTimelineImage.ts',

@@ -363,44 +363,54 @@ export function FinancialPage({ proposal, pageNumber, illustration }: Illustrate
       title="Um investimento que substitui uma despesa recorrente"
       proposal={proposal}
     >
-      <View style={[s.row, { justifyContent: 'space-between' }]}>
-        <View style={{ width: '39%' }}>
-          <View style={[s.card, { borderWidth: 0, backgroundColor: t.primary, padding: 18, minHeight: 178 }]}>
-            <Text style={[s.label, { color: t.onPrimary }]}>Investimento total</Text>
-            <Text style={{ fontSize: 28, fontWeight: 700, color: t.onPrimary, marginVertical: 8 }}>
-              {money(investment)}
-            </Text>
-            <Text style={[s.body, { color: t.onPrimary }]}>
-              Equipamentos, projeto, homologação e instalação conforme o escopo comercial.
-            </Text>
-          </View>
-          <View style={{ height: 10 }} />
-          <Metric label="Economia inicial" value={`${money(monthly)}/mês`} tone="secondary" compact />
-        </View>
-        <View style={{ width: '58%' }}>
-          <ArtStage src={illustration} height={310} />
-        </View>
-      </View>
-
-      <View style={[s.row, { justifyContent: 'space-between', marginTop: 13 }]}>
-        <View style={{ width: '36%' }}>
-          <Metric label="Economia em 25 anos" value={money(savings25)} tone="accent" />
-        </View>
+      <View style={[s.row, { justifyContent: 'space-between', marginBottom: 12 }]}>
         <View
           style={[
             s.card,
             {
-              width: '61%',
-              borderColor: t.border,
-              backgroundColor: t.surface,
+              width: '48%',
+              borderWidth: 0,
+              backgroundColor: t.primary,
+              paddingVertical: 13,
+              paddingHorizontal: 16,
+              minHeight: 104,
               justifyContent: 'center',
             },
           ]}
         >
-          <Text style={[s.body, { color: t.text }]}>
-            Parte do gasto recorrente com energia se transforma em um ativo instalado no imóvel e em economia acumulada.
+          <Text style={[s.label, { color: t.onPrimary }]}>Investimento total</Text>
+          <Text style={{ fontSize: 25, fontWeight: 700, color: t.onPrimary, marginVertical: 6 }}>
+            {money(investment)}
+          </Text>
+          <Text style={[s.body, { color: t.onPrimary, fontSize: 7.2 }]}>
+            Equipamentos, projeto, homologação e instalação conforme o escopo comercial.
           </Text>
         </View>
+        <View style={{ width: '24%' }}>
+          <Metric label="Economia inicial" value={`${money(monthly)}/mês`} tone="secondary" compact />
+        </View>
+        <View style={{ width: '24%' }}>
+          <Metric label="Economia em 25 anos" value={money(savings25)} tone="accent" compact />
+        </View>
+      </View>
+
+      <ArtStage src={illustration} height={342} />
+
+      <View
+        style={[
+          s.card,
+          {
+            borderColor: t.border,
+            backgroundColor: t.surface,
+            marginTop: 12,
+            paddingVertical: 11,
+            paddingHorizontal: 13,
+          },
+        ]}
+      >
+        <Text style={[s.body, { color: t.text }]}>
+          Parte do gasto recorrente com energia se transforma em um ativo instalado no imóvel e em economia acumulada.
+        </Text>
       </View>
     </Frame>
   );

@@ -265,29 +265,34 @@ function FinancialPreview({ theme, pageNumber }: Omit<ProposalPreviewPageProps, 
       title="Um investimento que substitui uma despesa recorrente"
     >
       <div className="flex h-full min-h-0 flex-col gap-3.5">
-        <div className="grid h-[58%] min-h-0 grid-cols-[.82fr_1.18fr] gap-4">
-          <div className="flex min-h-0 flex-col gap-3">
-            <div className="flex-1 rounded-2xl p-5" style={{ backgroundColor: theme.primary, color: theme.onPrimary }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.16em]">Investimento total</div>
-              <div className="my-3 text-[31px] font-black">R$ 42.900</div>
-              <p className="text-[10px] font-semibold leading-relaxed">Equipamentos, projeto, homologação e instalação incluídos.</p>
-            </div>
-            <Metric theme={theme} value="R$ 820/mês" label="Economia inicial" accent="secondary" compact />
-          </div>
-          <ArtStage
-            source={financialReturnImage}
-            theme={theme}
-            label="Retorno financeiro do sistema solar"
-          />
-        </div>
-        <div className="grid flex-1 grid-cols-[.72fr_1.28fr] gap-3">
-          <Metric theme={theme} value="R$ 318 mil" label="Economia em 25 anos" accent="accent" />
+        <div className="grid h-[23%] shrink-0 grid-cols-[1.35fr_.78fr_.78fr] gap-3">
           <div
-            className="flex items-center rounded-2xl border p-4 text-[11px] font-semibold leading-relaxed"
-            style={{ borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }}
+            className="flex min-h-0 flex-col justify-center rounded-2xl px-5 py-4"
+            style={{ backgroundColor: theme.primary, color: theme.onPrimary }}
           >
-            Parte do gasto recorrente com energia se transforma em um ativo instalado no imóvel e em economia acumulada.
+            <div className="text-[9px] font-black uppercase tracking-[0.16em]">Investimento total</div>
+            <div className="my-2 text-[29px] font-black leading-none">R$ 42.900</div>
+            <p className="text-[9px] font-semibold leading-relaxed">
+              Equipamentos, projeto, homologação e instalação incluídos.
+            </p>
           </div>
+          <Metric theme={theme} value="R$ 820/mês" label="Economia inicial" accent="secondary" compact />
+          <Metric theme={theme} value="R$ 318 mil" label="Economia em 25 anos" accent="accent" compact />
+        </div>
+
+        <ArtStage
+          source={financialReturnImage}
+          theme={theme}
+          label="Retorno financeiro do sistema solar"
+          className="min-h-0 flex-1"
+          outputWidth={2400}
+        />
+
+        <div
+          className="shrink-0 rounded-2xl border px-4 py-3 text-[10px] font-semibold leading-relaxed"
+          style={{ borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }}
+        >
+          Parte do gasto recorrente com energia se transforma em um ativo instalado no imóvel e em economia acumulada.
         </div>
       </div>
     </PreviewPageFrame>
