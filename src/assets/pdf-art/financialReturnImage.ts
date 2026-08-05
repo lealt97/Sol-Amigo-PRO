@@ -1,7 +1,6 @@
-import part0 from './financialReturnPart0';
-import part1 from './financialReturnPart1';
-import part2 from './financialReturnPart2';
+import approvedAccumulatedSavingsImage from './approvedAccumulatedSavingsImage';
 
-export const financialReturnImage = 'data:image/png;base64,' + part0 + part1 + part2;
+const financialReturnImage = approvedAccumulatedSavingsImage;
 
+export { financialReturnImage };
 export default financialReturnImage;
