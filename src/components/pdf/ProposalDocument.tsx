@@ -84,7 +84,15 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
                 </Page>
               );
             case 'intro':
-              return <React.Fragment key={page.key}><IntroPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
+              return (
+                <React.Fragment key={page.key}>
+                  <IntroPage
+                    proposal={proposal}
+                    pageNumber={pageNumber}
+                    illustration={illustrationImages.intro}
+                  />
+                </React.Fragment>
+              );
             case 'consumption':
               return <React.Fragment key={page.key}><ConsumptionPage proposal={proposal} pageNumber={pageNumber} /></React.Fragment>;
             case 'technical':

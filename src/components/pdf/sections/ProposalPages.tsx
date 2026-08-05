@@ -343,7 +343,7 @@ function GrowthArt({ theme }: { theme: PdfDocumentTheme }) {
   );
 }
 
-export function IntroPage({ proposal, pageNumber }: { proposal: Proposal; pageNumber: number }) {
+export function IntroPage({ proposal, pageNumber, illustration }: { proposal: Proposal; pageNumber: number; illustration: string }) {
   const theme = usePdfTheme();
   const power = getInstalledPower(proposal);
   const generation = getGenerationAverage(proposal);
@@ -366,7 +366,21 @@ export function IntroPage({ proposal, pageNumber }: { proposal: Proposal; pageNu
           </View>
         </View>
         <View style={{ width: '47%' }}>
-          <ConsultationArt theme={theme} />
+          <View
+  style={[
+    styles.card,
+    {
+      height: 285,
+      padding: 10,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  ]}
+>
+  <Image src={illustration} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+</View>
           <View style={[styles.card, { borderWidth: 0, backgroundColor: theme.primary, marginTop: 14 }]}>
             <Text style={[styles.cardTitle, { color: theme.onPrimary }]}>Resultado esperado</Text>
             <Text style={[styles.bodyText, { color: theme.onPrimary }]}>

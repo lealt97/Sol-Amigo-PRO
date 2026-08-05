@@ -34,6 +34,7 @@ test('documento PDF mantém A4 e renderiza exatamente as páginas configuradas',
   assert.match(document, /<FinancialPage/);
   assert.match(document, /<PaybackPage/);
   assert.match(document, /<AcceptancePage/);
+  assert.match(document, /illustration=\{illustrationImages\.intro\}/);
   assert.match(document, /illustration=\{illustrationImages\.kit\}/);
   assert.match(document, /illustration=\{illustrationImages\.timeline\}/);
   assert.match(document, /illustration=\{illustrationImages\.financial\}/);
@@ -152,7 +153,7 @@ test('detecção de mobile usa capacidade de toque em vez da largura da tela', a
   assert.match(hook, /removeEventListener\('change'/);
 });
 
-test('as três ilustrações passam pelo mesmo pipeline de cores e alta resolução', async () => {
+test('as quatro ilustrações passam pelo mesmo pipeline de cores e alta resolução', async () => {
   const engine = await read('src/lib/pdf/utils/illustrationColorEngine.ts');
   const sharedAssets = await read('src/lib/pdf/renderProposalDocument.tsx');
   const document = await read('src/components/pdf/ProposalDocument.tsx');

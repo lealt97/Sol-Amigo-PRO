@@ -61,6 +61,7 @@ test('preview ao vivo e PDF aplicam o mesmo motor às ilustrações', async () =
   assert.match(liveTimeline, /applyPdfThemeToIllustration/);
   assert.match(generator, /prepareProposalDocumentAssets\(\{[\s\S]*previewPageKey/);
   assert.match(assets, /prepareIllustrationsForPage/);
+  assert.match(assets, /case 'intro'/);
   assert.match(assets, /case 'kit'/);
   assert.match(assets, /case 'timeline'/);
   assert.match(assets, /case 'financial'/);

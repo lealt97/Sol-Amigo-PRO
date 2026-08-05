@@ -4,6 +4,7 @@ import type { ProposalPageKey } from '../../../lib/pdf/proposalPageRegistry';
 import { applyPdfThemeToIllustration } from '../../../lib/pdf/utils/illustrationColorEngine';
 import accumulatedSavingsImage from '../../../assets/pdf-art/accumulatedSavingsImage';
 import financialReturnImage from '../../../assets/pdf-art/financialReturnImage';
+import introPatrimonyImage from '../../../assets/pdf-art/introPatrimonyImage';
 import kitEquipmentImage from '../../../assets/pdf-art/kitEquipmentImage';
 import implementationTimelineImage from '../../../assets/pdf-art/implementationTimelineImage';
 import { ProposalPreviewPage as LegacyProposalPreviewPage } from './ProposalPagesPreview';
@@ -151,6 +152,46 @@ function ArtStage({
         draggable={false}
       />
     </div>
+  );
+}
+
+function IntroPreview({ theme, pageNumber }: Omit<ProposalPreviewPageProps, 'pageKey'>) {
+  return (
+    <PreviewPageFrame
+      theme={theme}
+      pageNumber={pageNumber}
+      eyebrow="Uma decisão inteligente"
+      title="Sua energia pode trabalhar a favor do seu patrimônio"
+    >
+      <div className="grid h-full min-h-0 grid-cols-[1.02fr_.98fr] gap-5">
+        <div className="flex min-h-0 flex-col justify-between">
+<p className="text-[11px] font-medium leading-relaxed" style={{ color: theme.muted }}>
+  Dimensionamos uma solução para reduzir a energia comprada da distribuidora, proteger o orçamento contra reajustes e gerar economia por muitos anos.
+</p>
+<div className="grid grid-cols-2 gap-3">
+  <Metric theme={theme} value="12,50 kWp" label="Potência instalada" compact />
+  <Metric theme={theme} value="1.490 kWh" label="Geração média/mês" accent="secondary" compact />
+  <Metric theme={theme} value="4 anos e 8 meses" label="Retorno estimado" accent="accent" compact />
+  <Metric theme={theme} value="R$ 318 mil" label="Economia em 25 anos" compact />
+</div>
+        </div>
+        <div className="flex min-h-0 flex-col gap-3.5">
+<ArtStage
+  source={introPatrimonyImage}
+  theme={theme}
+  label="Energia solar valorizando o imóvel"
+  className="min-h-0 flex-1"
+  outputWidth={2200}
+/>
+<div
+  className="shrink-0 rounded-2xl p-4 text-[10px] font-semibold leading-relaxed"
+  style={{ backgroundColor: theme.primary, color: theme.onPrimary }}
+>
+  Uma solução equilibrada entre geração, segurança técnica, valorização patrimonial e retorno financeiro.
+</div>
+        </div>
+      </div>
+    </PreviewPageFrame>
   );
 }
 
@@ -351,6 +392,7 @@ function PaybackPreview({ theme, pageNumber }: Omit<ProposalPreviewPageProps, 'p
 
 export function ProposalPreviewPage(props: ProposalPreviewPageProps) {
   switch (props.pageKey) {
+    case 'intro': return <IntroPreview theme={props.theme} pageNumber={props.pageNumber} />;
     case 'kit': return <KitPreview theme={props.theme} pageNumber={props.pageNumber} />;
     case 'timeline': return <TimelinePreview theme={props.theme} pageNumber={props.pageNumber} />;
     case 'financial': return <FinancialPreview theme={props.theme} pageNumber={props.pageNumber} />;

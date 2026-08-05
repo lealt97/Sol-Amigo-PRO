@@ -35,6 +35,13 @@ async function prepareIllustrationsForPage(
   const images = { ...defaultProposalIllustrationImages };
 
   switch (previewPageKey) {
+    case 'intro':
+      images.intro = await applyPdfThemeToIllustration(
+        images.intro,
+        resolvedTheme,
+        { outputWidth: 2200 },
+      );
+      break;
     case 'kit':
       images.kit = await applyPdfThemeToIllustration(
         images.kit,

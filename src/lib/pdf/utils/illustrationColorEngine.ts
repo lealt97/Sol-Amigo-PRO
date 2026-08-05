@@ -1,10 +1,12 @@
 import type { PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import financialReturnImage from '../../../assets/pdf-art/financialReturnImage';
+import introPatrimonyImage from '../../../assets/pdf-art/introPatrimonyImage';
 import kitEquipmentImage from '../../../assets/pdf-art/kitEquipmentImage';
 import implementationTimelineImage from '../../../assets/pdf-art/implementationTimelineImage';
 import type { PdfTheme } from '../../../types/pdfModels';
 
 export interface ProposalIllustrationImages {
+  intro: string;
   kit: string;
   timeline: string;
   financial: string;
@@ -377,7 +379,8 @@ export async function applyPdfThemeToIllustration(
 export async function buildProposalIllustrationImages(
   theme: PdfDocumentTheme,
 ): Promise<ProposalIllustrationImages> {
-  const [kit, timeline, financial] = await Promise.all([
+  const [intro, kit, timeline, financial] = await Promise.all([
+    applyPdfThemeToIllustration(introPatrimonyImage, theme, { outputWidth: 2200 }),
     applyPdfThemeToIllustration(kitEquipmentImage, theme, { outputWidth: 1800 }),
     applyPdfThemeToIllustration(
       implementationTimelineImage,
@@ -387,10 +390,11 @@ export async function buildProposalIllustrationImages(
     applyPdfThemeToIllustration(financialReturnImage, theme, { outputWidth: 1800 }),
   ]);
 
-  return { kit, timeline, financial };
+  return { intro, kit, timeline, financial };
 }
 
 export const defaultProposalIllustrationImages: ProposalIllustrationImages = {
+  intro: introPatrimonyImage,
   kit: kitEquipmentImage,
   timeline: implementationTimelineImage,
   financial: financialReturnImage,
