@@ -43,7 +43,7 @@ async function assertValidPngParts(
   assert.ok(image.length > 5_000, 'A imagem reconstruída parece estar incompleta.');
 }
 
-test('as artes aprovadas são usadas no PDF e na prévia', async () => {
+test('cada página usa a arte correta no PDF e na prévia', async () => {
   const [timeline, timelineNew, savings, financial] = await Promise.all([
     read('src/assets/pdf-art/implementationTimelineImage.ts'),
     read('src/assets/pdf-art/implementationTimelineNewImage.ts'),
@@ -54,7 +54,8 @@ test('as artes aprovadas são usadas no PDF e na prévia', async () => {
   assert.match(timeline, /approvedImplementationTimelineImage/);
   assert.match(timelineNew, /approvedImplementationTimelineImage/);
   assert.match(savings, /approvedAccumulatedSavingsImage/);
-  assert.match(financial, /approvedAccumulatedSavingsImage/);
+  assert.match(financial, /financialReturnPart0/);
+  assert.doesNotMatch(financial, /approvedAccumulatedSavingsImage/);
 });
 
 test('a arte de implantação forma um PNG válido sem conteúdo truncado', async () => {
