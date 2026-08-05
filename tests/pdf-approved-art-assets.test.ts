@@ -58,6 +58,29 @@ test('cada página usa a arte correta no PDF e na prévia', async () => {
   assert.doesNotMatch(financial, /approvedAccumulatedSavingsImage/);
 });
 
+test('as páginas 04 e 05 não compartilham a mesma arte na prévia nem no PDF', async () => {
+  const [preview, document] = await Promise.all([
+    read('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx'),
+    read('src/components/pdf/ProposalDocument.tsx'),
+  ]);
+
+  assert.match(preview, /import accumulatedSavingsImage from/);
+  assert.match(preview, /import financialReturnImage from/);
+
+  const financialPreview = preview.match(/function FinancialPreview[\s\S]*?function PaybackPreview/)?.[0];
+  const paybackPreview = preview.match(/function PaybackPreview[\s\S]*?export function ProposalPreviewPage/)?.[0];
+
+  assert.ok(financialPreview, 'A prévia financeira precisa existir.');
+  assert.ok(paybackPreview, 'A prévia de payback precisa existir.');
+  assert.match(financialPreview, /source=\{financialReturnImage\}/);
+  assert.doesNotMatch(financialPreview, /source=\{accumulatedSavingsImage\}/);
+  assert.match(paybackPreview, /source=\{accumulatedSavingsImage\}/);
+  assert.doesNotMatch(paybackPreview, /source=\{financialReturnImage\}/);
+
+  assert.match(document, /case 'financial':[\s\S]*?illustration=\{illustrationImages\.financial\}/);
+  assert.match(document, /case 'payback':[\s\S]*?illustration=\{accumulatedSavingsImage\}/);
+});
+
 test('a arte de implantação forma um PNG válido sem conteúdo truncado', async () => {
   await assertValidPngParts(
     'src/assets/pdf-art/approvedImplementationTimelineImage.ts',
