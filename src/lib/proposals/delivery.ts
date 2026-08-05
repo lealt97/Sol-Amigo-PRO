@@ -5,9 +5,17 @@ export type WhatsAppShareInput = {
   publicUrl: string;
 };
 
+function getRuntimeBasePath() {
+  if (typeof window === 'undefined') return '';
+  const configuredBase = import.meta.env?.BASE_URL || '/';
+  if (configuredBase === '/') return '';
+  return `/${configuredBase.replace(/^\/+|\/+$/g, '')}`;
+}
+
 export function buildPublicProposalUrl(publicToken: string | null | undefined, origin: string) {
   if (!publicToken) return null;
-  return `${origin.replace(/\/$/, '')}/proposta/${encodeURIComponent(publicToken)}`;
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  return `${cleanOrigin}${getRuntimeBasePath()}/proposta/${encodeURIComponent(publicToken)}`;
 }
 
 export function normalizeWhatsAppPhone(phone?: string | null) {
