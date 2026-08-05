@@ -2,19 +2,20 @@
   "name": "Sol Amigo PRO",
   "short_name": "Sol Amigo PRO",
   "description": "Propostas e dimensionamento fotovoltaico profissional.",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0E2337",
   "theme_color": "#0E2337",
   "icons": [
     {
-      "src": "/brand/sol-amigo-pro/icon-light.svg",
+      "src": "brand/sol-amigo-pro/icon-light.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/brand/sol-amigo-pro/icon-dark.svg",
+      "src": "brand/sol-amigo-pro/icon-dark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "monochrome"

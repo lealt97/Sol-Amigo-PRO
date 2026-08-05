@@ -5,16 +5,20 @@ export type BrandLogoSurface = 'light' | 'dark' | 'auto';
 
 type ResolvedSurface = Exclude<BrandLogoSurface, 'auto'>;
 
+const brandAsset = (fileName: string) => (
+  `${import.meta.env.BASE_URL}brand/sol-amigo-pro/${fileName}`
+);
+
 export const SOL_AMIGO_PRO_BRAND_ASSETS: Record<ResolvedSurface, Record<BrandLogoFormat, string>> = {
   light: {
-    horizontal: '/brand/sol-amigo-pro/logo-horizontal-light.svg',
-    vertical: '/brand/sol-amigo-pro/logo-vertical-light.svg',
-    icon: '/brand/sol-amigo-pro/icon-light.svg',
+    horizontal: brandAsset('logo-horizontal-light.svg'),
+    vertical: brandAsset('logo-vertical-light.svg'),
+    icon: brandAsset('icon-light.svg'),
   },
   dark: {
-    horizontal: '/brand/sol-amigo-pro/logo-horizontal-dark.svg',
-    vertical: '/brand/sol-amigo-pro/logo-vertical-dark.svg',
-    icon: '/brand/sol-amigo-pro/icon-dark.svg',
+    horizontal: brandAsset('logo-horizontal-dark.svg'),
+    vertical: brandAsset('logo-vertical-dark.svg'),
+    icon: brandAsset('icon-dark.svg'),
   },
 };
 
