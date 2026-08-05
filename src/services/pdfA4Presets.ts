@@ -28,7 +28,9 @@ import svg12 from '../../public/pdf-assets/covers/A4 -12.svg?raw';
 
 const pageConfig = createDefaultProposalPageConfig();
 
-const coverPath = (fileName: string) => `/pdf-assets/covers/${fileName}`;
+const coverPath = (fileName: string) => (
+  `${import.meta.env.BASE_URL}pdf-assets/covers/${fileName}`
+);
 
 export const A4_PRESETS: PdfTemplatePreset[] = [
   {
