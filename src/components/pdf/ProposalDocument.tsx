@@ -1,5 +1,7 @@
 import React from 'react';
 import { Document, Image, Page, StyleSheet } from '@react-pdf/renderer';
+import accumulatedSavingsImage from '../../assets/pdf-art/accumulatedSavingsImage';
+import implementationTimelineNewImage from '../../assets/pdf-art/implementationTimelineNewImage';
 import {
   getVisibleProposalPages,
   type ProposalPageKey,
@@ -106,7 +108,7 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
                   <TimelineTallPage
                     proposal={proposal}
                     pageNumber={pageNumber}
-                    illustration={illustrationImages.timeline}
+                    illustration={implementationTimelineNewImage}
                   />
                 </React.Fragment>
               );
@@ -126,7 +128,7 @@ export const ProposalDocument: React.FC<ProposalDocumentProps> = ({
                   <PaybackPage
                     proposal={proposal}
                     pageNumber={pageNumber}
-                    illustration={illustrationImages.financial}
+                    illustration={accumulatedSavingsImage}
                   />
                 </React.Fragment>
               );
