@@ -12,30 +12,34 @@ function extractBase64Part(source: string) {
 
 async function assertValidPngParts(
   wrapperPath: string,
-  partPaths: [string, string],
+  partPaths: string[],
+  expectedWidth: number,
+  expectedHeight: number,
 ) {
-  const [wrapper, firstPart, secondPart] = await Promise.all([
+  const [wrapper, ...parts] = await Promise.all([
     read(wrapperPath),
-    read(partPaths[0]),
-    read(partPaths[1]),
+    ...partPaths.map(read),
   ]);
 
-  for (const source of [wrapper, firstPart, secondPart]) {
+  for (const source of [wrapper, ...parts]) {
     assert.doesNotMatch(source, /ELLIPSIZATION/);
   }
 
-  assert.match(wrapper, new RegExp(partPaths[0].split('/').at(-1)!.replace('.ts', '')));
-  assert.match(wrapper, new RegExp(partPaths[1].split('/').at(-1)!.replace('.ts', '')));
+  for (const partPath of partPaths) {
+    const segments = partPath.split('/');
+    const moduleName = segments[segments.length - 1].replace(/\.ts$/, '');
+    assert.match(wrapper, new RegExp(moduleName));
+  }
 
-  const image = Buffer.from(
-    extractBase64Part(firstPart) + extractBase64Part(secondPart),
-    'base64',
-  );
+  const image = Buffer.from(parts.map(extractBase64Part).join(''), 'base64');
 
   assert.deepEqual(
     [...image.subarray(0, 8)],
     [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
   );
+  assert.equal(image.readUInt32BE(16), expectedWidth);
+  assert.equal(image.readUInt32BE(20), expectedHeight);
+  assert.equal(image.subarray(-8, -4).toString('ascii'), 'IEND');
   assert.ok(image.length > 5_000, 'A imagem reconstruída parece estar incompleta.');
 }
 
@@ -60,6 +64,8 @@ test('a arte de implantação forma um PNG válido sem conteúdo truncado', asyn
       'src/assets/pdf-art/approvedImplementationTimelineSmallPart0.ts',
       'src/assets/pdf-art/approvedImplementationTimelineSmallPart1.ts',
     ],
+    320,
+    491,
   );
 });
 
@@ -67,8 +73,16 @@ test('a arte de economia forma um PNG válido sem conteúdo truncado', async () 
   await assertValidPngParts(
     'src/assets/pdf-art/approvedAccumulatedSavingsImage.ts',
     [
-      'src/assets/pdf-art/approvedAccumulatedSavingsSmallPart0.ts',
-      'src/assets/pdf-art/approvedAccumulatedSavingsSmallPart1.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart0.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart1.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart2.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart3.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart4.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart5.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart6.ts',
+      'src/assets/pdf-art/approvedAccumulatedSavingsExactPart7.ts',
     ],
+    320,
+    224,
   );
 });
