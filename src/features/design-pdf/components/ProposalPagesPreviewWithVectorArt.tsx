@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { PdfDocumentTheme } from '../../../components/pdf/pdfTheme';
 import type { ProposalPageKey } from '../../../lib/pdf/proposalPageRegistry';
 import { applyPdfThemeToIllustration } from '../../../lib/pdf/utils/illustrationColorEngine';
+import accumulatedSavingsImage from '../../../assets/pdf-art/accumulatedSavingsImage';
 import financialReturnImage from '../../../assets/pdf-art/financialReturnImage';
 import kitEquipmentImage from '../../../assets/pdf-art/kitEquipmentImage';
 import implementationTimelineImage from '../../../assets/pdf-art/implementationTimelineImage';
@@ -322,7 +323,7 @@ function PaybackPreview({ theme, pageNumber }: Omit<ProposalPreviewPageProps, 'p
             </div>
           </div>
           <ArtStage
-            source={financialReturnImage}
+            source={accumulatedSavingsImage}
             theme={theme}
             label="Economia e retorno do investimento solar"
           />
