@@ -1,4 +1,4 @@
-# Sol Amigo Propostas FV
+# Sol Amigo Pro
 
 SaaS para empresas integradoras, projetistas e vendedores de energia solar criarem propostas comerciais fotovoltaicas profissionais, dimensionarem sistemas, calcularem preço, margem, economia e payback, além de acompanharem clientes e propostas.
 
