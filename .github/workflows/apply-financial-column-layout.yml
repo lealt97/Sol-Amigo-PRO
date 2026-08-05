@@ -1,0 +1,192 @@
+name: Aplicar layout vertical financeiro
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-financial-column-layout.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar layout em coluna
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          preview_path = Path('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx')
+          preview = preview_path.read_text(encoding='utf-8')
+          preview_start = preview.index('function FinancialPreview')
+          preview_end = preview.index('function PaybackPreview', preview_start)
+          preview_function = '''function FinancialPreview({ theme, pageNumber }: Omit<ProposalPreviewPageProps, 'pageKey'>) {
+            return (
+              <PreviewPageFrame
+                theme={theme}
+                pageNumber={pageNumber}
+                eyebrow="Condição comercial"
+                title="Um investimento que substitui uma despesa recorrente"
+              >
+                <div className="flex h-full min-h-0 flex-col gap-3.5">
+                  <div className="grid h-[23%] shrink-0 grid-cols-[1.35fr_.78fr_.78fr] gap-3">
+                    <div
+                      className="flex min-h-0 flex-col justify-center rounded-2xl px-5 py-4"
+                      style={{ backgroundColor: theme.primary, color: theme.onPrimary }}
+                    >
+                      <div className="text-[9px] font-black uppercase tracking-[0.16em]">Investimento total</div>
+                      <div className="my-2 text-[29px] font-black leading-none">R$ 42.900</div>
+                      <p className="text-[9px] font-semibold leading-relaxed">
+                        Equipamentos, projeto, homologação e instalação incluídos.
+                      </p>
+                    </div>
+                    <Metric theme={theme} value="R$ 820/mês" label="Economia inicial" accent="secondary" compact />
+                    <Metric theme={theme} value="R$ 318 mil" label="Economia em 25 anos" accent="accent" compact />
+                  </div>
+
+                  <ArtStage
+                    source={financialReturnImage}
+                    theme={theme}
+                    label="Retorno financeiro do sistema solar"
+                    className="min-h-0 flex-1"
+                    outputWidth={2400}
+                  />
+
+                  <div
+                    className="shrink-0 rounded-2xl border px-4 py-3 text-[10px] font-semibold leading-relaxed"
+                    style={{ borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }}
+                  >
+                    Parte do gasto recorrente com energia se transforma em um ativo instalado no imóvel e em economia acumulada.
+                  </div>
+                </div>
+              </PreviewPageFrame>
+            );
+          }
+
+          '''
+          preview = preview[:preview_start] + preview_function + preview[preview_end:]
+          preview_path.write_text(preview, encoding='utf-8')
+
+          pdf_path = Path('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx')
+          pdf = pdf_path.read_text(encoding='utf-8')
+          pdf_start = pdf.index('export function FinancialPage')
+          pdf_end = pdf.index('export function PaybackPage', pdf_start)
+          pdf_function = '''export function FinancialPage({ proposal, pageNumber, illustration }: IllustratedPageProps) {
+            const t = usePdfTheme();
+            const investment = investmentOf(proposal);
+            const monthly = n(proposal.solar?.monthly_savings) || n(proposal.bill_amount) * 0.85;
+            const savings25 = n(
+              proposal.solar?.net_savings_25_years || proposal.solar?.return_25_years,
+            ) || annualSavingsOf(proposal) * 25;
+
+            return (
+              <Frame
+                pageNumber={pageNumber}
+                eyebrow="Condição comercial"
+                title="Um investimento que substitui uma despesa recorrente"
+                proposal={proposal}
+              >
+                <View style={[s.row, { justifyContent: 'space-between', marginBottom: 12 }]}>
+                  <View
+                    style={[
+                      s.card,
+                      {
+                        width: '48%',
+                        borderWidth: 0,
+                        backgroundColor: t.primary,
+                        paddingVertical: 13,
+                        paddingHorizontal: 16,
+                        minHeight: 104,
+                        justifyContent: 'center',
+                      },
+                    ]}
+                  >
+                    <Text style={[s.label, { color: t.onPrimary }]}>Investimento total</Text>
+                    <Text style={{ fontSize: 25, fontWeight: 700, color: t.onPrimary, marginVertical: 6 }}>
+                      {money(investment)}
+                    </Text>
+                    <Text style={[s.body, { color: t.onPrimary, fontSize: 7.2 }]}>
+                      Equipamentos, projeto, homologação e instalação conforme o escopo comercial.
+                    </Text>
+                  </View>
+                  <View style={{ width: '24%' }}>
+                    <Metric label="Economia inicial" value={`${money(monthly)}/mês`} tone="secondary" compact />
+                  </View>
+                  <View style={{ width: '24%' }}>
+                    <Metric label="Economia em 25 anos" value={money(savings25)} tone="accent" compact />
+                  </View>
+                </View>
+
+                <ArtStage src={illustration} height={342} />
+
+                <View
+                  style={[
+                    s.card,
+                    {
+                      borderColor: t.border,
+                      backgroundColor: t.surface,
+                      marginTop: 12,
+                      paddingVertical: 11,
+                      paddingHorizontal: 13,
+                    },
+                  ]}
+                >
+                  <Text style={[s.body, { color: t.text }]}>
+                    Parte do gasto recorrente com energia se transforma em um ativo instalado no imóvel e em economia acumulada.
+                  </Text>
+                </View>
+              </Frame>
+            );
+          }
+
+          '''
+          pdf = pdf[:pdf_start] + pdf_function + pdf[pdf_end:]
+          pdf_path.write_text(pdf, encoding='utf-8')
+
+          test_path = Path('tests/pdf-approved-art-assets.test.ts')
+          tests = test_path.read_text(encoding='utf-8')
+          test_marker = "test('a arte de implantação forma um PNG válido sem conteúdo truncado'"
+          new_test = '''test('a página financeira usa layout vertical para ampliar a arte', async () => {
+            const [preview, pdf] = await Promise.all([
+              read('src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx'),
+              read('src/components/pdf/sections/ProposalPagesWithVectorArt.tsx'),
+            ]);
+
+            const financialPreview = preview.match(/function FinancialPreview[\\s\\S]*?function PaybackPreview/)?.[0];
+            const financialPdf = pdf.match(/export function FinancialPage[\\s\\S]*?export function PaybackPage/)?.[0];
+
+            assert.ok(financialPreview, 'A prévia financeira precisa existir.');
+            assert.ok(financialPdf, 'A página financeira do PDF precisa existir.');
+            assert.match(financialPreview, /grid h-\\[23%\\].*grid-cols-\\[1\\.35fr_\\.78fr_\\.78fr\\]/);
+            assert.match(financialPreview, /className="min-h-0 flex-1"/);
+            assert.doesNotMatch(financialPreview, /grid-cols-\\[\\.82fr_1\\.18fr\\]/);
+            assert.match(financialPdf, /<ArtStage src=\\{illustration\\} height=\\{342\\} \\/>/);
+            assert.doesNotMatch(financialPdf, /width: '58%'/);
+          });
+
+          '''
+          if 'a página financeira usa layout vertical para ampliar a arte' not in tests:
+              tests = tests.replace(test_marker, new_test + test_marker)
+              test_path.write_text(tests, encoding='utf-8')
+          PY
+
+      - name: Remover workflow temporário
+        run: rm .github/workflows/apply-financial-column-layout.yml
+
+      - name: Publicar alteração
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/design-pdf/components/ProposalPagesPreviewWithVectorArt.tsx \
+                  src/components/pdf/sections/ProposalPagesWithVectorArt.tsx \
+                  tests/pdf-approved-art-assets.test.ts \
+                  .github/workflows/apply-financial-column-layout.yml
+          git commit -m "feat: ampliar arte financeira em layout vertical"
+          git push
