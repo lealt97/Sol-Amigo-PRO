@@ -35,6 +35,10 @@ import { FirstUseRoute } from "./pages/FirstUseRoute";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { LegalDocumentPage } from "./pages/legal/LegalDocumentPage";
 
+const routerBasename = import.meta.env.BASE_URL === '/'
+  ? undefined
+  : import.meta.env.BASE_URL.replace(/\/$/, '');
+
 function Home() {
   return <Navigate to="/dashboard" replace />;
 }
@@ -44,7 +48,7 @@ export default function App() {
     <AuthProvider>
       <PlatformThemeBootstrap />
       <Toaster position="top-right" richColors />
-      <Router>
+      <Router basename={routerBasename}>
         <Routes>
           <Route path="/planos" element={<Plans />} />
           <Route path="/precos" element={<Navigate to="/planos" replace />} />
