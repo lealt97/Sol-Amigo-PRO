@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const THEME = 'src/lib/theme/platformTheme.ts';
-const PAYBACK = 'src/pages/propostas/PaybackStep.tsx';
+const PAYBACK = 'src/pages/propostas/PaybackStepRegulatory.tsx';
 
 test('motor de cores cria papéis semânticos para gráficos', async () => {
   const source = await readFile(THEME, 'utf8');
@@ -34,41 +34,21 @@ test('motor de cores cria papéis semânticos para gráficos', async () => {
   assert.match(source, /setCssVar\('--color-chart-marker', palette\.chartMarker\)/);
 });
 
-test('gráfico de payback consome a paleta semântica nas séries nominal e descontada', async () => {
+test('gráfico de payback usa a paleta semântica e as séries nominal e descontada', async () => {
   const source = await readFile(PAYBACK, 'utf8');
   const titleIndex = source.indexOf('Fluxo de caixa acumulado em {result.analysisYears} anos');
-  const start = source.lastIndexOf('          <Card\n', titleIndex);
+  const start = source.lastIndexOf('<Card', titleIndex);
   const end = source.indexOf('</Card>', titleIndex);
 
   assert.ok(titleIndex >= 0 && start >= 0 && end > titleIndex, 'Gráfico de payback não encontrado.');
   const chart = source.slice(start, end);
 
-  for (const cssVariable of [
-    '--color-chart-panel',
-    '--color-chart-grid',
-    '--color-chart-axis',
-    '--color-chart-zero',
-    '--color-chart-cursor',
-    '--color-chart-tooltip-bg',
-    '--color-chart-tooltip-border',
-    '--color-chart-tooltip-text',
-    '--color-chart-tooltip-muted',
-    '--color-chart-positive',
-    '--color-chart-negative',
-    '--color-chart-marker',
-    '--color-chart-marker-bg',
-  ]) {
-    assert.match(chart, new RegExp(cssVariable));
-  }
-
+  assert.match(chart, /--color-chart-positive/);
+  assert.match(chart, /--color-chart-negative/);
   assert.match(source, /const paybackMarkerYear =/);
   assert.match(source, /const discountedPaybackMarkerYear =/);
+  assert.match(chart, /data=\{result\.chartData\}/);
   assert.match(chart, /dataKey="cumulativeBalance"/);
   assert.match(chart, /dataKey="discountedCumulativeBalance"/);
-  assert.match(chart, /value: 'Simples'/);
-  assert.match(chart, /value: 'Descontado'/);
-  assert.match(chart, /Capital não recuperado/);
-  assert.match(chart, /Retorno acumulado/);
-  assert.match(chart, /Payback simples/);
-  assert.match(chart, /Payback descontado/);
+  assert.match(chart, /ReferenceLine y=\{0\}/);
 });

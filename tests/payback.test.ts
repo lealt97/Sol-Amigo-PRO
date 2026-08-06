@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculatePayback, classifyPayback } from '../src/lib/calculations/payback';
+import {
+  calculatePayback,
+  classifyPayback,
+  ENERGY_CREDIT_VALIDITY_MONTHS,
+  OFFICIAL_PAYBACK_METHOD,
+  PAYBACK_CASH_FLOW_RESOLUTION,
+} from '../src/lib/calculations/payback';
 
 const BASE_INPUT = {
   proposalPrice: 30_000,
@@ -15,7 +21,7 @@ const BASE_INPUT = {
   additionalCosts: [{ description: 'Instalação', amount: 3_000 }],
 };
 
-test('projeta fluxo de caixa, payback simples, descontado, VPL e TIR', () => {
+test('projeta fluxo mensal, payback oficial, consolidação anual, VPL e TIR', () => {
   const result = calculatePayback({
     ...BASE_INPUT,
     analysisYears: 25,
@@ -26,10 +32,20 @@ test('projeta fluxo de caixa, payback simples, descontado, VPL e TIR', () => {
     compensationFactorPercent: 100,
   });
 
+  assert.equal(result.paybackMethod, OFFICIAL_PAYBACK_METHOD);
+  assert.equal(result.cashFlowResolution, PAYBACK_CASH_FLOW_RESOLUTION);
+  assert.equal(result.creditValidityMonths, ENERGY_CREDIT_VALIDITY_MONTHS);
+  assert.equal(result.paybackYears, result.simplePaybackYears);
+  assert.equal(result.paybackMonths, result.simplePaybackMonths);
   assert.equal(result.simplePaybackYears, 5);
+  assert.equal(result.simplePaybackMonths, 60);
   assert.ok(result.discountedPaybackYears > result.simplePaybackYears);
+  assert.equal(result.status, classifyPayback(result.paybackYears));
   assert.ok(result.netPresentValue > 0);
-  assert.ok((result.internalRateOfReturnPercent ?? 0) > 0);
+  assert.equal(result.internalRateOfReturnPercent, 21.76);
+  assert.equal(result.monthlyData.length, 301);
+  assert.equal(result.monthlyData[0]?.cumulativeBalance, -30_000);
+  assert.equal(result.monthlyData[60]?.cumulativeBalance, 0);
   assert.equal(result.chartData.length, 26);
   assert.equal(result.chartData[0]?.cumulativeBalance, -30_000);
   assert.equal(result.chartData[5]?.cumulativeBalance, 0);
@@ -39,7 +55,47 @@ test('projeta fluxo de caixa, payback simples, descontado, VPL e TIR', () => {
   assert.equal(result.marginPercentage, 23.33);
 });
 
-test('aplica degradação, reajuste tarifário, O&M e troca do inversor por ano', () => {
+test('encontra o retorno no mês exato sem esperar o fechamento do ano', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    proposalPrice: 1_000,
+    kitCost: null,
+    monthlyCompensableConsumptionKwh: 100,
+    monthlyGenerationKwh: 100,
+    additionalCosts: [],
+    analysisYears: 2,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 0,
+  });
+
+  assert.equal(result.paybackMonths, 10);
+  assert.equal(result.paybackYears, 0.83);
+  assert.equal(result.monthlyData[9]?.cumulativeBalance, -100);
+  assert.equal(result.monthlyData[10]?.cumulativeBalance, 0);
+  assert.ok((result.chartData[1]?.cumulativeBalance ?? 0) > 0);
+});
+
+test('classifica a viabilidade pelo payback simples oficial, não pelo descontado', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    analysisYears: 25,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 18,
+    compensationFactorPercent: 100,
+  });
+
+  assert.equal(result.paybackYears, 5);
+  assert.equal(result.simplePaybackYears, 5);
+  assert.ok(result.discountedPaybackYears > 10);
+  assert.equal(result.status, 'very_good');
+  assert.equal(result.statusLabel, 'Muito bom');
+});
+
+test('aplica degradação, reajuste tarifário, O&M e troca do inversor por mês', () => {
   const result = calculatePayback({
     ...BASE_INPUT,
     analysisYears: 10,
@@ -54,10 +110,125 @@ test('aplica degradação, reajuste tarifário, O&M e troca do inversor por ano'
 
   assert.equal(result.totalOperationMaintenanceCost, 3_000);
   assert.equal(result.totalReplacementCost, 4_000);
+  assert.equal(result.monthlyData[60]?.replacementCost, 4_000);
   assert.equal(result.chartData[5]?.replacementCost, 4_000);
   assert.ok(result.lastYearGenerationKwh < result.firstYearGenerationKwh);
-  assert.ok(result.chartData[2]!.tariffPerKwh > result.chartData[1]!.tariffPerKwh);
+  assert.ok(result.monthlyData[13]!.tariffPerKwh > result.monthlyData[1]!.tariffPerKwh);
   assert.equal(result.compensationFactorPercent, 90);
+});
+
+test('transporta excedentes entre meses por meio do banco de créditos', () => {
+  const generationProfile = [50, 150, 50, 150, 50, 150, 50, 150, 50, 150, 50, 150];
+  const consumptionProfile = Array.from({ length: 12 }, () => 100);
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    proposalPrice: 1_200,
+    kitCost: null,
+    additionalCosts: [],
+    monthlyCompensableConsumptionKwh: 100,
+    monthlyGenerationKwh: 100,
+    monthlyCompensableConsumptionProfileKwh: consumptionProfile,
+    monthlyGenerationProfileKwh: generationProfile,
+    analysisYears: 2,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 0,
+  });
+
+  assert.equal(result.monthlyData[1]?.compensatedEnergyKwh, 50);
+  assert.equal(result.monthlyData[2]?.creditsGeneratedKwh, 150);
+  assert.equal(result.monthlyData[2]?.creditsUsedKwh, 100);
+  assert.equal(result.monthlyData[2]?.creditBalanceKwh, 50);
+  assert.equal(result.monthlyData[3]?.compensatedEnergyKwh, 100);
+  assert.equal(result.annualSavings, 1_150);
+  assert.equal(result.monthlySavings, 95.83);
+  assert.equal(result.creditBalanceEndFirstYearKwh, 50);
+  assert.equal(result.firstYearGenerationKwh, 1_200);
+});
+
+test('usa primeiro os créditos mais antigos e expira o saldo remanescente em 60 meses', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    proposalPrice: 1_000,
+    kitCost: null,
+    additionalCosts: [],
+    monthlyCompensableConsumptionKwh: 100,
+    monthlyGenerationKwh: 1,
+    monthlyCompensableConsumptionProfileKwh: [50, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    monthlyGenerationProfileKwh: [100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    initialCreditBalanceKwh: 100,
+    initialCreditAgeMonths: 59,
+    analysisYears: 1,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 0,
+  });
+
+  assert.equal(result.monthlyData[1]?.creditsUsedKwh, 50);
+  assert.equal(result.monthlyData[1]?.creditBalanceKwh, 150);
+  assert.equal(result.monthlyData[2]?.expiredCreditsKwh, 50);
+  assert.equal(result.monthlyData[2]?.creditsUsedKwh, 100);
+  assert.equal(result.lifetimeExpiredCreditsKwh, 50);
+});
+
+test('alinha os perfis de janeiro a dezembro ao mês civil inicial da projeção', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    proposalPrice: 1_000,
+    kitCost: null,
+    additionalCosts: [],
+    monthlyCompensableConsumptionKwh: 100,
+    monthlyGenerationKwh: 100,
+    monthlyCompensableConsumptionProfileKwh: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120],
+    monthlyGenerationProfileKwh: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120],
+    distributedGenerationRegime: 'gd1_grandfathered',
+    projectionStartYear: 2026,
+    projectionStartMonth: 12,
+    analysisYears: 1,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 0,
+  });
+
+  assert.equal(result.monthlyData[1]?.calendarMonth, 12);
+  assert.equal(result.monthlyData[1]?.generationKwh, 120);
+  assert.equal(result.monthlyData[2]?.calendarMonth, 1);
+  assert.equal(result.monthlyData[2]?.generationKwh, 10);
+});
+
+test('limita o autoconsumo instantâneo à carga existente no mês', () => {
+  const result = calculatePayback({
+    ...BASE_INPUT,
+    proposalPrice: 1_000,
+    kitCost: null,
+    additionalCosts: [],
+    monthlyCompensableConsumptionKwh: 50,
+    monthlyGenerationKwh: 200,
+    simultaneousSelfConsumptionPercent: 80,
+    analysisYears: 1,
+    annualTariffEscalationPercent: 0,
+    annualGenerationDegradationPercent: 0,
+    annualOperationMaintenancePercent: 0,
+    discountRatePercent: 0,
+  });
+
+  assert.equal(result.monthlyData[1]?.selfConsumedEnergyKwh, 50);
+  assert.equal(result.monthlyData[1]?.injectedEnergyKwh, 150);
+  assert.equal(result.monthlyData[1]?.creditsUsedKwh, 0);
+  assert.equal(result.monthlyData[1]?.creditBalanceKwh, 150);
+});
+
+test('rejeita perfil mensal incompleto', () => {
+  assert.throws(
+    () => calculatePayback({
+      ...BASE_INPUT,
+      monthlyGenerationProfileKwh: [500, 500],
+    }),
+    /exatamente 12 meses/,
+  );
 });
 
 test('calcula payback sem kit e mantém rentabilidade interna indisponível', () => {
@@ -91,11 +262,12 @@ test('limita a economia ao fator de compensação informado', () => {
     discountRatePercent: 0,
   });
 
+  assert.equal(result.gridCompensatedEnergyKwhPerMonth, 500);
   assert.equal(result.compensatedEnergyKwhPerMonth, 400);
   assert.equal(result.monthlySavings, 400);
 });
 
-test('compara a fatura média com economia do primeiro ano', () => {
+test('compara a fatura média com economia média do primeiro ano', () => {
   const result = calculatePayback({
     ...BASE_INPUT,
     averageMonthlyBillAmount: 610,
@@ -122,7 +294,6 @@ test('classifica os intervalos de retorno', () => {
   assert.equal(classifyPayback(10.01), 'unfeasible');
   assert.equal(classifyPayback(Number.POSITIVE_INFINITY), 'unfeasible');
 });
-
 
 test('calcula lucro e margem usando custo manual quando não há kit', () => {
   const result = calculatePayback({

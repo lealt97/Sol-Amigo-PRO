@@ -4,8 +4,8 @@ import test from 'node:test';
 
 test('a etapa de payback expõe premissas avançadas e indicadores financeiros', async () => {
   const [step, engine, draft] = await Promise.all([
-    readFile('src/pages/propostas/PaybackStep.tsx', 'utf8'),
-    readFile('src/lib/calculations/payback.ts', 'utf8'),
+    readFile('src/pages/propostas/PaybackStepRegulatory.tsx', 'utf8'),
+    readFile('src/lib/calculations/paybackEngine.ts', 'utf8'),
     readFile('src/types/proposalDraft.ts', 'utf8'),
   ]);
 
@@ -26,8 +26,11 @@ test('a etapa de payback expõe premissas avançadas e indicadores financeiros',
   assert.match(engine, /internalRateOfReturnPercent/);
   assert.match(engine, /annualGenerationDegradationPercent/);
   assert.match(engine, /compensationFactorPercent/);
+  assert.match(engine, /lifetimeDistributedGenerationCharges/);
 
   assert.match(draft, /analysisYears\?: string/);
   assert.match(draft, /discountRatePercent\?: string/);
   assert.match(draft, /inverterReplacementCost\?: string/);
+  assert.match(draft, /distributedGenerationRegime\?: DistributedGenerationRegime/);
+  assert.match(draft, /fioBTariffCentsPerKwh\?: string/);
 });

@@ -1,4 +1,5 @@
 import type { ElectricalStandardId } from '../lib/calculations/electricalStandards';
+import type { DistributedGenerationRegime } from '../lib/calculations/distributedGeneration';
 import type { RoofCardinalDirection } from './roof';
 
 export const PROPOSAL_DRAFT_VERSION = 1 as const;
@@ -44,6 +45,18 @@ export type ProposalDraftPaybackForm = {
   compensationFactorPercent?: string;
   inverterReplacementYear?: string;
   inverterReplacementCost?: string;
+  distributedGenerationRegime?: DistributedGenerationRegime;
+  projectionStartYear?: string;
+  projectionStartMonth?: string;
+  simultaneousSelfConsumptionPercent?: string;
+  fioBTariffCentsPerKwh?: string;
+  fioATariffCentsPerKwh?: string;
+  sectorChargesCentsPerKwh?: string;
+  postTransitionFioBPercent?: string;
+  postTransitionFioAPercent?: string;
+  postTransitionSectorChargesPercent?: string;
+  generationProfileMode?: 'uniform' | 'monthly';
+  monthlyGenerationProfileKwh?: string[];
   pisPercent: string;
   cofinsPercent: string;
   icmsPercent: string;

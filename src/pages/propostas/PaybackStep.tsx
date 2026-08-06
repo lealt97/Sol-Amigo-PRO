@@ -1,39 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeCheck,
-  Calculator,
   CircleDollarSign,
-  Plus,
-  Trash2,
-  TriangleAlert,
+  FileText,
+  LockKeyhole,
+  Settings2,
+  SunMedium,
+  WalletCards,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { Button } from '../../components/ui/Button';
-import { Card, CardContent } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
-import {
-  calculatePayback,
-  type PaybackResult,
-  type PaybackStatus,
-} from '../../lib/calculations/payback';
+import { useLocation, useParams } from 'react-router-dom';
+import type { PaybackResult } from '../../lib/calculations/payback';
+import { setActivePaybackProfiles } from '../../lib/calculations/paybackProfileContext';
 import {
   CONNECTION_AVAILABILITY_KWH,
   type ConnectionType,
 } from '../../lib/calculations/professionalSizing';
-import { profileService } from '../../services/profileService';
-import type { ProposalDraftPaybackForm } from '../../types/proposalDraft';
+import { parseConsumptionKwhInput } from '../../lib/formatters/parseConsumptionKwhInput';
+import { proposalService } from '../../services/proposalService';
+import {
+  isProposalDraftState,
+  type ProposalDraftPaybackForm,
+} from '../../types/proposalDraft';
 import type { SolarKit } from '../../types/solarKit';
+import { PaybackStep as PaybackStepRegulatory } from './PaybackStepRegulatory';
+
+const MONTHS = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+] as const;
 
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -46,143 +40,117 @@ const decimal = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 });
 
-const CONNECTION_LABELS: Record<ConnectionType, string> = {
-  monophase: 'Monofásica',
-  biphase: 'Bifásica',
-  triphase: 'Trifásica',
-};
-
-const STATUS_STYLES: Record<PaybackStatus, string> = {
-  excellent: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  very_good: 'border-green-200 bg-green-50 text-green-700',
-  good: 'border-brand-blue/30 bg-brand-blue/10 text-brand-blue',
-  regular: 'border-amber-200 bg-amber-50 text-amber-800',
-  unfeasible: 'border-red-200 bg-red-50 text-red-700',
-};
-
-type AdditionalCostDraft = ProposalDraftPaybackForm['additionalCosts'][number];
-type PaybackFormState = ProposalDraftPaybackForm;
-
-const createCost = (): AdditionalCostDraft => ({
-  id: `cost-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  description: '',
-  amount: '',
+const energy = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
 });
 
-const createDefaultForm = (margin = 30): PaybackFormState => ({
-  tariffCentsPerKwh: '100',
-  averageMonthlyBillAmount: '',
-  proposalPrice: '',
-  pricingMode: 'margin',
-  estimatedSystemCost: '',
-  analysisYears: '25',
-  annualTariffEscalationPercent: '4.5',
-  annualGenerationDegradationPercent: '0.5',
-  annualOperationMaintenancePercent: '0.5',
-  discountRatePercent: '8',
-  compensationFactorPercent: '100',
-  inverterReplacementYear: '12',
-  inverterReplacementCost: '',
-  pisPercent: '0',
-  cofinsPercent: '0',
-  icmsPercent: '0',
-  otherTariffsPercent: '0',
-  marginPercentage: String(margin),
-  additionalCosts: [],
-});
-
-const normalizeForm = (form: ProposalDraftPaybackForm, defaultMargin = 30): PaybackFormState => {
-  const proposalPrice = typeof form.proposalPrice === 'string'
-    ? form.proposalPrice
-    : typeof form.estimatedSystemCost === 'string'
-      ? form.estimatedSystemCost
-      : '';
-  const pricingMode = form.pricingMode === 'margin' || form.pricingMode === 'manual'
-    ? form.pricingMode
-    : proposalPrice.trim()
-      ? 'manual'
-      : 'margin';
-  const normalized = {
-    ...form,
-    proposalPrice,
-    pricingMode,
-    averageMonthlyBillAmount: typeof form.averageMonthlyBillAmount === 'string' ? form.averageMonthlyBillAmount : '',
-    estimatedSystemCost: typeof form.estimatedSystemCost === 'string' ? form.estimatedSystemCost : '',
-    analysisYears: typeof form.analysisYears === 'string' ? form.analysisYears : '25',
-    annualTariffEscalationPercent: typeof form.annualTariffEscalationPercent === 'string' ? form.annualTariffEscalationPercent : '4.5',
-    annualGenerationDegradationPercent: typeof form.annualGenerationDegradationPercent === 'string' ? form.annualGenerationDegradationPercent : '0.5',
-    annualOperationMaintenancePercent: typeof form.annualOperationMaintenancePercent === 'string' ? form.annualOperationMaintenancePercent : '0.5',
-    discountRatePercent: typeof form.discountRatePercent === 'string' ? form.discountRatePercent : '8',
-    compensationFactorPercent: typeof form.compensationFactorPercent === 'string' ? form.compensationFactorPercent : '100',
-    inverterReplacementYear: typeof form.inverterReplacementYear === 'string' ? form.inverterReplacementYear : '12',
-    inverterReplacementCost: typeof form.inverterReplacementCost === 'string' ? form.inverterReplacementCost : '',
-    marginPercentage: typeof form.marginPercentage === 'string' && form.marginPercentage.trim()
-      ? form.marginPercentage
-      : String(defaultMargin),
-  };
-
-  const unchanged = Object.entries(normalized).every(([key, value]) => (
-    form[key as keyof ProposalDraftPaybackForm] === value
-  ));
-  return unchanged ? form : normalized;
+type PaybackStepProps = {
+  selectedKit: SolarKit | null;
+  connectionType: ConnectionType;
+  monthlyCompensableConsumptionKwh: number;
+  monthlyGenerationKwh: number;
+  initialForm?: ProposalDraftPaybackForm | null;
+  onDraftChange?: (form: ProposalDraftPaybackForm) => void;
+  onResultChange: (result: PaybackResult | null) => void;
 };
 
-const parseNumber = (value: string) => {
-  const normalized = value.trim().replace(',', '.');
-  return normalized ? Number(normalized) : Number.NaN;
+type GenerationProfileMode = NonNullable<ProposalDraftPaybackForm['generationProfileMode']>;
+
+function useStableInitialForm(form: ProposalDraftPaybackForm | null | undefined) {
+  const value = form ?? null;
+  const serialized = JSON.stringify(value);
+  const reference = useRef({ serialized, value });
+
+  if (reference.current.serialized !== serialized) {
+    reference.current = { serialized, value };
+  }
+
+  return reference.current.value;
+}
+
+const createUniformGenerationProfile = (monthlyGenerationKwh: number) => (
+  Array.from({ length: 12 }, () => String(Math.max(0, monthlyGenerationKwh)))
+);
+
+const resolveStoredGenerationProfile = (
+  form: ProposalDraftPaybackForm | null,
+  monthlyGenerationKwh: number,
+) => (
+  form?.monthlyGenerationProfileKwh?.length === 12
+    ? [...form.monthlyGenerationProfileKwh]
+    : createUniformGenerationProfile(monthlyGenerationKwh)
+);
+
+const formatPaybackPeriod = (months: number, analysisYears: number) => {
+  if (!Number.isFinite(months)) return `Acima de ${analysisYears} anos`;
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  if (years === 0) return `${remainingMonths} ${remainingMonths === 1 ? 'mês' : 'meses'}`;
+  if (remainingMonths === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`;
+  return `${years} ${years === 1 ? 'ano' : 'anos'} e ${remainingMonths} ${remainingMonths === 1 ? 'mês' : 'meses'}`;
 };
 
-function PaybackField({
-  label,
-  value,
-  onChange,
-  prefix,
-  suffix,
-  helper,
-  min = 0,
-  max,
-}: {
+function EnergySummary({ label, value, highlight = false }: {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
-  prefix?: string;
-  suffix?: string;
-  helper?: string;
-  min?: number;
-  max?: number;
+  value: number;
+  highlight?: boolean;
 }) {
-  const inputClassName = [prefix ? 'pl-10' : '', suffix ? 'pr-24' : '']
-    .filter(Boolean)
-    .join(' ');
-
   return (
-    <label className="space-y-2">
-      <span className="text-sm font-semibold text-brand-dark">{label}</span>
-      <div className="relative">
-        <Input
-          type="number"
-          min={min}
-          max={max}
-          step="0.01"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={inputClassName || undefined}
-        />
-        {prefix && (
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">
-            {prefix}
-          </span>
-        )}
-        {suffix && (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-slate-500">
-            {suffix}
-          </span>
-        )}
-      </div>
-      {helper && <p className="text-xs leading-5 text-slate-500">{helper}</p>}
-    </label>
+    <div className={`rounded-xl border p-4 ${
+      highlight ? 'border-brand-blue/30 bg-brand-blue/10' : 'border-brand-border bg-brand-gray/40'
+    }`}>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-brand-dark">{energy.format(value)} kWh</p>
+    </div>
   );
 }
+
+function ExecutiveMetric({ label, value, helper, highlight = false }: {
+  label: string;
+  value: string;
+  helper: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 ${
+      highlight
+        ? 'border-brand-blue/30 bg-brand-blue/10'
+        : 'border-brand-border bg-brand-surface'
+    }`}>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-brand-dark">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+const FLOW_LINKS = [
+  {
+    href: '#configuracao-comercial-regulatoria',
+    label: 'Configuração comercial e regulatória',
+    helper: 'Preço, custos, tarifa, tributos e Fio B',
+    icon: Settings2,
+  },
+  {
+    href: '#perfil-mensal-energia',
+    label: 'Perfil mensal de energia',
+    helper: 'Sazonalidade de consumo e geração',
+    icon: SunMedium,
+  },
+  {
+    href: '#banco-creditos',
+    label: 'Banco de créditos',
+    helper: 'Autoconsumo, injeção, uso e expiração',
+    icon: WalletCards,
+  },
+  {
+    href: '#comparacao-fatura',
+    label: 'Comparação da fatura',
+    helper: 'Economia, valor residual e consistência',
+    icon: FileText,
+  },
+] as const;
 
 export function PaybackStep({
   selectedKit,
@@ -192,723 +160,452 @@ export function PaybackStep({
   initialForm,
   onDraftChange,
   onResultChange,
-}: {
-  selectedKit: SolarKit | null;
-  connectionType: ConnectionType;
-  monthlyCompensableConsumptionKwh: number;
-  monthlyGenerationKwh: number;
-  initialForm?: ProposalDraftPaybackForm | null;
-  onDraftChange?: (form: ProposalDraftPaybackForm) => void;
-  onResultChange: (result: PaybackResult | null) => void;
-}) {
-  const { user } = useAuth();
-  const storageKey = 'sol-amigo:payback:pricing-v2';
-  const [form, setForm] = useState<PaybackFormState>(() => normalizeForm(initialForm || createDefaultForm(30), 30));
-  const [hydrated, setHydrated] = useState(false);
+}: PaybackStepProps) {
+  const location = useLocation();
+  const { id: proposalId } = useParams<{ id?: string }>();
+  const isEditMode = location.pathname.endsWith('/editar');
+  const stableInitialForm = useStableInitialForm(initialForm);
+  const [result, setResult] = useState<PaybackResult | null>(null);
+  const [monthlyConsumptionProfile, setMonthlyConsumptionProfile] = useState<number[] | null>(null);
+  const [consumptionProfileSource, setConsumptionProfileSource] = useState('Média mensal uniforme');
+  const [generationProfileMode, setGenerationProfileMode] = useState<GenerationProfileMode>(
+    stableInitialForm?.generationProfileMode === 'monthly' ? 'monthly' : 'uniform',
+  );
+  const [monthlyGenerationProfile, setMonthlyGenerationProfile] = useState<string[]>(
+    () => resolveStoredGenerationProfile(stableInitialForm, monthlyGenerationKwh),
+  );
+  const latestDraftRef = useRef<ProposalDraftPaybackForm | null>(stableInitialForm);
+
+  useEffect(() => {
+    latestDraftRef.current = stableInitialForm;
+    setGenerationProfileMode(
+      stableInitialForm?.generationProfileMode === 'monthly' ? 'monthly' : 'uniform',
+    );
+    setMonthlyGenerationProfile(
+      resolveStoredGenerationProfile(stableInitialForm, monthlyGenerationKwh),
+    );
+  }, [stableInitialForm, monthlyGenerationKwh]);
+
+  useEffect(() => {
+    if (generationProfileMode !== 'uniform') return;
+    setMonthlyGenerationProfile(createUniformGenerationProfile(monthlyGenerationKwh));
+  }, [generationProfileMode, monthlyGenerationKwh]);
 
   useEffect(() => {
     let active = true;
-
-    const hydrate = async () => {
-      setHydrated(false);
-      let defaultMargin = 30;
-
-      if (user?.id) {
-        try {
-          const profile = await profileService.getProfile(user.id);
-          const configuredMargin = Number(profile.default_margin_percentage);
-          if (Number.isFinite(configuredMargin) && configuredMargin >= 0 && configuredMargin < 100) {
-            defaultMargin = configuredMargin;
-          }
-        } catch {
-          defaultMargin = 30;
-        }
-      }
-
-      if (initialForm) {
-        if (active) setForm(normalizeForm(initialForm, defaultMargin));
-        if (active) setHydrated(true);
+    const loadConsumptionProfile = async () => {
+      if (!proposalId) {
+        setMonthlyConsumptionProfile(null);
+        setConsumptionProfileSource('Média mensal uniforme');
         return;
       }
 
-      const saved = sessionStorage.getItem(storageKey);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved) as PaybackFormState;
-          if (active) setForm(normalizeForm(parsed, defaultMargin));
-          if (active) setHydrated(true);
+      try {
+        const proposal = isEditMode
+          ? await proposalService.getEditableProposalById(proposalId)
+          : await proposalService.getFlowDraftById(proposalId);
+        if (!active || !isProposalDraftState(proposal.flow_state)) return;
+        const draft = proposal.flow_state;
+        if (draft.consumptionMode !== 'history' || draft.monthlyConsumption.length !== 12) {
+          setMonthlyConsumptionProfile(null);
+          setConsumptionProfileSource('Média mensal uniforme');
           return;
-        } catch {
-          sessionStorage.removeItem(storageKey);
         }
-      }
 
-      if (active) {
-        setForm(createDefaultForm(defaultMargin));
-        setHydrated(true);
+        const availabilityKwh = CONNECTION_AVAILABILITY_KWH[connectionType];
+        const profile = draft.monthlyConsumption.map((value) => {
+          const parsed = parseConsumptionKwhInput(value);
+          return Number.isFinite(parsed) ? Math.max(0, parsed - availabilityKwh) : Number.NaN;
+        });
+        if (!profile.every(Number.isFinite)) {
+          setMonthlyConsumptionProfile(null);
+          setConsumptionProfileSource('Média mensal uniforme');
+          return;
+        }
+
+        setMonthlyConsumptionProfile(profile);
+        setConsumptionProfileSource('Histórico real de 12 meses, descontada a disponibilidade');
+      } catch {
+        if (!active) return;
+        setMonthlyConsumptionProfile(null);
+        setConsumptionProfileSource('Média mensal uniforme');
       }
     };
 
-    void hydrate();
+    void loadConsumptionProfile();
     return () => {
       active = false;
     };
-  }, [initialForm, storageKey, user?.id]);
+  }, [connectionType, isEditMode, proposalId]);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    sessionStorage.setItem(storageKey, JSON.stringify(form));
-    onDraftChange?.(form);
-  }, [form, hydrated, onDraftChange, storageKey]);
+  const numericGenerationProfile = useMemo(() => (
+    generationProfileMode === 'monthly'
+      ? monthlyGenerationProfile.map((value) => {
+          const normalized = value.trim().replace(',', '.');
+          return normalized ? Number(normalized) : Number.NaN;
+        })
+      : null
+  ), [generationProfileMode, monthlyGenerationProfile]);
 
-  const pricingMode = form.pricingMode === 'manual' ? 'manual' : 'margin';
+  setActivePaybackProfiles({
+    monthlyCompensableConsumptionProfileKwh: monthlyConsumptionProfile,
+    monthlyGenerationProfileKwh: numericGenerationProfile,
+  });
 
-  const calculation = useMemo(() => {
-    if (!hydrated) return { result: null, error: null };
+  const profileKey = JSON.stringify({
+    consumption: monthlyConsumptionProfile,
+    generation: numericGenerationProfile,
+  });
 
-    try {
-      const additionalCosts = form.additionalCosts.map((cost) => ({
-        description: cost.description.trim() || 'Custo adicional',
-        amount: parseNumber(cost.amount || '0'),
-      }));
-      const baseSystemCost = selectedKit?.cost_price ?? parseNumber(form.estimatedSystemCost || '');
-      if (!Number.isFinite(baseSystemCost) || baseSystemCost <= 0) {
-        throw new Error(selectedKit
-          ? 'O kit selecionado precisa possuir um custo válido.'
-          : 'Informe o custo estimado do sistema para calcular preço, lucro e margem.');
-      }
+  const enrichDraft = useCallback((form: ProposalDraftPaybackForm) => ({
+    ...form,
+    generationProfileMode,
+    monthlyGenerationProfileKwh: generationProfileMode === 'monthly'
+      ? [...monthlyGenerationProfile]
+      : [],
+  }), [generationProfileMode, monthlyGenerationProfile]);
 
-      const additionalCostsTotal = additionalCosts.reduce((total, cost) => total + cost.amount, 0);
-      const directCost = baseSystemCost + additionalCostsTotal;
-      const requestedMargin = parseNumber(form.marginPercentage || '30');
-      if (pricingMode === 'margin' && (!Number.isFinite(requestedMargin) || requestedMargin < 0 || requestedMargin >= 100)) {
-        throw new Error('A margem de lucro deve estar entre 0% e 99,99%.');
-      }
+  const handleDraftChange = useCallback((form: ProposalDraftPaybackForm) => {
+    const enriched = enrichDraft(form);
+    latestDraftRef.current = enriched;
+    onDraftChange?.(enriched);
+  }, [enrichDraft, onDraftChange]);
 
-      const proposalPrice = pricingMode === 'margin'
-        ? directCost / (1 - requestedMargin / 100)
-        : parseNumber(form.proposalPrice || '');
+  const persistGenerationProfile = useCallback((
+    mode: GenerationProfileMode,
+    profile: string[],
+  ) => {
+    const base = latestDraftRef.current;
+    if (!base) return;
+    const enriched: ProposalDraftPaybackForm = {
+      ...base,
+      generationProfileMode: mode,
+      monthlyGenerationProfileKwh: mode === 'monthly' ? [...profile] : [],
+    };
+    latestDraftRef.current = enriched;
+    onDraftChange?.(enriched);
+  }, [onDraftChange]);
 
-      return {
-        result: calculatePayback({
-          proposalPrice,
-          kitCost: selectedKit?.cost_price ?? null,
-          manualSystemCost: selectedKit ? null : baseSystemCost,
-          tariffCentsPerKwh: parseNumber(form.tariffCentsPerKwh),
-          averageMonthlyBillAmount: form.averageMonthlyBillAmount?.trim()
-            ? parseNumber(form.averageMonthlyBillAmount)
-            : null,
-          monthlyAvailabilityConsumptionKwh: CONNECTION_AVAILABILITY_KWH[connectionType],
-          pisPercent: parseNumber(form.pisPercent),
-          cofinsPercent: parseNumber(form.cofinsPercent),
-          icmsPercent: parseNumber(form.icmsPercent),
-          otherTariffsPercent: parseNumber(form.otherTariffsPercent),
-          monthlyCompensableConsumptionKwh,
-          monthlyGenerationKwh,
-          additionalCosts,
-          analysisYears: parseNumber(form.analysisYears || '25'),
-          annualTariffEscalationPercent: parseNumber(form.annualTariffEscalationPercent || '4.5'),
-          annualGenerationDegradationPercent: parseNumber(form.annualGenerationDegradationPercent || '0.5'),
-          annualOperationMaintenancePercent: parseNumber(form.annualOperationMaintenancePercent || '0.5'),
-          discountRatePercent: parseNumber(form.discountRatePercent || '8'),
-          compensationFactorPercent: parseNumber(form.compensationFactorPercent || '100'),
-          inverterReplacementYear: form.inverterReplacementYear?.trim()
-            ? parseNumber(form.inverterReplacementYear)
-            : null,
-          inverterReplacementCost: form.inverterReplacementCost?.trim()
-            ? parseNumber(form.inverterReplacementCost)
-            : 0,
-        }),
-        error: null,
-      };
-    } catch (error) {
-      return {
-        result: null,
-        error: error instanceof Error ? error.message : 'Não foi possível calcular o payback.',
-      };
-    }
-  }, [
-    connectionType,
-    form,
-    hydrated,
-    monthlyCompensableConsumptionKwh,
-    monthlyGenerationKwh,
-    pricingMode,
-    selectedKit,
-  ]);
-
-  useEffect(() => {
-    onResultChange(calculation.result);
-  }, [calculation.result, onResultChange]);
-
-  const updateField = (field: keyof Omit<PaybackFormState, 'additionalCosts'>, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
+  const switchGenerationProfileMode = (mode: GenerationProfileMode) => {
+    const nextProfile = mode === 'monthly'
+      ? monthlyGenerationProfile.length === 12
+        ? monthlyGenerationProfile
+        : createUniformGenerationProfile(monthlyGenerationKwh)
+      : createUniformGenerationProfile(monthlyGenerationKwh);
+    setGenerationProfileMode(mode);
+    setMonthlyGenerationProfile(nextProfile);
+    persistGenerationProfile(mode, nextProfile);
   };
 
-  const updateCost = (id: string, field: 'description' | 'amount', value: string) => {
-    setForm((current) => ({
-      ...current,
-      additionalCosts: current.additionalCosts.map((cost) => (
-        cost.id === id ? { ...cost, [field]: value } : cost
-      )),
-    }));
+  const updateGenerationMonth = (index: number, value: string) => {
+    const nextProfile = monthlyGenerationProfile.map((item, itemIndex) => (
+      itemIndex === index ? value : item
+    ));
+    setMonthlyGenerationProfile(nextProfile);
+    persistGenerationProfile('monthly', nextProfile);
   };
 
-  const addCost = () => {
-    setForm((current) => ({
-      ...current,
-      additionalCosts: [...current.additionalCosts, createCost()],
-    }));
-  };
-
-  const removeCost = (id: string) => {
-    setForm((current) => ({
-      ...current,
-      additionalCosts: current.additionalCosts.filter((cost) => cost.id !== id),
-    }));
-  };
-
-  const result = calculation.result;
-  const switchPricingMode = (mode: 'margin' | 'manual') => {
-    setForm((current) => ({
-      ...current,
-      pricingMode: mode,
-      proposalPrice: mode === 'manual' && !current.proposalPrice?.trim() && result
-        ? String(result.totalInvestment)
-        : current.proposalPrice,
-    }));
-  };
-  const chartProjectionLastYear = result?.chartData[result.chartData.length - 1]?.year ?? 0;
-  const paybackMarkerYear = result
-    && Number.isFinite(result.simplePaybackYears)
-    && result.simplePaybackYears <= chartProjectionLastYear
-      ? Math.ceil(result.simplePaybackYears)
-      : null;
-  const discountedPaybackMarkerYear = result
-    && Number.isFinite(result.discountedPaybackYears)
-    && result.discountedPaybackYears <= chartProjectionLastYear
-      ? Math.ceil(result.discountedPaybackYears)
-      : null;
+  const handleResultChange = useCallback((nextResult: PaybackResult | null) => {
+    setResult((current) => current === nextResult ? current : nextResult);
+    onResultChange(nextResult);
+  }, [onResultChange]);
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-brand-dark">Payback do sistema fotovoltaico</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">
-          Calcule uma estimativa comercial de investimento e retorno. Os valores poderão ser revisados após a vistoria técnica.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <section
+        aria-labelledby="resumo-final-proposta"
+        className="overflow-hidden rounded-2xl border border-brand-blue/30 bg-gradient-to-br from-brand-blue/10 via-brand-surface to-brand-surface"
+      >
+        <div className="border-b border-brand-blue/15 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-blue">Revisão executiva</p>
+              <h2 id="resumo-final-proposta" className="mt-2 text-xl font-bold text-brand-dark">
+                Resumo final da proposta
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Confira primeiro o que será apresentado ao cliente. Custos, lucro e margem permanecem separados em uma área identificada como uso interno.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                <FileText className="h-3.5 w-3.5" /> Visível ao cliente
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600">
+                <LockKeyhole className="h-3.5 w-3.5" /> Dados internos separados
+              </span>
+            </div>
+          </div>
 
-      <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-700">
-        Esta análise é preliminar. Preço, equipamentos, geração, custos de instalação e condições do local deverão ser confirmados após a vistoria técnica.
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-none">
-          <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Base de custos</p>
-            {selectedKit ? (
-              <>
-                <h3 className="mt-2 font-bold text-brand-dark">{selectedKit.name}</h3>
-                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Custo do kit</p>
-                    <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.cost_price)}</p>
-                  </div>
-                  {selectedKit.sale_price != null && selectedKit.sale_price > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Venda cadastrada</p>
-                      <p className="mt-1 text-lg font-bold text-brand-dark">{currency.format(selectedKit.sale_price)}</p>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="mt-3 space-y-4">
-                <p className="text-sm leading-6 text-slate-500">
-                  Sem kit cadastrado, informe uma estimativa do custo dos equipamentos e serviços principais.
-                </p>
-                <PaybackField
-                  label="Custo estimado do sistema"
-                  value={form.estimatedSystemCost || ''}
-                  onChange={(value) => updateField('estimatedSystemCost', value)}
-                  prefix="R$"
-                  min={0.01}
-                  helper="Esse valor forma a base para calcular preço, lucro e margem, mesmo sem um kit definido."
+          {result ? (
+            <>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <ExecutiveMetric
+                  label="Preço comercial"
+                  value={currency.format(result.totalInvestment)}
+                  helper="Valor usado no payback e apresentado na proposta."
+                  highlight
+                />
+                <ExecutiveMetric
+                  label="Retorno projetado"
+                  value={formatPaybackPeriod(result.paybackMonths, result.analysisYears)}
+                  helper="Payback simples oficial, calculado mês a mês."
+                />
+                <ExecutiveMetric
+                  label="Economia mensal estimada"
+                  value={currency.format(result.monthlySavings)}
+                  helper="Após disponibilidade, encargos e premissas informadas."
+                />
+                <ExecutiveMetric
+                  label="Economia líquida no 1º ano"
+                  value={currency.format(result.annualSavings)}
+                  helper="Referência comercial para o primeiro ano da projeção."
                 />
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card className="shadow-none">
-          <CardContent className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Tipo de ligação</p>
-            <h3 className="mt-2 font-bold text-brand-dark">{CONNECTION_LABELS[connectionType]}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Custo de disponibilidade considerado no consumo: <strong>{CONNECTION_AVAILABILITY_KWH[connectionType]} kWh/mês</strong>.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1.25fr_1fr]">
+                <div className={`rounded-2xl border p-4 ${
+                  result.status === 'unfeasible'
+                    ? 'border-red-200 bg-red-50 text-red-800'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider opacity-75">Leitura para o cliente</p>
+                      <p className="mt-1 font-bold">{result.statusLabel}</p>
+                      <p className="mt-1 text-xs leading-5">
+                        O investimento projetado retorna em {formatPaybackPeriod(result.paybackMonths, result.analysisYears)}, considerando o cenário tarifário, energético e regulatório configurado.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-      <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Formação do preço</p>
-          <h3 className="mt-1 font-bold text-brand-dark">Escolha como definir o valor da proposta</h3>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => switchPricingMode('margin')}
-            className={`rounded-xl border p-4 text-left transition ${pricingMode === 'margin'
-              ? 'border-brand-blue bg-brand-blue/10 ring-1 ring-brand-blue/20'
-              : 'border-brand-border bg-brand-gray/20 hover:border-brand-blue/30'}`}
-          >
-            <p className="font-bold text-brand-dark">Calcular pela margem</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">O preço é formado automaticamente a partir do custo total e da margem desejada.</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => switchPricingMode('manual')}
-            className={`rounded-xl border p-4 text-left transition ${pricingMode === 'manual'
-              ? 'border-brand-blue bg-brand-blue/10 ring-1 ring-brand-blue/20'
-              : 'border-brand-border bg-brand-gray/20 hover:border-brand-blue/30'}`}
-          >
-            <p className="font-bold text-brand-dark">Informar preço manual</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Digite o preço final e veja a margem efetiva calculada pelo sistema.</p>
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {pricingMode === 'margin' ? (
-            <PaybackField
-              label="Margem de lucro"
-              value={form.marginPercentage || '30'}
-              onChange={(value) => updateField('marginPercentage', value)}
-              suffix="%"
-              min={0}
-              max={99.99}
-              helper="Carregada de Configurações da Conta > Preferências Comerciais. É margem sobre o preço de venda, não simples acréscimo sobre o custo."
-            />
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700">
+                  <div className="flex items-start gap-3">
+                    <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Uso interno — não incluir na proposta</p>
+                      {result.hasCostBasis ? (
+                        <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Custo</p>
+                            <p className="mt-1 text-sm font-bold text-brand-dark">{currency.format(result.directCost)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Lucro</p>
+                            <p className="mt-1 text-sm font-bold text-brand-dark">{currency.format(result.profitAmount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Margem</p>
+                            <p className="mt-1 text-sm font-bold text-brand-dark">{decimal.format(result.marginPercentage)}%</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs leading-5 text-slate-500">
+                          A análise do cliente está disponível. Informe uma base de custos para liberar a segurança comercial da venda.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           ) : (
-            <PaybackField
-              label="Preço da proposta"
-              value={form.proposalPrice || ''}
-              onChange={(value) => updateField('proposalPrice', value)}
-              prefix="R$"
-              min={0.01}
-              helper="O lucro e a margem efetiva serão calculados usando a base de custos informada."
-            />
-          )}
-
-          {result && (
-            <div className="rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">
-                {pricingMode === 'margin' ? 'Preço calculado' : 'Margem calculada'}
-              </p>
-              <p className="mt-2 text-2xl font-bold text-brand-dark">
-                {pricingMode === 'margin'
-                  ? currency.format(result.totalInvestment)
-                  : `${decimal.format(result.marginPercentage)}%`}
-              </p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Custo direto de {currency.format(result.directCost)} e lucro estimado de {currency.format(result.profitAmount)}.
-              </p>
+            <div className="mt-6 rounded-2xl border border-dashed border-brand-blue/30 bg-brand-surface/80 p-5 text-sm leading-6 text-slate-600">
+              Preencha ou revise a configuração abaixo. O resumo final será atualizado automaticamente quando o preço e as premissas permitirem um cálculo válido.
             </div>
           )}
         </div>
 
-        {selectedKit?.sale_price != null && selectedKit.sale_price > 0 && (
-          <Button
+        <nav aria-label="Navegação da etapa de preço e payback" className="grid gap-px bg-brand-border sm:grid-cols-2 xl:grid-cols-4">
+          {FLOW_LINKS.map(({ href, label, helper, icon: Icon }, index) => (
+            <a
+              key={href}
+              href={href}
+              className="group flex gap-3 bg-brand-surface p-4 transition hover:bg-brand-blue/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-blue"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
+                <Icon className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Bloco {index + 1}</span>
+                <span className="mt-0.5 block text-sm font-bold text-brand-dark group-hover:text-brand-blue">{label}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">{helper}</span>
+              </span>
+            </a>
+          ))}
+        </nav>
+      </section>
+
+      <div id="configuracao-comercial-regulatoria" className="scroll-mt-6" key={profileKey}>
+        <PaybackStepRegulatory
+          selectedKit={selectedKit}
+          connectionType={connectionType}
+          monthlyCompensableConsumptionKwh={monthlyCompensableConsumptionKwh}
+          monthlyGenerationKwh={monthlyGenerationKwh}
+          initialForm={stableInitialForm}
+          onDraftChange={handleDraftChange}
+          onResultChange={handleResultChange}
+        />
+      </div>
+
+      <section id="perfil-mensal-energia" className="scroll-mt-6 rounded-xl border border-brand-border bg-brand-surface p-5">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">Sazonalidade mensal</p>
+          <h3 className="mt-1 font-bold text-brand-dark">Consumo e geração de janeiro a dezembro</h3>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Consumo aplicado: <strong>{consumptionProfileSource}</strong>. A curva é alinhada automaticamente ao
+            mês inicial da projeção financeira.
+          </p>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
             type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() => {
-              setForm((current) => ({
-                ...current,
-                pricingMode: 'manual',
-                proposalPrice: String(selectedKit.sale_price ?? ''),
-              }));
-            }}
+            onClick={() => switchGenerationProfileMode('uniform')}
+            className={`rounded-xl border p-4 text-left ${
+              generationProfileMode === 'uniform'
+                ? 'border-brand-blue bg-brand-blue/10'
+                : 'border-brand-border bg-brand-gray/20'
+            }`}
           >
-            Usar preço de venda cadastrado: {currency.format(selectedKit.sale_price)}
-          </Button>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-5">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
-            <Calculator className="h-5 w-5" />
-          </span>
-          <div>
-            <h3 className="font-bold text-brand-dark">Tarifa e tributos</h3>
-            <p className="mt-1 text-xs text-slate-500">Informe os valores aplicáveis à unidade consumidora.</p>
-          </div>
+            <p className="font-bold text-brand-dark">Usar geração média uniforme</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Repete {energy.format(monthlyGenerationKwh)} kWh em todos os meses.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => switchGenerationProfileMode('monthly')}
+            className={`rounded-xl border p-4 text-left ${
+              generationProfileMode === 'monthly'
+                ? 'border-brand-blue bg-brand-blue/10'
+                : 'border-brand-border bg-brand-gray/20'
+            }`}
+          >
+            <p className="font-bold text-brand-dark">Informar geração mensal</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Use uma simulação técnica ou dados mensais de irradiação da localização.
+            </p>
+          </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <PaybackField
-            label="Tarifa de energia"
-            value={form.tariffCentsPerKwh}
-            onChange={(value) => updateField('tariffCentsPerKwh', value)}
-            suffix="centavos/kWh"
-            min={0.01}
-          />
-          <PaybackField
-            label="Valor médio mensal da fatura"
-            value={form.averageMonthlyBillAmount ?? ''}
-            onChange={(value) => updateField('averageMonthlyBillAmount', value)}
-            prefix="R$"
-            min={0.01}
-            helper="Opcional. Use a média das últimas contas para comparar a fatura atual com a estimativa após a instalação."
-          />
-          <PaybackField label="PIS" value={form.pisPercent} onChange={(value) => updateField('pisPercent', value)} suffix="%" />
-          <PaybackField label="COFINS" value={form.cofinsPercent} onChange={(value) => updateField('cofinsPercent', value)} suffix="%" />
-          <PaybackField label="ICMS" value={form.icmsPercent} onChange={(value) => updateField('icmsPercent', value)} suffix="%" />
-          <PaybackField label="Outros encargos" value={form.otherTariffsPercent} onChange={(value) => updateField('otherTariffsPercent', value)} suffix="%" />
-        </div>
-      </div>
-
-
-      <details className="rounded-xl border border-brand-border bg-brand-gray/20 p-5">
-        <summary className="cursor-pointer font-bold text-brand-dark">Premissas financeiras avançadas</summary>
-        <p className="mt-2 text-xs leading-5 text-slate-500">
-          Ajuste as hipóteses usadas no fluxo de caixa. Os valores iniciais são referências editáveis da pré-proposta e devem ser adequados à distribuidora, ao contrato e ao perfil do cliente.
-        </p>
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <PaybackField label="Horizonte de análise" value={form.analysisYears || '25'} onChange={(value) => updateField('analysisYears', value)} suffix="anos" min={1} max={40} />
-          <PaybackField label="Reajuste anual da tarifa" value={form.annualTariffEscalationPercent || '4.5'} onChange={(value) => updateField('annualTariffEscalationPercent', value)} suffix="% a.a." min={-20} max={100} helper="Projeção de aumento da tarifa; não é garantia de reajuste futuro." />
-          <PaybackField label="Degradação anual da geração" value={form.annualGenerationDegradationPercent || '0.5'} onChange={(value) => updateField('annualGenerationDegradationPercent', value)} suffix="% a.a." min={0} max={10} />
-          <PaybackField label="Operação e manutenção anual" value={form.annualOperationMaintenancePercent || '0.5'} onChange={(value) => updateField('annualOperationMaintenancePercent', value)} suffix="% do preço" min={0} max={20} />
-          <PaybackField label="Taxa de desconto / TMA" value={form.discountRatePercent || '8'} onChange={(value) => updateField('discountRatePercent', value)} suffix="% a.a." min={0} max={100} helper="Usada no VPL e no payback descontado." />
-          <PaybackField label="Fator efetivo de compensação" value={form.compensationFactorPercent || '100'} onChange={(value) => updateField('compensationFactorPercent', value)} suffix="%" min={0} max={100} helper="Reduza quando nem toda a energia compensada tiver o mesmo valor econômico da tarifa." />
-          <PaybackField label="Ano de troca do inversor" value={form.inverterReplacementYear || ''} onChange={(value) => updateField('inverterReplacementYear', value)} suffix="ano" min={1} max={40} helper="Opcional. Deixe vazio quando não quiser provisionar a substituição." />
-          <PaybackField label="Custo estimado da troca" value={form.inverterReplacementCost || ''} onChange={(value) => updateField('inverterReplacementCost', value)} prefix="R$" min={0} />
-        </div>
-      </details>
-
-      <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="font-bold text-brand-dark">Custos adicionais</h3>
-            <p className="mt-1 text-xs text-slate-500">Inclua instalação, projeto, homologação, frete, estrutura ou outros custos.</p>
-          </div>
-          <Button type="button" variant="outline" className="gap-2" onClick={addCost}>
-            <Plus className="h-4 w-4" /> Adicionar custo
-          </Button>
-        </div>
-
-        {form.additionalCosts.length === 0 ? (
-          <div className="mt-5 rounded-xl border border-dashed border-brand-border p-5 text-center text-sm text-slate-500">
-            Nenhum custo adicional informado.
-          </div>
-        ) : (
-          <div className="mt-5 space-y-3">
-            {form.additionalCosts.map((cost, index) => (
-              <div key={cost.id} className="grid gap-3 rounded-xl border border-brand-border bg-brand-gray/30 p-4 sm:grid-cols-[minmax(0,1fr)_220px_auto] sm:items-end">
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-brand-dark">Descrição do custo {index + 1}</span>
-                  <Input
-                    value={cost.description}
-                    placeholder="Ex.: instalação e homologação"
-                    onChange={(event) => updateCost(cost.id, 'description', event.target.value)}
+        {generationProfileMode === 'monthly' && (
+          <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {MONTHS.map((month, index) => (
+              <label key={month} className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{month}</span>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={monthlyGenerationProfile[index] ?? ''}
+                    onChange={(event) => updateGenerationMonth(index, event.target.value)}
+                    className="h-10 w-full rounded-lg border border-brand-border bg-brand-surface px-3 pr-12 text-sm text-brand-dark"
                   />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-semibold text-brand-dark">Valor</span>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={cost.amount}
-                      onChange={(event) => updateCost(cost.id, 'amount', event.target.value)}
-                      className="pl-10"
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-500">R$</span>
-                  </div>
-                </label>
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeCost(cost.id)} aria-label="Remover custo adicional">
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
-              </div>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] font-semibold text-slate-500">
+                    kWh
+                  </span>
+                </div>
+              </label>
             ))}
           </div>
         )}
-      </div>
-
-      {calculation.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {calculation.error}
-        </div>
-      )}
+      </section>
 
       {result && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <PaybackSummary label="Payback simples" value={Number.isFinite(result.simplePaybackYears) ? `${decimal.format(result.simplePaybackYears)} anos` : 'Não recuperado'} />
-            <PaybackSummary label="Payback descontado" value={Number.isFinite(result.discountedPaybackYears) ? `${decimal.format(result.discountedPaybackYears)} anos` : `Acima de ${result.analysisYears} anos`} highlight />
-            <PaybackSummary label={`VPL em ${result.analysisYears} anos`} value={currency.format(result.netPresentValue)} />
-            <PaybackSummary label="TIR estimada" value={result.internalRateOfReturnPercent == null ? 'Não calculável' : `${decimal.format(result.internalRateOfReturnPercent)}% a.a.`} />
+        <section id="banco-creditos" className="scroll-mt-6 rounded-xl border border-brand-blue/30 bg-brand-blue/5 p-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-blue">
+              Sistema de Compensação de Energia Elétrica
+            </p>
+            <h3 className="mt-1 font-bold text-brand-dark">Fluxo de energia e banco de créditos</h3>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              A geração é dividida entre autoconsumo instantâneo e energia injetada. Os excedentes entram no banco,
+              os créditos mais antigos são utilizados primeiro e expiram após {result.creditValidityMonths} meses.
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <PaybackSummary label="Preço da proposta" value={currency.format(result.totalInvestment)} />
-            <PaybackSummary label="Economia no 1º ano" value={currency.format(result.annualSavings)} />
-            <PaybackSummary label={`Economia bruta em ${result.analysisYears} anos`} value={currency.format(result.lifetimeGrossSavings)} />
-            <PaybackSummary label={`Benefício líquido em ${result.analysisYears} anos`} value={currency.format(result.lifetimeNetSavings - result.totalInvestment)} />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <EnergySummary label="Autoconsumo médio mensal" value={result.selfConsumedEnergyKwhPerMonth} />
+            <EnergySummary label="Injeção média mensal" value={result.injectedEnergyKwhPerMonth} />
+            <EnergySummary label="Créditos usados por mês" value={result.creditsUsedKwhPerMonth} />
+            <EnergySummary label="Saldo após o 1º ano" value={result.creditBalanceEndFirstYearKwh} highlight />
           </div>
 
-          {result.hasCostBasis ? (
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-              <h3 className="font-bold text-brand-dark">Rentabilidade interna</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Calculada com a base de custos do kit ou com o custo estimado informado, somada aos custos adicionais.
-              </p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                <PaybackSummary label="Custo direto" value={currency.format(result.directCost)} />
-                <PaybackSummary label="Lucro estimado" value={currency.format(result.profitAmount)} />
-                <PaybackSummary label="Margem efetiva" value={`${decimal.format(result.marginPercentage)}%`} />
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-brand-border bg-brand-gray/30 p-4 text-sm leading-6 text-slate-500">
-              Informe uma base de custos válida para calcular lucro e margem da proposta.
-            </div>
-          )}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <EnergySummary label="Créditos gerados por mês" value={result.creditsGeneratedKwhPerMonth} />
+            <EnergySummary label="Consumo ainda vindo da rede" value={result.uncompensatedGridConsumptionKwhPerMonth} />
+            <EnergySummary label="Maior saldo projetado" value={result.maxCreditBalanceKwh} />
+            <EnergySummary label="Créditos expirados no horizonte" value={result.lifetimeExpiredCreditsKwh} />
+          </div>
 
-          {result.averageMonthlyBillAmount != null
-            && result.estimatedResidualBillAmount != null
-            && result.estimatedBillReductionPercent != null && (
-            <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-              <div>
-                <h3 className="font-bold text-brand-dark">Comparação da fatura</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Referência comercial baseada na fatura média informada. A tarifa continua sendo a base técnica do payback.
-                </p>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <PaybackSummary label="Fatura média atual" value={currency.format(result.averageMonthlyBillAmount)} />
-                <PaybackSummary label="Economia mensal estimada" value={currency.format(result.monthlySavings)} />
-                <PaybackSummary label="Fatura residual estimada" value={currency.format(result.estimatedResidualBillAmount)} highlight />
-                <PaybackSummary label="Redução estimada" value={`${decimal.format(result.estimatedBillReductionPercent)}%`} />
-              </div>
-
-              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${
-                result.billReferenceStatus === 'review'
-                  ? 'border-amber-200 bg-amber-50 text-amber-800'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              }`}>
-                {result.billReferenceStatus === 'review'
-                  ? <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-                  : <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />}
-                <div>
-                  <p className="font-bold">
-                    {result.billReferenceStatus === 'review'
-                      ? 'Revise a tarifa ou os dados da fatura'
-                      : 'Fatura coerente com o consumo e a tarifa'}
-                  </p>
-                  <p className="mt-1 text-xs leading-5">
-                    A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
-                    A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
-                  </p>
-                </div>
-              </div>
-
-              <p className="mt-4 text-xs leading-5 text-slate-500">
-                A estimativa residual pode incluir custo de disponibilidade, iluminação pública, demanda, impostos e outros valores que não são eliminados pela geração solar.
+          {result.lifetimeExpiredCreditsKwh > 0 && (
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+              <p className="font-bold">Há créditos que não serão aproveitados dentro da validade legal.</p>
+              <p className="mt-1 text-xs leading-5">
+                A projeção indica {energy.format(result.lifetimeExpiredCreditsKwh)} kWh expirados. Revise o
+                dimensionamento, o autoconsumo ou a alocação dos excedentes para outras unidades elegíveis.
               </p>
             </div>
           )}
-
-          <div className={`flex items-start gap-4 rounded-xl border p-5 ${STATUS_STYLES[result.status]}`}>
-            {result.status === 'unfeasible'
-              ? <TriangleAlert className="mt-0.5 h-7 w-7 shrink-0" />
-              : <BadgeCheck className="mt-0.5 h-7 w-7 shrink-0" />}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider opacity-75">Viabilidade financeira projetada</p>
-              <h3 className="mt-1 text-xl font-bold">{result.statusLabel}</h3>
-              <p className="mt-2 text-sm leading-6">
-                Payback simples de <strong>{Number.isFinite(result.simplePaybackYears) ? `${decimal.format(result.simplePaybackYears)} anos` : 'não recuperado'}</strong> e payback descontado de <strong>{Number.isFinite(result.discountedPaybackYears) ? `${decimal.format(result.discountedPaybackYears)} anos` : `mais de ${result.analysisYears} anos`}</strong>. VPL projetado: <strong>{currency.format(result.netPresentValue)}</strong>.
-              </p>
-            </div>
-          </div>
-
-          <Card
-            className="shadow-none"
-            style={{
-              borderColor: 'var(--color-chart-grid, var(--color-brand-border))',
-              backgroundColor: 'var(--color-chart-panel, var(--color-brand-surface))',
-            }}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-center gap-3">
-                <span
-                  className="grid h-10 w-10 place-items-center rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--color-chart-marker-bg, var(--color-gray-100))',
-                    color: 'var(--color-chart-marker, var(--color-brand-light))',
-                  }}
-                >
-                  <CircleDollarSign className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="font-bold text-brand-dark">Fluxo de caixa acumulado em {result.analysisYears} anos</h3>
-                  <p className="mt-1 text-xs text-slate-500">Compare o saldo nominal com o saldo descontado pela TMA informada.</p>
-                </div>
-              </div>
-
-              <div className="mt-5 h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={result.chartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                    <CartesianGrid
-                      stroke="var(--color-chart-grid, var(--color-brand-border))"
-                      strokeDasharray="3 3"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="year"
-                      interval={4}
-                      stroke="var(--color-chart-axis, var(--color-slate-500))"
-                      tick={{ fill: 'var(--color-chart-axis, var(--color-slate-500))' }}
-                      axisLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
-                      tickLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
-                      tickFormatter={(year) => `${year}`}
-                    />
-                    <YAxis
-                      width={76}
-                      stroke="var(--color-chart-axis, var(--color-slate-500))"
-                      tick={{ fill: 'var(--color-chart-axis, var(--color-slate-500))' }}
-                      axisLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
-                      tickLine={{ stroke: 'var(--color-chart-axis, var(--color-slate-500))' }}
-                      tickFormatter={(value) => `R$ ${Math.round(Number(value) / 1000)}k`}
-                    />
-                    <Tooltip
-                      cursor={{ fill: 'var(--color-chart-cursor, var(--color-gray-100))' }}
-                      contentStyle={{
-                        backgroundColor: 'var(--color-chart-tooltip-bg, var(--color-brand-surface))',
-                        borderColor: 'var(--color-chart-tooltip-border, var(--color-brand-border))',
-                        color: 'var(--color-chart-tooltip-text, var(--color-brand-dark))',
-                        borderRadius: '12px',
-                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.24)',
-                      }}
-                      labelStyle={{ color: 'var(--color-chart-tooltip-muted, var(--color-slate-500))' }}
-                      itemStyle={{ color: 'var(--color-chart-tooltip-text, var(--color-brand-dark))' }}
-                      labelFormatter={(year) => `Ano ${year}`}
-                      formatter={(value, name) => [currency.format(Number(value)), name === 'discountedCumulativeBalance' ? 'Saldo descontado' : 'Saldo nominal']}
-                    />
-                    <ReferenceLine
-                      y={0}
-                      stroke="var(--color-chart-zero, var(--color-slate-500))"
-                      strokeWidth={2}
-                    />
-                    {paybackMarkerYear != null && (
-                      <ReferenceLine
-                        x={paybackMarkerYear}
-                        stroke="var(--color-chart-positive, var(--color-brand-blue))"
-                        strokeDasharray="5 4"
-                        strokeWidth={2}
-                        label={{
-                          value: 'Simples',
-                          position: 'insideTopRight',
-                          fill: 'var(--color-chart-positive, var(--color-brand-blue))',
-                          fontSize: 12,
-                          fontWeight: 700,
-                        }}
-                      />
-                    )}
-                    {discountedPaybackMarkerYear != null && (
-                      <ReferenceLine
-                        x={discountedPaybackMarkerYear}
-                        stroke="var(--color-chart-marker, var(--color-brand-light))"
-                        strokeDasharray="2 4"
-                        strokeWidth={2}
-                        label={{
-                          value: 'Descontado',
-                          position: 'insideBottomRight',
-                          fill: 'var(--color-chart-marker, var(--color-brand-light))',
-                          fontSize: 12,
-                          fontWeight: 700,
-                        }}
-                      />
-                    )}
-                    <Bar
-                      dataKey="cumulativeBalance"
-                      radius={0}
-                      activeBar={{
-                        fill: 'var(--color-chart-marker, var(--color-brand-light))',
-                        stroke: 'var(--color-chart-tooltip-text, var(--color-brand-dark))',
-                        strokeWidth: 1,
-                      }}
-                    >
-                      {result.chartData.map((point) => (
-                        <Cell
-                          key={point.year}
-                          fill={point.cumulativeBalance >= 0
-                            ? 'var(--color-chart-positive, var(--color-brand-blue))'
-                            : 'var(--color-chart-negative, var(--color-brand-yellow))'}
-                        />
-                      ))}
-                    </Bar>
-                    <Bar
-                      dataKey="discountedCumulativeBalance"
-                      radius={0}
-                      fill="var(--color-chart-marker, var(--color-brand-light))"
-                      opacity={0.72}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-500">
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-sm"
-                    style={{ backgroundColor: 'var(--color-chart-negative, var(--color-brand-yellow))' }}
-                  />
-                  Capital não recuperado
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-sm"
-                    style={{ backgroundColor: 'var(--color-chart-positive, var(--color-brand-blue))' }}
-                  />
-                  Retorno acumulado
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-chart-marker, var(--color-brand-light))', opacity: 0.72 }} />
-                  Saldo descontado
-                </span>
-                {paybackMarkerYear != null && (
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-5 border-t-2 border-dashed" style={{ borderColor: 'var(--color-chart-positive, var(--color-brand-blue))' }} />
-                    Payback simples
-                  </span>
-                )}
-                {discountedPaybackMarkerYear != null && (
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-5 border-t-2 border-dashed" style={{ borderColor: 'var(--color-chart-marker, var(--color-brand-light))' }} />
-                    Payback descontado
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </>
+        </section>
       )}
-    </section>
-  );
-}
 
-function PaybackSummary({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-brand-blue/30 bg-brand-blue/10' : 'border-brand-border bg-brand-gray/40'}`}>
-      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-bold text-brand-dark">{value}</p>
+      {result?.averageMonthlyBillAmount != null
+        && result.estimatedResidualBillAmount != null
+        && result.estimatedBillReductionPercent != null && (
+        <section id="comparacao-fatura" className="scroll-mt-6 rounded-xl border border-brand-border bg-brand-surface p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-blue/10 text-brand-blue">
+              <CircleDollarSign className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="font-bold text-brand-dark">Preço da proposta e comparação da fatura</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                A tarifa continua sendo a base técnica do payback; a fatura média funciona como referência comercial.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Fatura média atual</p>
+              <p className="mt-2 text-xl font-bold text-brand-dark">{currency.format(result.averageMonthlyBillAmount)}</p>
+            </div>
+            <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Economia mensal estimada</p>
+              <p className="mt-2 text-xl font-bold text-brand-dark">{currency.format(result.monthlySavings)}</p>
+            </div>
+            <div className="rounded-xl border border-brand-blue/30 bg-brand-blue/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Fatura residual estimada</p>
+              <p className="mt-2 text-xl font-bold text-brand-dark">{currency.format(result.estimatedResidualBillAmount)}</p>
+            </div>
+            <div className="rounded-xl border border-brand-border bg-brand-gray/40 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Redução estimada</p>
+              <p className="mt-2 text-xl font-bold text-brand-dark">{decimal.format(result.estimatedBillReductionPercent)}%</p>
+            </div>
+          </div>
+
+          <div className={`mt-5 rounded-xl border p-4 text-sm leading-6 ${
+            result.billReferenceStatus === 'review'
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          }`}>
+            <p className="font-bold">
+              {result.billReferenceStatus === 'review'
+                ? 'Revise a tarifa ou os dados da fatura'
+                : 'Fatura coerente com o consumo e a tarifa'}
+            </p>
+            <p className="mt-1 text-xs leading-5">
+              A conta calculada pelo consumo e pela tarifa é {currency.format(result.estimatedEnergyBillAmount)}.
+              A diferença para a fatura informada é de {decimal.format(result.billReferenceDifferencePercent ?? 0)}%.
+            </p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
