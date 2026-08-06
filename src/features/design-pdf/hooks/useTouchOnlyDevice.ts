@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+// Considera qualquer capacidade real de toque, sem depender apenas do tamanho da tela.
 const TOUCH_CAPABILITY_MEDIA_QUERIES = [
   '(hover: none)',
   '(pointer: coarse)',
