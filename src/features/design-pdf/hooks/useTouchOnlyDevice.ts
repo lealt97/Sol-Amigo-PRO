@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-// Considera qualquer capacidade real de toque, sem depender apenas do tamanho da tela.
+// Considera qualquer capacidade real de toque para manter os overlays interativos no mobile.
 const TOUCH_CAPABILITY_MEDIA_QUERIES = [
   '(hover: none)',
   '(pointer: coarse)',
