@@ -1,0 +1,38 @@
+name: Recuperar publicação do GitHub Pages
+
+on:
+  push:
+    paths:
+      - .github/workflows/recover-pages-deployment.yml
+
+permissions:
+  actions: write
+  contents: write
+  pages: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cancelar deployment órfão
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/deployments/5779086724/cancel" || true
+          sleep 8
+
+      - name: Remover workflow temporário
+        run: |
+          rm -f .github/workflows/recover-pages-deployment.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: remover recuperação temporária do Pages"
+          git push
+
+      - name: Publicar a versão atual da main
+        run: gh workflow run deploy-github-pages.yml --ref main
