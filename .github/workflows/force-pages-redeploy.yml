@@ -1,0 +1,29 @@
+name: Forçar nova publicação do GitHub Pages
+
+on:
+  push:
+    paths:
+      - .github/workflows/force-pages-redeploy.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+      - name: Remover workflow temporário
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/force-pages-redeploy.yml
+          git commit -m "chore: remover disparador temporário do Pages"
+          git push
+      - name: Disparar deploy da main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-github-pages.yml --ref main
