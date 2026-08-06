@@ -17,6 +17,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Corrigir substituição dos testes
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/scripts/fix-pdf-mobile-actions.py')
+          source = path.read_text(encoding='utf-8')
+          old = "updated, count = pattern.subn(replacement.rstrip() + '\\n', source, count=1)"
+          new = "updated, count = pattern.subn(lambda _: replacement.rstrip() + '\\n', source, count=1)"
+          if old not in source:
+              raise SystemExit('Trecho de substituição dos testes não encontrado.')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Aplicar correção de acessibilidade mobile
         run: python .github/scripts/fix-pdf-mobile-actions.py
 
