@@ -102,55 +102,49 @@ test('nome do modelo não participa da composição visual do preview', async ()
   assert.doesNotMatch(preview, /model\.name/);
 });
 
-test('ações dos modelos adicionados alternam por toque somente no mobile', async () => {
+test('ações dos modelos permanecem acessíveis e clicáveis no mobile', async () => {
   const carousel = await read('src/features/design-pdf/components/UserModelCarousel.tsx');
 
-  assert.doesNotMatch(carousel, /@radix-ui\/react-dropdown-menu/);
-  assert.match(carousel, /useTouchOnlyDevice/);
-  assert.match(carousel, /const isTouchOnlyDevice = useTouchOnlyDevice\(\)/);
-  assert.match(carousel, /if \(!isTouchOnlyDevice\) return/);
-  assert.match(carousel, /current === model\.id \? null : model\.id/);
-  assert.match(carousel, /onClick=\{handleCardClick\}/);
-  assert.match(carousel, /desktopRevealClassName/);
-  assert.match(carousel, /group-hover:pointer-events-auto/);
-  assert.match(carousel, /group-focus-within:pointer-events-auto/);
-  assert.match(carousel, /actionsAreOpen \? 'pointer-events-auto opacity-100'/);
-  assert.match(carousel, /Toque para mostrar ou ocultar as ações/);
-  assert.match(carousel, /Editar modelo/);
-  assert.match(carousel, /Duplicar modelo/);
-  assert.match(carousel, /Excluir modelo/);
-  assert.match(carousel, /h-11 w-11/);
-  assert.match(carousel, /focus-visible:ring-2/);
-  assert.match(carousel, /aria-expanded=\{isActive && isTouchOnlyDevice/);
+  assert.match(carousel, /const activeModel = userModels\[activeIndex\] \?\? userModels\[0\]/);
+  assert.match(carousel, /isTouchOnlyDevice \? 'grid' : 'grid md:hidden'/);
+  assert.match(carousel, /desktopActionsClassName/);
+  assert.match(carousel, /isTouchOnlyDevice \? 'hidden' : 'hidden md:flex'/);
+  assert.match(carousel, /touch-manipulation/);
+  assert.match(carousel, /min-h-12/);
+  assert.match(carousel, />\s*Editar\s*</);
+  assert.match(carousel, />\s*Duplicar\s*</);
+  assert.match(carousel, />\s*Tornar padrão\s*</);
+  assert.match(carousel, />\s*Excluir\s*</);
+  assert.match(carousel, /Use os botões de ação abaixo da prévia/);
+  assert.doesNotMatch(carousel, /aria-expanded/);
 });
 
-test('adicionar modelo padrão alterna por toque somente no mobile', async () => {
+test('adicionar modelo padrão permanece acessível e clicável no mobile', async () => {
   const carousel = await read('src/features/design-pdf/components/TemplateCarousel.tsx');
 
-  assert.doesNotMatch(carousel, /components\/ui\/Button/);
-  assert.match(carousel, /useTouchOnlyDevice/);
-  assert.match(carousel, /const isTouchOnlyDevice = useTouchOnlyDevice\(\)/);
-  assert.match(carousel, /if \(!isTouchOnlyDevice\) return/);
-  assert.match(carousel, /current === preset\.id \? null : preset\.id/);
-  assert.match(carousel, /onClick=\{handleCardClick\}/);
-  assert.match(carousel, /desktopRevealClassName/);
-  assert.match(carousel, /group-hover:pointer-events-auto/);
-  assert.match(carousel, /group-focus-within:pointer-events-auto/);
-  assert.match(carousel, /actionsAreOpen \? 'pointer-events-auto opacity-100'/);
-  assert.match(carousel, /Toque para mostrar ou ocultar a ação de adicionar/);
-  assert.match(carousel, /Adicionar modelo/);
-  assert.match(carousel, /min-h-11/);
-  assert.match(carousel, /focus-visible:ring-2/);
-  assert.match(carousel, /aria-expanded=\{isActive && isTouchOnlyDevice/);
+  assert.match(carousel, /const activePreset = presets\[activeIndex\] \?\? presets\[0\]/);
+  assert.match(carousel, /isTouchOnlyDevice \? 'flex' : 'flex md:hidden'/);
+  assert.match(carousel, /desktopActionsClassName/);
+  assert.match(carousel, /isTouchOnlyDevice \? 'hidden' : 'hidden md:flex'/);
+  assert.match(carousel, /touch-manipulation/);
+  assert.match(carousel, /min-h-12/);
+  assert.match(carousel, /onAddFromPreset\(activePreset\.id\)/);
+  assert.match(carousel, /Use o botão Adicionar modelo abaixo da prévia/);
+  assert.doesNotMatch(carousel, /aria-expanded/);
 });
 
-test('detecção de mobile usa capacidade de toque em vez da largura da tela', async () => {
+test('detecção de toque cobre celulares, tablets e dispositivos híbridos', async () => {
   const hook = await read('src/features/design-pdf/hooks/useTouchOnlyDevice.ts');
 
-  assert.match(hook, /\(hover: none\) and \(pointer: coarse\)/);
-  assert.match(hook, /window\.matchMedia/);
+  assert.match(hook, /navigator\.maxTouchPoints > 0/);
+  assert.match(hook, /'ontouchstart' in window/);
+  assert.match(hook, /\(hover: none\)/);
+  assert.match(hook, /\(pointer: coarse\)/);
+  assert.match(hook, /\(any-pointer: coarse\)/);
   assert.match(hook, /addEventListener\('change'/);
   assert.match(hook, /removeEventListener\('change'/);
+  assert.match(hook, /addListener\(syncDeviceCapability\)/);
+  assert.match(hook, /removeListener\(syncDeviceCapability\)/);
 });
 
 test('as quatro ilustrações passam pelo mesmo pipeline de cores e alta resolução', async () => {

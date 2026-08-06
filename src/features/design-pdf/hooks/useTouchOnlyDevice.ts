@@ -1,23 +1,42 @@
 import { useEffect, useState } from 'react';
 
-const TOUCH_ONLY_MEDIA_QUERY = '(hover: none) and (pointer: coarse)';
+const TOUCH_CAPABILITY_MEDIA_QUERIES = [
+  '(hover: none)',
+  '(pointer: coarse)',
+  '(any-pointer: coarse)',
+] as const;
+
+function hasTouchCapability() {
+  if (typeof window === 'undefined') return false;
+
+  const hasTouchPoints = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+  const exposesTouchEvents = 'ontouchstart' in window;
+  const matchesTouchMediaQuery = typeof window.matchMedia === 'function'
+    && TOUCH_CAPABILITY_MEDIA_QUERIES.some((query) => window.matchMedia(query).matches);
+
+  return hasTouchPoints || exposesTouchEvents || matchesTouchMediaQuery;
+}
 
 export function useTouchOnlyDevice() {
-  const [isTouchOnlyDevice, setIsTouchOnlyDevice] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-    return window.matchMedia(TOUCH_ONLY_MEDIA_QUERY).matches;
-  });
+  const [isTouchOnlyDevice, setIsTouchOnlyDevice] = useState(hasTouchCapability);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
 
-    const mediaQuery = window.matchMedia(TOUCH_ONLY_MEDIA_QUERY);
-    const syncDeviceCapability = () => setIsTouchOnlyDevice(mediaQuery.matches);
+    const mediaQueries = TOUCH_CAPABILITY_MEDIA_QUERIES.map((query) => window.matchMedia(query));
+    const syncDeviceCapability = () => setIsTouchOnlyDevice(hasTouchCapability());
+    const unsubscribers = mediaQueries.map((mediaQuery) => {
+      if (typeof mediaQuery.addEventListener === 'function') {
+        mediaQuery.addEventListener('change', syncDeviceCapability);
+        return () => mediaQuery.removeEventListener('change', syncDeviceCapability);
+      }
+
+      mediaQuery.addListener(syncDeviceCapability);
+      return () => mediaQuery.removeListener(syncDeviceCapability);
+    });
 
     syncDeviceCapability();
-    mediaQuery.addEventListener('change', syncDeviceCapability);
-
-    return () => mediaQuery.removeEventListener('change', syncDeviceCapability);
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, []);
 
   return isTouchOnlyDevice;
