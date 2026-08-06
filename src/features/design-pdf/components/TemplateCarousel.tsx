@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { ChevronLeft, ChevronRight, LayoutTemplate, Plus } from 'lucide-react';
 import { PdfTemplatePreset } from '../types/pdfDesignTypes';
@@ -39,14 +39,18 @@ function buildCorrectedPresetPreviews(presets: PdfTemplatePreset[]) {
 }
 
 export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, onAddFromPreset }: TemplateCarouselProps) {
+  const [openPresetId, setOpenPresetId] = useState<string | null>(null);
   const isTouchOnlyDevice = useTouchOnlyDevice();
-  const desktopActionsClassName = isTouchOnlyDevice ? 'hidden' : 'hidden md:flex';
+  const desktopRevealClassName = isTouchOnlyDevice
+    ? ''
+    : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100';
   const correctedPresetPreviews = useMemo(
     () => buildCorrectedPresetPreviews(presets),
     [presets],
   );
 
   const changeActiveIndex = (index: number) => {
+    setOpenPresetId(null);
     onActiveIndexChange(index);
   };
 
@@ -59,8 +63,6 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
       </div>
     );
   }
-
-  const activePreset = presets[activeIndex] ?? presets[0];
 
   const handlePrev = () => changeActiveIndex(activeIndex === 0 ? presets.length - 1 : activeIndex - 1);
   const handleNext = () => changeActiveIndex(activeIndex === presets.length - 1 ? 0 : activeIndex + 1);
@@ -94,6 +96,7 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
             if (Math.abs(diff) > 2) return null;
 
             const isActive = index === activeIndex;
+            const actionsAreOpen = openPresetId === preset.id;
             const correctedPreview = correctedPresetPreviews.get(preset.id);
             let transformStyle = '';
             let opacityStyle = '';
@@ -119,15 +122,33 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
               opacityStyle = 'opacity-0';
             }
 
+            const toggleMobileActions = () => {
+              if (!isTouchOnlyDevice) return;
+              setOpenPresetId((current) => (current === preset.id ? null : preset.id));
+            };
+
             const handleCardClick = () => {
-              if (!isActive) changeActiveIndex(index);
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              toggleMobileActions();
             };
 
             const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
               if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
-              if (!isActive) changeActiveIndex(index);
+
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              toggleMobileActions();
             };
+
+            const closeActions = () => setOpenPresetId(null);
 
             return (
               <div
@@ -139,11 +160,12 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
                 aria-label={
                   isActive
                     ? isTouchOnlyDevice
-                      ? `Modelo padrão ativo: ${preset.name}. Use o botão Adicionar modelo abaixo da prévia.`
+                      ? `Modelo padrão ativo: ${preset.name}. Toque para mostrar ou ocultar a ação de adicionar.`
                       : `Modelo padrão ativo: ${preset.name}. Passe o mouse ou navegue com Tab para adicionar.`
                     : `Selecionar modelo padrão: ${preset.name}`
                 }
                 aria-current={isActive ? 'true' : undefined}
+                aria-expanded={isActive && isTouchOnlyDevice ? actionsAreOpen : undefined}
                 style={{ zIndex: zIndexStyle }}
                 className={`group absolute left-1/2 top-1/2 w-[240px] -translate-y-1/2 cursor-pointer select-none overflow-hidden rounded-xl border bg-brand-surface shadow-md transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${transformStyle} ${opacityStyle} ${
                   isActive
@@ -169,13 +191,21 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
 
                   {isActive && (
                     <div
-                      className={`pointer-events-none absolute inset-0 z-30 items-center justify-center bg-black/60 opacity-0 transition-opacity duration-300 ${desktopActionsClassName} group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100`}
-                      onClick={(event) => event.stopPropagation()}
+                      className={`absolute inset-0 z-30 flex items-center justify-center bg-black/60 transition-opacity duration-300 ${desktopRevealClassName}`}
+                      style={isTouchOnlyDevice ? {
+                        pointerEvents: actionsAreOpen ? 'auto' : 'none',
+                        opacity: actionsAreOpen ? 1 : 0,
+                      } : undefined}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (isTouchOnlyDevice) closeActions();
+                      }}
                     >
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
+                          closeActions();
                           onAddFromPreset(preset.id);
                         }}
                         className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-brand-primary/90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
@@ -204,24 +234,6 @@ export function TemplateCarousel({ presets, activeIndex, onActiveIndexChange, on
           })}
         </div>
       </div>
-
-
-      {activePreset && (
-        <div
-          className={`${isTouchOnlyDevice ? 'flex' : 'flex md:hidden'} mt-4 justify-center px-3`}
-          aria-label={`Ações do modelo padrão ${activePreset.name}`}
-        >
-          <button
-            type="button"
-            onClick={() => onAddFromPreset(activePreset.id)}
-            className="flex min-h-12 w-full max-w-sm touch-manipulation items-center justify-center gap-2 rounded-xl bg-brand-primary px-5 py-3 text-sm font-bold text-white shadow-lg transition-colors active:bg-brand-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-            aria-label={`Adicionar modelo ${activePreset.name}`}
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-            Adicionar modelo
-          </button>
-        </div>
-      )}
 
       <div className="mt-2 flex justify-center gap-1" aria-label="Selecionar modelo padrão do PDF">
         {presets.map((preset, index) => (

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { ChevronLeft, ChevronRight, Copy, Edit2, Star, Trash2 } from 'lucide-react';
 import { PdfUserModel } from '../types/pdfDesignTypes';
@@ -26,10 +27,14 @@ export function UserModelCarousel({
   onDelete,
   onSetDefault,
 }: UserModelCarouselProps) {
+  const [openActionsModelId, setOpenActionsModelId] = useState<string | null>(null);
   const isTouchOnlyDevice = useTouchOnlyDevice();
-  const desktopActionsClassName = isTouchOnlyDevice ? 'hidden' : 'hidden md:flex';
+  const desktopRevealClassName = isTouchOnlyDevice
+    ? ''
+    : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100';
 
   const changeActiveIndex = (index: number) => {
+    setOpenActionsModelId(null);
     onActiveIndexChange(index);
   };
 
@@ -45,8 +50,6 @@ export function UserModelCarousel({
       </div>
     );
   }
-
-  const activeModel = userModels[activeIndex] ?? userModels[0];
 
   return (
     <div className="relative mx-auto w-full max-w-[620px] px-0 py-4">
@@ -81,6 +84,7 @@ export function UserModelCarousel({
             if (Math.abs(diff) > 2) return null;
 
             const isActive = index === activeIndex;
+            const actionsAreOpen = openActionsModelId === model.id;
             let transformStyle = '';
             let opacityStyle = '';
             let zIndexStyle = 10;
@@ -105,15 +109,33 @@ export function UserModelCarousel({
               opacityStyle = 'opacity-0';
             }
 
+            const toggleMobileActions = () => {
+              if (!isTouchOnlyDevice) return;
+              setOpenActionsModelId((current) => (current === model.id ? null : model.id));
+            };
+
             const handleCardClick = () => {
-              if (!isActive) changeActiveIndex(index);
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              toggleMobileActions();
             };
 
             const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
               if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
-              if (!isActive) changeActiveIndex(index);
+
+              if (!isActive) {
+                changeActiveIndex(index);
+                return;
+              }
+
+              toggleMobileActions();
             };
+
+            const closeActions = () => setOpenActionsModelId(null);
 
             return (
               <div
@@ -125,11 +147,12 @@ export function UserModelCarousel({
                 aria-label={
                   isActive
                     ? isTouchOnlyDevice
-                      ? `Modelo ativo: ${model.name}. Use os botões de ação abaixo da prévia.`
+                      ? `Modelo ativo: ${model.name}. Toque para mostrar ou ocultar as ações.`
                       : `Modelo ativo: ${model.name}. Passe o mouse ou navegue com Tab para acessar as ações.`
                     : `Selecionar modelo: ${model.name}`
                 }
                 aria-current={isActive ? 'true' : undefined}
+                aria-expanded={isActive && isTouchOnlyDevice ? actionsAreOpen : undefined}
                 style={{ zIndex: zIndexStyle }}
                 className={`group absolute left-1/2 top-1/2 w-[240px] -translate-y-1/2 cursor-pointer select-none overflow-hidden rounded-xl border bg-brand-surface shadow-md transition-all duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${transformStyle} ${opacityStyle} ${
                   isActive
@@ -156,14 +179,22 @@ export function UserModelCarousel({
 
                   {isActive && (
                     <div
-                      className={`pointer-events-none absolute inset-0 z-30 flex-col items-center justify-center gap-3 bg-slate-950/85 opacity-0 transition-all duration-300 ${desktopActionsClassName} group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100`}
-                      onClick={(event) => event.stopPropagation()}
+                      className={`absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/85 transition-all duration-300 ${desktopRevealClassName}`}
+                      style={isTouchOnlyDevice ? {
+                        pointerEvents: actionsAreOpen ? 'auto' : 'none',
+                        opacity: actionsAreOpen ? 1 : 0,
+                      } : undefined}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (isTouchOnlyDevice) closeActions();
+                      }}
                     >
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            closeActions();
                             onEdit(model);
                           }}
                           className={`${actionButtonClassName} bg-brand-blue text-white hover:bg-brand-blue-hover`}
@@ -177,6 +208,7 @@ export function UserModelCarousel({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            closeActions();
                             onDuplicate(model.id);
                           }}
                           className={`${actionButtonClassName} border border-brand-border bg-slate-800 text-slate-100 hover:bg-slate-700`}
@@ -191,7 +223,8 @@ export function UserModelCarousel({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                                onSetDefault(model.id);
+                              closeActions();
+                              onSetDefault(model.id);
                             }}
                             className={`${actionButtonClassName} border border-brand-border bg-slate-800 text-amber-400 hover:bg-amber-500 hover:text-slate-950`}
                             aria-label={`Definir ${model.name} como modelo padrão`}
@@ -214,6 +247,7 @@ export function UserModelCarousel({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
+                            closeActions();
                             onDelete(model.id);
                           }}
                           className={`${actionButtonClassName} bg-red-600 text-white hover:bg-red-700`}
@@ -263,62 +297,6 @@ export function UserModelCarousel({
           })}
         </div>
       </div>
-
-
-      {activeModel && (
-        <div
-          className={`${isTouchOnlyDevice ? 'grid' : 'grid md:hidden'} mt-4 grid-cols-2 gap-2 px-2`}
-          aria-label={`Ações do modelo ${activeModel.name}`}
-        >
-          <button
-            type="button"
-            onClick={() => onEdit(activeModel)}
-            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-xl bg-brand-blue px-3 py-3 text-sm font-bold text-white shadow-md active:bg-brand-blue-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-            aria-label={`Editar modelo ${activeModel.name}`}
-          >
-            <Edit2 className="h-5 w-5" aria-hidden="true" />
-            Editar
-          </button>
-          <button
-            type="button"
-            onClick={() => onDuplicate(activeModel.id)}
-            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-xl border border-brand-border bg-slate-800 px-3 py-3 text-sm font-bold text-slate-100 shadow-md active:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-            aria-label={`Duplicar modelo ${activeModel.name}`}
-          >
-            <Copy className="h-5 w-5" aria-hidden="true" />
-            Duplicar
-          </button>
-          {!activeModel.is_default ? (
-            <button
-              type="button"
-              onClick={() => onSetDefault(activeModel.id)}
-              className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-xl border border-amber-400/60 bg-slate-800 px-3 py-3 text-sm font-bold text-amber-400 shadow-md active:bg-amber-500 active:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-              aria-label={`Definir ${activeModel.name} como modelo padrão`}
-            >
-              <Star className="h-5 w-5" aria-hidden="true" />
-              Tornar padrão
-            </button>
-          ) : (
-            <div
-              className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-amber-400 bg-amber-500 px-3 py-3 text-sm font-bold text-slate-950 shadow-md"
-              role="status"
-              aria-label={`${activeModel.name} é o modelo padrão`}
-            >
-              <Star className="h-5 w-5 fill-current" aria-hidden="true" />
-              Padrão atual
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => onDelete(activeModel.id)}
-            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-xl bg-red-600 px-3 py-3 text-sm font-bold text-white shadow-md active:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-            aria-label={`Excluir modelo ${activeModel.name}`}
-          >
-            <Trash2 className="h-5 w-5" aria-hidden="true" />
-            Excluir
-          </button>
-        </div>
-      )}
 
       <div className="mt-2 flex justify-center gap-1" aria-label="Selecionar modelo do PDF">
         {userModels.map((model, index) => (

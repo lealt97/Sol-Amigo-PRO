@@ -102,35 +102,36 @@ test('nome do modelo não participa da composição visual do preview', async ()
   assert.doesNotMatch(preview, /model\.name/);
 });
 
-test('ações dos modelos permanecem acessíveis e clicáveis no mobile', async () => {
+test('ações dos modelos mantêm o overlay original e aceitam toque no mobile', async () => {
   const carousel = await read('src/features/design-pdf/components/UserModelCarousel.tsx');
 
-  assert.match(carousel, /const activeModel = userModels\[activeIndex\] \?\? userModels\[0\]/);
-  assert.match(carousel, /isTouchOnlyDevice \? 'grid' : 'grid md:hidden'/);
-  assert.match(carousel, /desktopActionsClassName/);
-  assert.match(carousel, /isTouchOnlyDevice \? 'hidden' : 'hidden md:flex'/);
-  assert.match(carousel, /touch-manipulation/);
-  assert.match(carousel, /min-h-12/);
-  assert.match(carousel, />\s*Editar\s*</);
-  assert.match(carousel, />\s*Duplicar\s*</);
-  assert.match(carousel, />\s*Tornar padrão\s*</);
-  assert.match(carousel, />\s*Excluir\s*</);
-  assert.match(carousel, /Use os botões de ação abaixo da prévia/);
-  assert.doesNotMatch(carousel, /aria-expanded/);
+  assert.match(carousel, /useState<string \| null>\(null\)/);
+  assert.match(carousel, /current === model\.id \? null : model\.id/);
+  assert.match(carousel, /onClick=\{handleCardClick\}/);
+  assert.match(carousel, /pointerEvents: actionsAreOpen \? 'auto' : 'none'/);
+  assert.match(carousel, /opacity: actionsAreOpen \? 1 : 0/);
+  assert.match(carousel, /style=\{isTouchOnlyDevice \?/);
+  assert.match(carousel, /Editar modelo/);
+  assert.match(carousel, /Duplicar modelo/);
+  assert.match(carousel, /Excluir modelo/);
+  assert.match(carousel, /aria-expanded=\{isActive && isTouchOnlyDevice/);
+  assert.doesNotMatch(carousel, /const activeModel =/);
+  assert.doesNotMatch(carousel, /Tornar padrão/);
 });
 
-test('adicionar modelo padrão permanece acessível e clicável no mobile', async () => {
+test('adicionar modelo mantém o overlay original e aceita toque no mobile', async () => {
   const carousel = await read('src/features/design-pdf/components/TemplateCarousel.tsx');
 
-  assert.match(carousel, /const activePreset = presets\[activeIndex\] \?\? presets\[0\]/);
-  assert.match(carousel, /isTouchOnlyDevice \? 'flex' : 'flex md:hidden'/);
-  assert.match(carousel, /desktopActionsClassName/);
-  assert.match(carousel, /isTouchOnlyDevice \? 'hidden' : 'hidden md:flex'/);
-  assert.match(carousel, /touch-manipulation/);
-  assert.match(carousel, /min-h-12/);
-  assert.match(carousel, /onAddFromPreset\(activePreset\.id\)/);
-  assert.match(carousel, /Use o botão Adicionar modelo abaixo da prévia/);
-  assert.doesNotMatch(carousel, /aria-expanded/);
+  assert.match(carousel, /useState<string \| null>\(null\)/);
+  assert.match(carousel, /current === preset\.id \? null : preset\.id/);
+  assert.match(carousel, /onClick=\{handleCardClick\}/);
+  assert.match(carousel, /pointerEvents: actionsAreOpen \? 'auto' : 'none'/);
+  assert.match(carousel, /opacity: actionsAreOpen \? 1 : 0/);
+  assert.match(carousel, /style=\{isTouchOnlyDevice \?/);
+  assert.match(carousel, /Adicionar modelo/);
+  assert.match(carousel, /aria-expanded=\{isActive && isTouchOnlyDevice/);
+  assert.doesNotMatch(carousel, /const activePreset =/);
+  assert.doesNotMatch(carousel, /max-w-sm touch-manipulation/);
 });
 
 test('detecção de toque cobre celulares, tablets e dispositivos híbridos', async () => {
