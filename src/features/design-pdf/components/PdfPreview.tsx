@@ -44,6 +44,10 @@ const previewParityCss = `
   }
 `;
 
+const A4_PREVIEW_WIDTH = 794;
+const A4_PREVIEW_HEIGHT = A4_PREVIEW_WIDTH * (297 / 210);
+const MIN_PREVIEW_SCALE = 0.1;
+
 function PreviewTopStripe({ theme }: { theme: PdfDocumentTheme }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-50 flex h-2" aria-hidden="true">
@@ -64,7 +68,9 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
   const preset = useMemo(() => pdfDesignService.getPreset(model.preset_id), [model.preset_id]);
   const [svgSource, setSvgSource] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const previewViewportRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<Partial<Record<ProposalPageKey, HTMLDivElement | null>>>({});
+  const [previewScale, setPreviewScale] = useState(1);
   const visiblePages = useMemo(() => getVisibleProposalPages(model.page_config), [model.page_config]);
   const previewTheme = useMemo(() => resolvePdfDocumentTheme(model.theme), [model.theme]);
   const effectiveCoverImageDataUrl = coverImageDataUrlOverride !== undefined
@@ -157,6 +163,34 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
     });
   }, [svgSource, preset, model, profileLogo, effectiveCoverImageDataUrl]);
 
+  useEffect(() => {
+    const viewport = previewViewportRef.current;
+    if (!viewport) return undefined;
+
+    const syncPreviewScale = () => {
+      const availableWidth = viewport.clientWidth;
+      if (availableWidth <= 0) return;
+
+      const nextScale = Math.min(1, Math.max(MIN_PREVIEW_SCALE, availableWidth / A4_PREVIEW_WIDTH));
+      setPreviewScale((currentScale) => (
+        Math.abs(currentScale - nextScale) < 0.001 ? currentScale : nextScale
+      ));
+    };
+
+    syncPreviewScale();
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(syncPreviewScale)
+      : null;
+    resizeObserver?.observe(viewport);
+    window.addEventListener('resize', syncPreviewScale);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', syncPreviewScale);
+    };
+  }, []);
+
   const scrollToPage = useCallback((pageKey: ProposalPageKey) => {
     const container = scrollContainerRef.current;
     const page = pageRefs.current[pageKey];
@@ -209,39 +243,61 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="h-full w-full overflow-y-auto scroll-smooth px-5 py-6"
+        className="h-full w-full overflow-y-auto overflow-x-hidden scroll-smooth py-6"
       >
-        <div className="mx-auto flex w-full max-w-[794px] flex-col gap-7 pb-12">
-          {visiblePages.map((page, index) => (
+        <div className="mx-auto w-full px-3 sm:px-5">
+          <div ref={previewViewportRef} className="mx-auto w-full">
             <div
-              key={page.key}
-              ref={(node) => {
-                pageRefs.current[page.key] = node;
-              }}
-              data-pdf-page={page.key}
-              className="pdf-preview-page relative aspect-[210/297] w-full shrink-0 overflow-hidden border border-brand-border bg-white shadow-2xl"
-              style={{ '--pdf-preview-surface': previewTheme.surface } as CSSProperties}
+              className="mx-auto flex flex-col gap-7 pb-12"
+              style={{ width: A4_PREVIEW_WIDTH * previewScale }}
+              data-pdf-preview-scale={previewScale.toFixed(4)}
             >
-              {page.key !== 'cover' && <PreviewTopStripe theme={previewTheme} />}
-              {page.key === 'cover' ? (
+              {visiblePages.map((page, index) => (
                 <div
-                  className="flex h-full w-full items-center justify-center [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-                  dangerouslySetInnerHTML={{ __html: finalSvgContent }}
-                />
-              ) : page.key === 'timeline' ? (
-                <TimelineTallPreview
-                  pageNumber={index + 1}
-                  theme={previewTheme}
-                />
-              ) : (
-                <ProposalPreviewPage
-                  pageKey={page.key}
-                  pageNumber={index + 1}
-                  theme={previewTheme}
-                />
-              )}
+                  key={page.key}
+                  ref={(node) => {
+                    pageRefs.current[page.key] = node;
+                  }}
+                  data-pdf-page={page.key}
+                  className="relative shrink-0"
+                  style={{
+                    width: A4_PREVIEW_WIDTH * previewScale,
+                    height: A4_PREVIEW_HEIGHT * previewScale,
+                  }}
+                >
+                  <div
+                    className="pdf-preview-page relative shrink-0 overflow-hidden border border-brand-border bg-white shadow-2xl"
+                    style={{
+                      width: A4_PREVIEW_WIDTH,
+                      height: A4_PREVIEW_HEIGHT,
+                      transform: `scale(${previewScale})`,
+                      transformOrigin: 'top left',
+                      '--pdf-preview-surface': previewTheme.surface,
+                    } as CSSProperties}
+                  >
+                    {page.key !== 'cover' && <PreviewTopStripe theme={previewTheme} />}
+                    {page.key === 'cover' ? (
+                      <div
+                        className="flex h-full w-full items-center justify-center [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+                        dangerouslySetInnerHTML={{ __html: finalSvgContent }}
+                      />
+                    ) : page.key === 'timeline' ? (
+                      <TimelineTallPreview
+                        pageNumber={index + 1}
+                        theme={previewTheme}
+                      />
+                    ) : (
+                      <ProposalPreviewPage
+                        pageKey={page.key}
+                        pageNumber={index + 1}
+                        theme={previewTheme}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </>

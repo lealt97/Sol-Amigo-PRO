@@ -185,8 +185,8 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   ];
 
   return (
-    <div className="h-[calc(100vh-96px)] -m-6 flex bg-slate-950 overflow-hidden">
-      <aside className="w-[420px] shrink-0 border-r border-brand-border bg-brand-surface/95 flex flex-col">
+    <div className="h-[calc(100dvh-96px)] -m-6 flex min-h-0 flex-col overflow-hidden bg-slate-950 lg:flex-row">
+      <aside className="flex h-[46%] w-full shrink-0 flex-col border-b border-brand-border bg-brand-surface/95 lg:h-full lg:w-[420px] lg:border-b-0 lg:border-r">
         <div className="p-5 border-b border-brand-border flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-slate-300 hover:text-white hover:bg-white/10">
             <ArrowLeft className="w-5 h-5" />
@@ -235,7 +235,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 bg-slate-900/80">
+      <main className="min-h-0 min-w-0 flex-1 bg-slate-900/80">
         <PdfPreview
           ref={previewRef}
           model={model}
