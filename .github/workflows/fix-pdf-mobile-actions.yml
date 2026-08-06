@@ -1,0 +1,43 @@
+name: Corrigir ações do PDF no mobile
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-pdf-mobile-actions.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-mobile-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar correção de acessibilidade mobile
+        run: python .github/scripts/fix-pdf-mobile-actions.py
+
+      - name: Remover arquivos temporários
+        run: |
+          rm -f .github/scripts/fix-pdf-mobile-actions.py
+          rm -f .github/workflows/fix-pdf-mobile-actions.yml
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar testes
+        run: npm test
+
+      - name: Gerar build de produção
+        run: npm run build:app -- --base=/Sol-Amigo-PRO/
+
+      - name: Publicar correção
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: tornar ações do PDF acessíveis no mobile"
+          git push
