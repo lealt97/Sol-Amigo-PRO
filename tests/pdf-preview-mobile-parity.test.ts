@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+// Garante que a resolução do dispositivo nunca reorganize o conteúdo interno da folha A4.
 const read = (path: string) => readFile(path, 'utf8');
 
 test('a folha A4 mantém o layout desktop e apenas escala no mobile', async () => {
