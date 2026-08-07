@@ -35,6 +35,12 @@ export interface PdfPreviewHandle {
 }
 
 const previewParityCss = `
+  .pdf-preview-page,
+  .pdf-preview-page * {
+    -webkit-text-size-adjust: none !important;
+    text-size-adjust: none !important;
+  }
+
   .pdf-preview-page [style*="linear-gradient(90deg"] {
     background: transparent !important;
   }
