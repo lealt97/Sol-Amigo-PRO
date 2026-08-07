@@ -5,12 +5,11 @@ import test from 'node:test';
 // Garante que o Design PDF use a mesma geometria de desktop também em dispositivos móveis.
 const read = (path: string) => readFile(path, 'utf8');
 
-test('a folha A4, o editor e a navegação preservam o layout desktop no mobile', async () => {
-  const [preview, editor, designPage, layout, indexHtml] = await Promise.all([
+test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
+  const [preview, editor, designPage, indexHtml] = await Promise.all([
     read('src/features/design-pdf/components/PdfPreview.tsx'),
     read('src/features/design-pdf/components/DesignPdfEditor.tsx'),
     read('src/features/design-pdf/pages/DesignPdfPage.tsx'),
-    read('src/components/Layout.tsx'),
     read('index.html'),
   ]);
 
@@ -34,23 +33,21 @@ test('a folha A4, o editor e a navegação preservam o layout desktop no mobile'
   assert.match(designPage, /viewportMeta\.setAttribute\('content', originalContent\)/);
   assert.match(designPage, /useDesktopViewportOnMobile\(\)/);
 
-  // A navegação lateral abre expandida nessa rota, igual ao desktop, mas ainda pode ser recolhida manualmente.
-  assert.match(layout, /function isTouchMobileOrTablet\(\)/);
-  assert.match(layout, /location\.pathname\.startsWith\('\/design-pdf'\)/);
-  assert.match(layout, /setIsSidebarExpanded\(true\)/);
-  assert.match(layout, /isSidebarExpanded \? "w-64" : "w-20"/);
-  assert.match(layout, /format=\{isSidebarExpanded \? 'horizontal' : 'icon'\}/);
-  assert.match(layout, /onClick=\{\(\) => setIsSidebarExpanded\(!isSidebarExpanded\)\}/);
-
   // O restante do SaaS continua com viewport responsivo normal e zoom disponível.
   assert.match(indexHtml, /width=device-width, initial-scale=1\.0/);
   assert.doesNotMatch(indexHtml, /maximum-scale=1/);
   assert.doesNotMatch(indexHtml, /user-scalable=no/);
 
-  // O menu do PDF fica sempre em uma coluna fixa à esquerda da prévia, sem empilhar no mobile.
-  assert.match(editor, /flex min-h-0 flex-row overflow-hidden/);
-  assert.match(editor, /flex h-full w-\[420px\] shrink-0 flex-col border-r/);
+  // O menu de edição do PDF é uma coluna fixa; somente a coluna da prévia possui rolagem das páginas.
+  assert.match(editor, /grid-cols-\[420px_minmax\(0,1fr\)\]/);
+  assert.match(editor, /data-design-pdf-editor="fixed-column-preview"/);
+  assert.match(editor, /sticky top-0 flex h-full min-h-0 w-\[420px\]/);
+  assert.match(editor, /data-design-pdf-controls="fixed"/);
+  assert.match(editor, /min-h-0 flex-1 overflow-y-auto overscroll-contain p-5/);
+  assert.match(editor, /h-full min-h-0 min-w-0 overflow-hidden bg-slate-900\/80/);
+  assert.match(editor, /data-design-pdf-preview-column="scroll-only"/);
   assert.doesNotMatch(editor, /flex-col[\s\S]*lg:flex-row/);
   assert.doesNotMatch(editor, /h-\[46%\]/);
-  assert.match(editor, /<main className="min-h-0 min-w-0 flex-1/);
+
+  assert.match(preview, /className="h-full w-full overflow-y-auto overflow-x-hidden scroll-smooth py-6"/);
 });
