@@ -47,8 +47,10 @@ test('a folha A4, o editor e a navegação preservam o layout desktop no mobile'
   assert.doesNotMatch(indexHtml, /maximum-scale=1/);
   assert.doesNotMatch(indexHtml, /user-scalable=no/);
 
-  // Com viewport virtual de 1280 px, os breakpoints lg abaixo entram no mesmo estado do PC.
-  assert.match(editor, /flex-col[\s\S]*lg:flex-row/);
-  assert.match(editor, /h-\[46%\][\s\S]*lg:h-full[\s\S]*lg:w-\[420px\]/);
+  // O menu do PDF fica sempre em uma coluna fixa à esquerda da prévia, sem empilhar no mobile.
+  assert.match(editor, /flex min-h-0 flex-row overflow-hidden/);
+  assert.match(editor, /flex h-full w-\[420px\] shrink-0 flex-col border-r/);
+  assert.doesNotMatch(editor, /flex-col[\s\S]*lg:flex-row/);
+  assert.doesNotMatch(editor, /h-\[46%\]/);
   assert.match(editor, /<main className="min-h-0 min-w-0 flex-1/);
 });
