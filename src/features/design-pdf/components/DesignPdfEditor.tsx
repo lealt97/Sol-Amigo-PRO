@@ -190,7 +190,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
       data-design-pdf-editor="fixed-top-preview"
     >
       <section
-        className="z-20 flex h-[360px] min-h-[280px] shrink-0 flex-col overflow-hidden border-b border-brand-border bg-brand-surface/95 shadow-lg"
+        className="z-20 flex h-[44dvh] min-h-[400px] max-h-[520px] shrink-0 flex-col overflow-hidden border-b border-brand-border bg-brand-surface/95 shadow-lg"
         data-design-pdf-controls="fixed-top"
       >
         <div className="shrink-0 border-b border-brand-border p-5 flex items-center justify-between gap-3">
