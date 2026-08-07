@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-// Garante que o Design PDF use a mesma geometria de desktop também em dispositivos móveis.
+// Garante a geometria A4 e separa o layout do editor entre desktop real e mobile/tablet.
 const read = (path: string) => readFile(path, 'utf8');
 
-test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
+test('a folha A4 preserva o desktop e o editor usa layout apropriado por dispositivo', async () => {
   const [preview, editor, designPage, indexHtml] = await Promise.all([
     read('src/features/design-pdf/components/PdfPreview.tsx'),
     read('src/features/design-pdf/components/DesignPdfEditor.tsx'),
@@ -38,15 +38,26 @@ test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
   assert.doesNotMatch(indexHtml, /maximum-scale=1/);
   assert.doesNotMatch(indexHtml, /user-scalable=no/);
 
-  // O painel de edição fica fixo acima da janela do PDF; a prévia rola separadamente abaixo.
-  assert.match(editor, /flex h-\[calc\(100dvh-96px\)\] min-h-0 flex-col overflow-hidden/);
-  assert.match(editor, /data-design-pdf-editor="fixed-top-preview"/);
-  assert.match(editor, /h-\[44dvh\] min-h-\[400px\] max-h-\[520px\] shrink-0 flex-col overflow-hidden border-b/);
-  assert.match(editor, /data-design-pdf-controls="fixed-top"/);
-  assert.match(editor, /min-h-0 flex-1 overflow-y-auto overscroll-contain p-5/);
-  assert.match(editor, /data-design-pdf-preview-window="scroll-only"/);
-  assert.doesNotMatch(editor, /grid-cols-\[420px_minmax\(0,1fr\)\]/);
-  assert.doesNotMatch(editor, /w-\[420px\]/);
+  // O editor detecta o dispositivo real, sem depender do viewport virtual usado no mobile.
+  assert.match(editor, /function detectMobileOrTabletEditor\(\)/);
+  assert.match(editor, /navigator\.maxTouchPoints > 0/);
+  assert.match(editor, /shortestScreenSide < 1024/);
+  assert.match(editor, /const \[useMobileEditorLayout\] = useState\(detectMobileOrTabletEditor\)/);
 
+  // Mobile/tablet: painel superior confortável e PDF abaixo.
+  assert.match(editor, /h-\[44dvh\] min-h-\[400px\] max-h-\[520px\]/);
+  assert.match(editor, /mobile-fixed-top-preview/);
+  assert.match(editor, /fixed-top/);
+
+  // Desktop real: restaura o layout lateral anterior, editor à esquerda e PDF à direita.
+  assert.match(editor, /grid-cols-\[420px_minmax\(0,1fr\)\]/);
+  assert.match(editor, /sticky top-0 flex h-full min-h-0 w-\[420px\]/);
+  assert.match(editor, /desktop-side-preview/);
+  assert.match(editor, /desktop-side/);
+
+  // As duas versões mantêm rolagem interna independente.
+  assert.match(editor, /min-h-0 flex-1 overflow-y-auto overscroll-contain p-5/);
+  assert.match(editor, /mobile-scroll-only/);
+  assert.match(editor, /desktop-scroll-only/);
   assert.match(preview, /className="h-full w-full overflow-y-auto overflow-x-hidden scroll-smooth py-6"/);
 });
