@@ -186,14 +186,14 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
 
   return (
     <div
-      className="-m-6 grid h-[calc(100dvh-96px)] min-h-0 grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-slate-950"
-      data-design-pdf-editor="fixed-column-preview"
+      className="-m-6 flex h-[calc(100dvh-96px)] min-h-0 flex-col overflow-hidden bg-slate-950"
+      data-design-pdf-editor="fixed-top-preview"
     >
-      <aside
-        className="sticky top-0 flex h-full min-h-0 w-[420px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-surface/95"
-        data-design-pdf-controls="fixed"
+      <section
+        className="z-20 flex h-[360px] min-h-[280px] shrink-0 flex-col overflow-hidden border-b border-brand-border bg-brand-surface/95 shadow-lg"
+        data-design-pdf-controls="fixed-top"
       >
-        <div className="shrink-0 p-5 border-b border-brand-border flex items-center justify-between gap-3">
+        <div className="shrink-0 border-b border-brand-border p-5 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-slate-300 hover:text-white hover:bg-white/10">
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -239,11 +239,11 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
             />
           )}
         </div>
-      </aside>
+      </section>
 
       <main
-        className="h-full min-h-0 min-w-0 overflow-hidden bg-slate-900/80"
-        data-design-pdf-preview-column="scroll-only"
+        className="min-h-0 flex-1 overflow-hidden bg-slate-900/80"
+        data-design-pdf-preview-window="scroll-only"
       >
         <PdfPreview
           ref={previewRef}
