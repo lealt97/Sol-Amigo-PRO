@@ -41,7 +41,7 @@ test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
   // O painel de edição fica fixo acima da janela do PDF; a prévia rola separadamente abaixo.
   assert.match(editor, /flex h-\[calc\(100dvh-96px\)\] min-h-0 flex-col overflow-hidden/);
   assert.match(editor, /data-design-pdf-editor="fixed-top-preview"/);
-  assert.match(editor, /h-\[360px\] min-h-\[280px\] shrink-0 flex-col overflow-hidden border-b/);
+  assert.match(editor, /h-\[44dvh\] min-h-\[400px\] max-h-\[520px\] shrink-0 flex-col overflow-hidden border-b/);
   assert.match(editor, /data-design-pdf-controls="fixed-top"/);
   assert.match(editor, /min-h-0 flex-1 overflow-y-auto overscroll-contain p-5/);
   assert.match(editor, /data-design-pdf-preview-window="scroll-only"/);
