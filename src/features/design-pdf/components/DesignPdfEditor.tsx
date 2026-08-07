@@ -185,9 +185,15 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   ];
 
   return (
-    <div className="h-[calc(100dvh-96px)] -m-6 flex min-h-0 flex-row overflow-hidden bg-slate-950">
-      <aside className="flex h-full w-[420px] shrink-0 flex-col border-r border-brand-border bg-brand-surface/95">
-        <div className="p-5 border-b border-brand-border flex items-center justify-between gap-3">
+    <div
+      className="-m-6 grid h-[calc(100dvh-96px)] min-h-0 grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-slate-950"
+      data-design-pdf-editor="fixed-column-preview"
+    >
+      <aside
+        className="sticky top-0 flex h-full min-h-0 w-[420px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-surface/95"
+        data-design-pdf-controls="fixed"
+      >
+        <div className="shrink-0 p-5 border-b border-brand-border flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-slate-300 hover:text-white hover:bg-white/10">
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -200,7 +206,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
           </Button>
         </div>
 
-        <div className="flex border-b border-brand-border">
+        <div className="flex shrink-0 border-b border-brand-border">
           {tabs.map((tab) => (
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-white bg-brand-primary/20 border-b-2 border-brand-primary' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
               {tab.label}
@@ -208,7 +214,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
           {activeTab === 'colors' && <ColorEditor theme={model.theme} onChange={updateTheme} />}
           {activeTab === 'images' && (
             <ImageEditor
@@ -235,7 +241,10 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
         </div>
       </aside>
 
-      <main className="min-h-0 min-w-0 flex-1 bg-slate-900/80">
+      <main
+        className="h-full min-h-0 min-w-0 overflow-hidden bg-slate-900/80"
+        data-design-pdf-preview-column="scroll-only"
+      >
         <PdfPreview
           ref={previewRef}
           model={model}
