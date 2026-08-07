@@ -25,6 +25,16 @@ interface DesignPdfEditorProps {
 
 type EditorTab = 'colors' | 'images' | 'pages';
 
+function detectMobileOrTabletEditor() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+
+  const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  const shortestScreenSide = Math.min(window.screen.width, window.screen.height);
+
+  return hasTouch && (hasCoarsePointer || shortestScreenSide < 1024);
+}
+
 export function DesignPdfEditor({ model: initialModel, onClose, onSave }: DesignPdfEditorProps) {
   const { user } = useAuth();
   const previewRef = useRef<PdfPreviewHandle | null>(null);
@@ -41,6 +51,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   const [isRemovingCoverImage, setIsRemovingCoverImage] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('colors');
   const [activePreviewPage, setActivePreviewPage] = useState<ProposalPageKey>('cover');
+  const [useMobileEditorLayout] = useState(detectMobileOrTabletEditor);
 
   useEffect(() => {
     async function loadLogos() {
@@ -184,14 +195,26 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     { id: 'pages', label: 'Páginas' },
   ];
 
+  const editorRootClassName = useMobileEditorLayout
+    ? '-m-6 flex h-[calc(100dvh-96px)] min-h-0 flex-col overflow-hidden bg-slate-950'
+    : '-m-6 grid h-[calc(100dvh-96px)] min-h-0 grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-slate-950';
+
+  const controlsClassName = useMobileEditorLayout
+    ? 'z-20 flex h-[44dvh] min-h-[400px] max-h-[520px] shrink-0 flex-col overflow-hidden border-b border-brand-border bg-brand-surface/95 shadow-lg'
+    : 'sticky top-0 flex h-full min-h-0 w-[420px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-surface/95';
+
+  const previewClassName = useMobileEditorLayout
+    ? 'min-h-0 flex-1 overflow-hidden bg-slate-900/80'
+    : 'h-full min-h-0 min-w-0 overflow-hidden bg-slate-900/80';
+
   return (
     <div
-      className="-m-6 flex h-[calc(100dvh-96px)] min-h-0 flex-col overflow-hidden bg-slate-950"
-      data-design-pdf-editor="fixed-top-preview"
+      className={editorRootClassName}
+      data-design-pdf-editor={useMobileEditorLayout ? 'mobile-fixed-top-preview' : 'desktop-side-preview'}
     >
       <section
-        className="z-20 flex h-[44dvh] min-h-[400px] max-h-[520px] shrink-0 flex-col overflow-hidden border-b border-brand-border bg-brand-surface/95 shadow-lg"
-        data-design-pdf-controls="fixed-top"
+        className={controlsClassName}
+        data-design-pdf-controls={useMobileEditorLayout ? 'fixed-top' : 'desktop-side'}
       >
         <div className="shrink-0 border-b border-brand-border p-5 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-slate-300 hover:text-white hover:bg-white/10">
@@ -242,8 +265,8 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
       </section>
 
       <main
-        className="min-h-0 flex-1 overflow-hidden bg-slate-900/80"
-        data-design-pdf-preview-window="scroll-only"
+        className={previewClassName}
+        data-design-pdf-preview-window={useMobileEditorLayout ? 'mobile-scroll-only' : 'desktop-scroll-only'}
       >
         <PdfPreview
           ref={previewRef}
