@@ -8,7 +8,34 @@ import { DesignPdfEditor } from '../components/DesignPdfEditor';
 import { TemplateCarousel } from '../components/TemplateCarousel';
 import { UserModelCarousel } from '../components/UserModelCarousel';
 
+const DESIGN_PDF_DESKTOP_VIEWPORT_WIDTH = 1280;
+
+function useDesktopViewportOnMobile() {
+  useEffect(() => {
+    const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!viewportMeta) return undefined;
+
+    const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+    const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    const shortestScreenSide = Math.min(window.screen.width, window.screen.height);
+    const isMobileOrTablet = hasTouch && (hasCoarsePointer || shortestScreenSide < 1024);
+
+    if (!isMobileOrTablet) return undefined;
+
+    const originalContent = viewportMeta.getAttribute('content') ?? 'width=device-width, initial-scale=1';
+    viewportMeta.setAttribute('content', `width=${DESIGN_PDF_DESKTOP_VIEWPORT_WIDTH}`);
+    document.documentElement.dataset.designPdfDesktopViewport = 'true';
+
+    return () => {
+      viewportMeta.setAttribute('content', originalContent);
+      delete document.documentElement.dataset.designPdfDesktopViewport;
+    };
+  }, []);
+}
+
 export function DesignPdfPage() {
+  useDesktopViewportOnMobile();
+
   const { user } = useAuth();
   const [presets, setPresets] = useState<PdfTemplatePreset[]>([]);
   const [userModels, setUserModels] = useState<PdfUserModel[]>([]);
