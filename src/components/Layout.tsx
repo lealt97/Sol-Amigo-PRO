@@ -24,6 +24,16 @@ type NavigationItem = {
   icon: LucideIcon;
 };
 
+function isTouchMobileOrTablet() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+
+  const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  const shortestScreenSide = Math.min(window.screen.width, window.screen.height);
+
+  return hasTouch && (hasCoarsePointer || shortestScreenSide < 1024);
+}
+
 export function Layout() {
   const { user, signOut } = useAuth();
   const location = useLocation();
@@ -32,6 +42,12 @@ export function Layout() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [navbarProfile, setNavbarProfile] = useState<Pick<Profile, 'id' | 'name' | 'company_name' | 'seller_name' | 'avatar_url'> | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/design-pdf') && isTouchMobileOrTablet()) {
+      setIsSidebarExpanded(true);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!user?.id) {
