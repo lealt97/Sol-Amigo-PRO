@@ -38,16 +38,15 @@ test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
   assert.doesNotMatch(indexHtml, /maximum-scale=1/);
   assert.doesNotMatch(indexHtml, /user-scalable=no/);
 
-  // O menu de edição do PDF é uma coluna fixa; somente a coluna da prévia possui rolagem das páginas.
-  assert.match(editor, /grid-cols-\[420px_minmax\(0,1fr\)\]/);
-  assert.match(editor, /data-design-pdf-editor="fixed-column-preview"/);
-  assert.match(editor, /sticky top-0 flex h-full min-h-0 w-\[420px\]/);
-  assert.match(editor, /data-design-pdf-controls="fixed"/);
+  // O painel de edição fica fixo acima da janela do PDF; a prévia rola separadamente abaixo.
+  assert.match(editor, /flex h-\[calc\(100dvh-96px\)\] min-h-0 flex-col overflow-hidden/);
+  assert.match(editor, /data-design-pdf-editor="fixed-top-preview"/);
+  assert.match(editor, /h-\[360px\] min-h-\[280px\] shrink-0 flex-col overflow-hidden border-b/);
+  assert.match(editor, /data-design-pdf-controls="fixed-top"/);
   assert.match(editor, /min-h-0 flex-1 overflow-y-auto overscroll-contain p-5/);
-  assert.match(editor, /h-full min-h-0 min-w-0 overflow-hidden bg-slate-900\/80/);
-  assert.match(editor, /data-design-pdf-preview-column="scroll-only"/);
-  assert.doesNotMatch(editor, /flex-col[\s\S]*lg:flex-row/);
-  assert.doesNotMatch(editor, /h-\[46%\]/);
+  assert.match(editor, /data-design-pdf-preview-window="scroll-only"/);
+  assert.doesNotMatch(editor, /grid-cols-\[420px_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(editor, /w-\[420px\]/);
 
   assert.match(preview, /className="h-full w-full overflow-y-auto overflow-x-hidden scroll-smooth py-6"/);
 });
