@@ -5,11 +5,12 @@ import test from 'node:test';
 // Garante que o Design PDF use a mesma geometria de desktop também em dispositivos móveis.
 const read = (path: string) => readFile(path, 'utf8');
 
-test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
-  const [preview, editor, designPage, indexHtml] = await Promise.all([
+test('a folha A4, o editor e a navegação preservam o layout desktop no mobile', async () => {
+  const [preview, editor, designPage, layout, indexHtml] = await Promise.all([
     read('src/features/design-pdf/components/PdfPreview.tsx'),
     read('src/features/design-pdf/components/DesignPdfEditor.tsx'),
     read('src/features/design-pdf/pages/DesignPdfPage.tsx'),
+    read('src/components/Layout.tsx'),
     read('index.html'),
   ]);
 
@@ -32,6 +33,14 @@ test('a folha A4 e o editor preservam o layout desktop no mobile', async () => {
   assert.match(designPage, /viewportMeta\.setAttribute\('content', `width=\$\{DESIGN_PDF_DESKTOP_VIEWPORT_WIDTH\}`\)/);
   assert.match(designPage, /viewportMeta\.setAttribute\('content', originalContent\)/);
   assert.match(designPage, /useDesktopViewportOnMobile\(\)/);
+
+  // A navegação lateral abre expandida nessa rota, igual ao desktop, mas ainda pode ser recolhida manualmente.
+  assert.match(layout, /function isTouchMobileOrTablet\(\)/);
+  assert.match(layout, /location\.pathname\.startsWith\('\/design-pdf'\)/);
+  assert.match(layout, /setIsSidebarExpanded\(true\)/);
+  assert.match(layout, /isSidebarExpanded \? "w-64" : "w-20"/);
+  assert.match(layout, /format=\{isSidebarExpanded \? 'horizontal' : 'icon'\}/);
+  assert.match(layout, /onClick=\{\(\) => setIsSidebarExpanded\(!isSidebarExpanded\)\}/);
 
   // O restante do SaaS continua com viewport responsivo normal e zoom disponível.
   assert.match(indexHtml, /width=device-width, initial-scale=1\.0/);
