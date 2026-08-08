@@ -35,6 +35,11 @@ function detectMobileOrTabletEditor() {
   return hasTouch && (hasCoarsePointer || shortestScreenSide < 1024);
 }
 
+function shouldUseTopEditorLayout() {
+  if (!detectMobileOrTabletEditor()) return false;
+  return !window.matchMedia('(orientation: landscape)').matches;
+}
+
 export function DesignPdfEditor({ model: initialModel, onClose, onSave }: DesignPdfEditorProps) {
   const { user } = useAuth();
   const previewRef = useRef<PdfPreviewHandle | null>(null);
@@ -51,7 +56,23 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
   const [isRemovingCoverImage, setIsRemovingCoverImage] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('colors');
   const [activePreviewPage, setActivePreviewPage] = useState<ProposalPageKey>('cover');
-  const [useMobileEditorLayout] = useState(detectMobileOrTabletEditor);
+  const [useTopEditorLayout, setUseTopEditorLayout] = useState(shouldUseTopEditorLayout);
+
+  useEffect(() => {
+    const orientationQuery = window.matchMedia('(orientation: landscape)');
+    const syncEditorLayout = () => setUseTopEditorLayout(shouldUseTopEditorLayout());
+
+    syncEditorLayout();
+    orientationQuery.addEventListener('change', syncEditorLayout);
+    window.addEventListener('orientationchange', syncEditorLayout);
+    window.addEventListener('resize', syncEditorLayout);
+
+    return () => {
+      orientationQuery.removeEventListener('change', syncEditorLayout);
+      window.removeEventListener('orientationchange', syncEditorLayout);
+      window.removeEventListener('resize', syncEditorLayout);
+    };
+  }, []);
 
   useEffect(() => {
     async function loadLogos() {
@@ -195,26 +216,26 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
     { id: 'pages', label: 'Páginas' },
   ];
 
-  const editorRootClassName = useMobileEditorLayout
+  const editorRootClassName = useTopEditorLayout
     ? '-m-6 flex h-[calc(100dvh-96px)] min-h-0 flex-col overflow-hidden bg-slate-950'
     : '-m-6 grid h-[calc(100dvh-96px)] min-h-0 grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-slate-950';
 
-  const controlsClassName = useMobileEditorLayout
+  const controlsClassName = useTopEditorLayout
     ? 'z-20 flex h-[44dvh] min-h-[400px] max-h-[520px] shrink-0 flex-col overflow-hidden border-b border-brand-border bg-brand-surface/95 shadow-lg'
     : 'sticky top-0 flex h-full min-h-0 w-[420px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-surface/95';
 
-  const previewClassName = useMobileEditorLayout
+  const previewClassName = useTopEditorLayout
     ? 'min-h-0 flex-1 overflow-hidden bg-slate-900/80'
     : 'h-full min-h-0 min-w-0 overflow-hidden bg-slate-900/80';
 
   return (
     <div
       className={editorRootClassName}
-      data-design-pdf-editor={useMobileEditorLayout ? 'mobile-fixed-top-preview' : 'desktop-side-preview'}
+      data-design-pdf-editor={useTopEditorLayout ? 'mobile-portrait-fixed-top-preview' : 'side-preview'}
     >
       <section
         className={controlsClassName}
-        data-design-pdf-controls={useMobileEditorLayout ? 'fixed-top' : 'desktop-side'}
+        data-design-pdf-controls={useTopEditorLayout ? 'fixed-top' : 'side'}
       >
         <div className="shrink-0 border-b border-brand-border p-5 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-slate-300 hover:text-white hover:bg-white/10">
@@ -266,7 +287,7 @@ export function DesignPdfEditor({ model: initialModel, onClose, onSave }: Design
 
       <main
         className={previewClassName}
-        data-design-pdf-preview-window={useMobileEditorLayout ? 'mobile-scroll-only' : 'desktop-scroll-only'}
+        data-design-pdf-preview-window={useTopEditorLayout ? 'mobile-portrait-scroll-only' : 'side-scroll-only'}
       >
         <PdfPreview
           ref={previewRef}
