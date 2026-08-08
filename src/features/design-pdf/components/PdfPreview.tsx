@@ -53,6 +53,7 @@ const previewParityCss = `
 const A4_PREVIEW_WIDTH = 794;
 const A4_PREVIEW_HEIGHT = A4_PREVIEW_WIDTH * (297 / 210);
 const MIN_PREVIEW_SCALE = 0.1;
+const MOBILE_LANDSCAPE_MAX_PREVIEW_SCALE = 0.8;
 
 function PreviewTopStripe({ theme }: { theme: PdfDocumentTheme }) {
   return (
@@ -173,11 +174,18 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
     const viewport = previewViewportRef.current;
     if (!viewport) return undefined;
 
+    const orientationQuery = window.matchMedia('(orientation: landscape)');
     const syncPreviewScale = () => {
       const availableWidth = viewport.clientWidth;
       if (availableWidth <= 0) return;
 
-      const nextScale = Math.min(1, Math.max(MIN_PREVIEW_SCALE, availableWidth / A4_PREVIEW_WIDTH));
+      const isMobileLandscape = document.documentElement.dataset.designPdfDesktopViewport === 'true'
+        && orientationQuery.matches;
+      const maxPreviewScale = isMobileLandscape ? MOBILE_LANDSCAPE_MAX_PREVIEW_SCALE : 1;
+      const nextScale = Math.min(
+        maxPreviewScale,
+        Math.max(MIN_PREVIEW_SCALE, availableWidth / A4_PREVIEW_WIDTH),
+      );
       setPreviewScale((currentScale) => (
         Math.abs(currentScale - nextScale) < 0.001 ? currentScale : nextScale
       ));
@@ -189,10 +197,12 @@ export const PdfPreview = forwardRef<PdfPreviewHandle, PdfPreviewProps>(function
       ? new ResizeObserver(syncPreviewScale)
       : null;
     resizeObserver?.observe(viewport);
+    orientationQuery.addEventListener('change', syncPreviewScale);
     window.addEventListener('resize', syncPreviewScale);
 
     return () => {
       resizeObserver?.disconnect();
+      orientationQuery.removeEventListener('change', syncPreviewScale);
       window.removeEventListener('resize', syncPreviewScale);
     };
   }, []);
