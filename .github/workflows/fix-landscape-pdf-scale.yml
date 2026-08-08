@@ -1,0 +1,72 @@
+name: Ajustar escala PDF no mobile deitado
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-landscape-pdf-scale.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar ajuste de escala
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          preview_path = Path('src/features/design-pdf/components/PdfPreview.tsx')
+          preview = preview_path.read_text()
+          old = """      const nextScale = Math.min(1, Math.max(MIN_PREVIEW_SCALE, availableWidth / A4_PREVIEW_WIDTH));
+      setPreviewScale((currentScale) => (
+"""
+          new = """      const isMobileLandscape = document.documentElement.dataset.designPdfDesktopViewport === 'true'
+        && window.matchMedia('(orientation: landscape)').matches;
+      const maxPreviewScale = isMobileLandscape ? 0.8 : 1;
+      const nextScale = Math.min(
+        maxPreviewScale,
+        Math.max(MIN_PREVIEW_SCALE, availableWidth / A4_PREVIEW_WIDTH),
+      );
+      setPreviewScale((currentScale) => (
+"""
+          if old not in preview:
+              raise SystemExit('Trecho de escala não encontrado em PdfPreview.tsx')
+          preview = preview.replace(old, new, 1)
+          preview_path.write_text(preview)
+
+          test_path = Path('tests/pdf-preview-mobile-parity.test.ts')
+          test = test_path.read_text()
+          anchor = """  assert.match(preview, /availableWidth \/ A4_PREVIEW_WIDTH/);
+"""
+          insertion = """  assert.match(preview, /availableWidth \/ A4_PREVIEW_WIDTH/);
+  assert.match(preview, /dataset\\.designPdfDesktopViewport === 'true'/);
+  assert.match(preview, /orientation: landscape/);
+  assert.match(preview, /const maxPreviewScale = isMobileLandscape \\? 0\\.8 : 1/);
+"""
+          if anchor not in test:
+              raise SystemExit('Âncora de teste não encontrada')
+          test = test.replace(anchor, insertion, 1)
+          test_path.write_text(test)
+          PY
+
+      - name: Validar testes e build
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Commitar correção e remover workflow temporário
+        run: |
+          git config user.name "Renan Leal"
+          git config user.email "lealt97@gmail.com"
+          git rm .github/workflows/fix-landscape-pdf-scale.yml
+          git add src/features/design-pdf/components/PdfPreview.tsx tests/pdf-preview-mobile-parity.test.ts
+          git commit -m "fix: reduzir escala do PDF no mobile deitado"
+          git push origin main
