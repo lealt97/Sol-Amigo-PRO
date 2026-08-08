@@ -17,6 +17,11 @@ test('a folha A4 preserva o desktop e o editor responde à orientação do mobil
   assert.match(preview, /A4_PREVIEW_WIDTH \* \(297 \/ 210\)/);
   assert.match(preview, /new ResizeObserver\(syncPreviewScale\)/);
   assert.match(preview, /availableWidth \/ A4_PREVIEW_WIDTH/);
+  assert.match(preview, /const MOBILE_LANDSCAPE_MAX_PREVIEW_SCALE = 0\.8/);
+  assert.match(preview, /dataset\.designPdfDesktopViewport === 'true'/);
+  assert.match(preview, /orientation: landscape/);
+  assert.match(preview, /isMobileLandscape \? MOBILE_LANDSCAPE_MAX_PREVIEW_SCALE : 1/);
+  assert.match(preview, /orientationQuery\.addEventListener\('change', syncPreviewScale\)/);
   assert.match(preview, /transform: `scale\(\$\{previewScale\}\)`/);
   assert.match(preview, /transformOrigin: 'top left'/);
   assert.match(preview, /width: A4_PREVIEW_WIDTH,/);
